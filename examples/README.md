@@ -11,7 +11,7 @@ Example output from the wormgearcalc (Tool 1):
 - Wheel: 30 teeth
 - Centre distance: 38.145 mm
 
-## Python API Example
+## Python API Examples
 
 ### generate_pair.py
 
@@ -25,6 +25,41 @@ python3 generate_pair.py
 This will create:
 - `worm.step` - Worm geometry
 - `wheel.step` - Wheel geometry
+
+### view_design.py
+
+Interactive viewer script using OCP viewer (requires VS Code extension):
+
+```bash
+cd examples
+python3 view_design.py sample_m2_ratio30.json
+```
+
+Options:
+```bash
+# View only the worm
+python3 view_design.py sample_m2_ratio30.json --part worm
+
+# View only the wheel
+python3 view_design.py sample_m2_ratio30.json --part wheel
+
+# Custom dimensions
+python3 view_design.py sample_m2_ratio30.json --worm-length 50 --wheel-width 12
+```
+
+### visualize.ipynb
+
+Jupyter notebook for interactive visualization and experimentation:
+
+```bash
+jupyter notebook visualize.ipynb
+```
+
+The notebook demonstrates:
+- Loading designs from JSON
+- Building and visualizing parts
+- Viewing worm and wheel together
+- Exporting to STEP files
 
 ## CLI Usage
 
@@ -62,7 +97,22 @@ wormgear-geometry sample_m2_ratio30.json --worm-only
 wormgear-geometry sample_m2_ratio30.json --wheel-only
 ```
 
-## Using Generated STEP Files
+## Visualization Options
+
+### OCP Viewer (Recommended for Development)
+
+For interactive visualization in VS Code or Jupyter:
+
+1. **Install VS Code extension**: OCP CAD Viewer
+2. **Install Python package**: `pip install ocp-vscode`
+3. **Use the viewer**:
+   ```python
+   from wormgear_geometry import WormGeometry
+   worm_geo = WormGeometry(params, assembly_params, length=40)
+   worm_geo.show()  # Opens in OCP viewer
+   ```
+
+### Using Generated STEP Files
 
 The generated STEP files can be imported into:
 - **FreeCAD** - Free, open-source CAD

@@ -173,6 +173,25 @@ class WormGeometry:
 
         return profile_sketch.sketch
 
+    def show(self):
+        """
+        Display the worm in OCP viewer (Jupyter or VS Code).
+
+        Returns:
+            The built worm part for viewer display
+        """
+        worm = self.build()
+        try:
+            from ocp_vscode import show as ocp_show
+            ocp_show(worm)
+        except ImportError:
+            # Fall back to build123d show if available
+            try:
+                show(worm)
+            except:
+                print("No viewer available. Install ocp-vscode or run in Jupyter with build123d viewer.")
+        return worm
+
     def export_step(self, filepath: str):
         """
         Build and export worm to STEP file.

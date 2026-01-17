@@ -163,6 +163,25 @@ class WheelGeometry:
 
         return throated_gear
 
+    def show(self):
+        """
+        Display the wheel in OCP viewer (Jupyter or VS Code).
+
+        Returns:
+            The built wheel part for viewer display
+        """
+        wheel = self.build()
+        try:
+            from ocp_vscode import show as ocp_show
+            ocp_show(wheel)
+        except ImportError:
+            # Fall back to build123d show if available
+            try:
+                show(wheel)
+            except:
+                print("No viewer available. Install ocp-vscode or run in Jupyter with build123d viewer.")
+        return wheel
+
     def export_step(self, filepath: str):
         """
         Build and export wheel to STEP file.
