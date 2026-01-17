@@ -1,0 +1,333 @@
+# CLAUDE.md - Worm Gear Geometry Generator
+
+## Project Summary
+
+Worm gear geometry generator - Python library using build123d to create CNC-ready STEP files from validated worm gear parameters.
+
+**Owner**: Paul Fremantle (pzfreo) - luthier and hobby programmer
+**Use case**: Generating exact 3D CAD models for CNC machining custom worm gears
+
+## Relationship to Calculator
+
+This is **Tool 2** in the worm gear system. It works with **Tool 1** (calculator):
+
+```
+Tool 1: wormgearcalc          Tool 2: wormgear-geometry (this repo)
+─────────────────────          ───────────────────────────────────
+User constraints               JSON parameters
+    ↓                              ↓
+Engineering calc     ────►     3D geometry generation
+    ↓                              ↓
+JSON export                    STEP files (CNC-ready)
+```
+
+**Calculator repo**: https://github.com/pzfreo/wormgearcalc
+**Live web calculator**: https://pzfreo.github.io/wormgearcalc/
+
+## Current State
+
+**Status: Not yet implemented**
+
+This repo is being set up for the geometry generator implementation.
+
+## Target Manufacturing Methods
+
+The geometry must be **exact and watertight** - no approximations:
+
+- **Worm**: 4-axis lathe with live tooling, or 5-axis mill
+- **Wheel**: 5-axis mill (true form), or indexed 4-axis with ball-nose finishing
+
+## Key Design Decisions
+
+1. **build123d for CAD** - Modern Python CAD library built on OpenCascade
+2. **Exact geometry** - No hobbing assumptions, CNC will cut exactly what we model
+3. **JSON input** - Accepts output from wormgearcalc (Tool 1)
+4. **Hybrid wheel approach initially** - Helical gear + throat cut (Option C from spec)
+   - Can iterate to envelope calculation (Option B) later if needed
+5. **Feature-rich** - Support bores, keyways (ISO 6885), set screws, hubs
+
+## Implementation Strategy
+
+See `docs/GEOMETRY.md` for full specification. Recommended approach:
+
+### Phase 1: Basic Geometry (Start Here)
+- Worm thread generation (helical sweep of trapezoidal profile)
+- Basic wheel (helical involute + throating cut)
+- STEP export with validation
+- **Goal**: Get working parts that mesh correctly
+
+### Phase 2: Features
+- Bore with tolerances
+- Keyways (ISO 6885 standard sizes)
+- Set screw holes
+- Hub options (flush/extended/flanged)
+
+### Phase 3: Accurate Wheel (If Needed)
+- Mathematical envelope calculation
+- B-spline surface generation
+- Compare accuracy with Phase 1 hybrid approach
+
+### Phase 4: Polish
+- Assembly positioning (correctly oriented parts)
+- Manufacturing specs markdown output
+- CLI/API refinement
+
+## JSON Input Format
+
+The calculator outputs this format (example):
+
+```json
+{
+  "worm": {
+    "module_mm": 2.0,
+    "num_starts": 1,
+    "pitch_diameter_mm": 16.29,
+    "tip_diameter_mm": 20.29,
+    "root_diameter_mm": 11.29,
+    "lead_mm": 6.283,
+    "lead_angle_deg": 7.0,
+    "addendum_mm": 2.0,
+    "dedendum_mm": 2.5,
+    "thread_thickness_mm": 3.14,
+    "profile_shift": 0.0
+  },
+  "wheel": {
+    "module_mm": 2.0,
+    "num_teeth": 30,
+    "pitch_diameter_mm": 60.0,
+    "tip_diameter_mm": 64.0,
+    "root_diameter_mm": 55.0,
+    "throat_diameter_mm": 62.0,
+    "helix_angle_deg": 83.0,
+    "addendum_mm": 2.0,
+    "dedendum_mm": 2.5,
+    "profile_shift": 0.0
+  },
+  "assembly": {
+    "centre_distance_mm": 38.14,
+    "pressure_angle_deg": 20.0,
+    "backlash_mm": 0.05,
+    "hand": "right"
+  }
+}
+```
+
+## Proposed API
+
+```python
+from wormgear_geometry import WormGeometry, WheelGeometry, BoreFeatures
+
+# Load parameters from calculator JSON
+params = load_design_json("design.json")
+
+# Build worm
+worm_geo = WormGeometry(
+    params=params.worm,
+    length=40,  # User specifies worm length
+    bore=BoreFeatures(diameter=6, keyway=True)
+)
+worm_part = worm_geo.build()
+worm_part.export_step("worm_m2_z1.step")
+
+# Build wheel
+wheel_geo = WheelGeometry(
+    params=params.wheel,
+    worm_params=params.worm,
+    centre_distance=params.assembly.centre_distance,
+    bore=BoreFeatures(diameter=10, keyway=True, set_screw="M4")
+)
+wheel_part = wheel_geo.build()
+wheel_part.export_step("wheel_m2_z30.step")
+
+# Build positioned assembly
+assembly = build_assembly(worm_part, wheel_part, params)
+assembly.export_step("worm_gear_assembly.step")
+```
+
+## Geometry Construction Approaches
+
+### Worm (Straightforward)
+
+Helical sweep of trapezoidal tooth profile:
+
+1. Create tooth profile in axial plane (trapezoid based on pressure angle)
+2. Create helix path at pitch radius
+3. Position profile perpendicular to helix
+4. Sweep along helix
+5. Add core cylinder
+6. Union and trim to length
+7. Add features (bore, keyway)
+
+### Wheel (Three Options)
+
+**Option A: Simulated Hobbing**
+- Most accurate - simulate manufacturing process
+- Very slow (thousands of boolean operations)
+- Good for validation/comparison
+
+**Option B: Envelope Calculation**
+- Mathematical calculation of contact surface
+- Complex mathematics but fast and clean
+- Future enhancement
+
+**Option C: Hybrid (RECOMMENDED START)**
+- Generate helical involute gear
+- Apply throating cut (cylinder at worm radius)
+- Fast, simple, produces functional geometry
+- **Start here, iterate to B if accuracy issues arise**
+
+## Engineering Context
+
+### Standards
+- **DIN 3975** - Worm geometry definitions
+- **ISO 54 / DIN 780** - Standard modules
+- **ISO 6885 / DIN 6885** - Keyway dimensions
+
+### Keyway Sizes (DIN 6885)
+| Bore (mm) | Key Width | Key Height | Shaft Depth | Hub Depth |
+|-----------|-----------|------------|-------------|-----------|
+| 6-8       | 2         | 2          | 1.2         | 1.0       |
+| 8-10      | 3         | 3          | 1.8         | 1.4       |
+| 10-12     | 4         | 4          | 2.5         | 1.8       |
+| 12-17     | 5         | 5          | 3.0         | 2.3       |
+| 17-22     | 6         | 6          | 3.5         | 2.8       |
+
+### Profile Shift
+- The calculator now supports profile shift coefficients
+- This adjusts addendum/dedendum to prevent undercut on low tooth counts
+- Geometry generator must respect the adjusted dimensions from JSON
+
+## Output Requirements
+
+### STEP Files
+- Watertight solids (no gaps, overlaps)
+- Clean topology (no degenerate faces)
+- Appropriate precision (1e-6 tolerance)
+- Named bodies/components for assembly
+
+### Manufacturing Specs
+Generate markdown alongside STEP with tolerances:
+
+```markdown
+# Worm - Manufacturing Specification
+
+| Parameter | Value | Tolerance |
+|-----------|-------|-----------|
+| Outside Diameter | 20.00 mm | ±0.02 |
+| Pitch Diameter | 16.00 mm | Reference |
+| Root Diameter | 11.00 mm | +0.05/-0 |
+| Length | 40.00 mm | ±0.1 |
+| Lead | 6.283 mm | ±0.01 |
+| Thread Hand | Right | - |
+
+Material: [TBD by user]
+Surface Finish: Ra 1.6 (thread flanks)
+```
+
+## Dependencies
+
+- **build123d** - Core CAD operations (modern, Pythonic)
+- **OCP** - OpenCascade bindings (via build123d)
+- **py_gearworks** (optional) - Reference for API patterns
+
+## Testing Strategy
+
+1. **Geometry validation**
+   - Export STEP, reimport, check volume matches
+   - OCC validation for bad faces/edges
+
+2. **Mesh compatibility**
+   - Generate pair, check centre distance
+   - Verify no interference at assembly
+
+3. **Manufacturing validation**
+   - Import to CAM software (FreeCAD, Fusion 360)
+   - Verify toolpath generation succeeds
+   - Check for unmachineable features
+
+## File Structure (Proposed)
+
+```
+wormgear-geometry/
+├── src/wormgear_geometry/
+│   ├── __init__.py
+│   ├── worm.py          # Worm generation
+│   ├── wheel.py         # Wheel generation (hybrid approach)
+│   ├── features.py      # Bores, keyways, set screws
+│   ├── assembly.py      # Positioning parts
+│   ├── io.py            # JSON input, STEP export
+│   └── specs.py         # Manufacturing specs output
+├── tests/
+│   ├── test_worm.py
+│   ├── test_wheel.py
+│   └── test_assembly.py
+├── examples/
+│   ├── basic_pair.py
+│   └── sample_designs/  # JSON files from calculator
+├── docs/
+│   └── GEOMETRY.md      # Full specification
+├── pyproject.toml
+├── README.md
+└── CLAUDE.md            # This file
+```
+
+## Quick Start (When Implementing)
+
+1. **Setup build123d**
+   ```bash
+   pip install build123d
+   ```
+
+2. **Test basic CAD operations**
+   ```python
+   from build123d import *
+
+   # Simple worm core
+   core = Cylinder(radius=8, height=40)
+   core.export_step("test.step")
+   ```
+
+3. **Implement worm first** (simpler than wheel)
+   - Start with straight cylinder
+   - Add helical sweep
+   - Validate STEP export
+
+4. **Then implement hybrid wheel**
+   - Helical gear generation
+   - Throat cut
+   - Test mesh with worm
+
+5. **Add features incrementally**
+   - Bore
+   - Keyway
+   - Set screw
+
+## Key Challenges to Watch
+
+1. **Helix orientation** - Ensuring profile perpendicular to helix path
+2. **Thread hand** - Right vs left hand needs careful coordinate transform
+3. **Wheel throat** - Getting the throating cylinder positioned exactly right
+4. **Surface continuity** - Avoiding gaps at thread start/end
+5. **Tolerance modeling** - Representing clearances and fits in STEP
+
+## Reference Resources
+
+- **build123d docs**: https://build123d.readthedocs.io/
+- **py_gearworks**: https://github.com/gumyr/py_gearworks (for helical gear patterns)
+- **DIN 3975**: Worm gear geometry standard
+- **ISO 6885**: Parallel keys and keyways
+
+## Next Steps
+
+1. Initialize Python project structure
+2. Install build123d and test basic operations
+3. Implement simple worm generation (Phase 1)
+4. Validate STEP export to CAD software
+5. Implement hybrid wheel approach
+6. Test worm-wheel mesh fit
+7. Add feature support (bores, keyways)
+8. Polish API and create examples
+
+---
+
+**Remember**: The goal is CNC-manufacturable parts. Every dimension must be exact and intentional. The calculator (Tool 1) has already validated the parameters - your job is to faithfully convert them to 3D geometry.
