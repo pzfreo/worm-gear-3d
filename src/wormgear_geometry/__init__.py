@@ -12,19 +12,22 @@ Web Calculator: https://pzfreo.github.io/wormgearcalc/
 
 __version__ = "0.1.0"
 
-# TODO: Implement these classes
-# from .worm import WormGeometry
-# from .wheel import WheelGeometry
-# from .features import BoreFeatures, KeywayFeatures, SetScrewFeatures
-# from .assembly import build_assembly
-# from .io import load_design_json
+from .worm import WormGeometry
+from .wheel import WheelGeometry
+from .io import (
+    load_design_json,
+    WormParams,
+    WheelParams,
+    AssemblyParams,
+    WormGearDesign
+)
 
 __all__ = [
-    # "WormGeometry",
-    # "WheelGeometry",
-    # "BoreFeatures",
-    # "KeywayFeatures",
-    # "SetScrewFeatures",
-    # "build_assembly",
-    # "load_design_json",
+    "WormGeometry",
+    "WheelGeometry",
+    "load_design_json",
+    "WormParams",
+    "WheelParams",
+    "AssemblyParams",
+    "WormGearDesign",
 ]
