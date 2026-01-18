@@ -325,24 +325,69 @@ class TestWheelWithBore:
         assert wheel_with_bore.is_valid
 
     def test_wheel_with_bore_and_keyway(self, wheel_params, worm_params, assembly_params):
-        """Test wheel with bore and keyway."""
-        # Build with bore only
+        """Test wheel with bore and keyway using larger example design."""
+        # Use larger design that can accommodate a realistic bore/keyway
+        # The 7mm design is too small for a 6mm bore - root diameter is only ~5mm
+        # Use sample_m2_ratio30 design which has a larger wheel
+        import json
+        with open("examples/sample_m2_ratio30.json") as f:
+            raw_data = json.load(f)
+        # Handle nested "design" key if present
+        design_data = raw_data.get("design", raw_data)
+
+        from wormgear_geometry.io import WheelParams, WormParams, AssemblyParams
+
+        large_wheel = WheelParams(
+            module_mm=design_data["wheel"]["module_mm"],
+            num_teeth=design_data["wheel"]["num_teeth"],
+            pitch_diameter_mm=design_data["wheel"]["pitch_diameter_mm"],
+            tip_diameter_mm=design_data["wheel"]["tip_diameter_mm"],
+            root_diameter_mm=design_data["wheel"]["root_diameter_mm"],
+            throat_diameter_mm=design_data["wheel"]["throat_diameter_mm"],
+            helix_angle_deg=design_data["wheel"]["helix_angle_deg"],
+            addendum_mm=design_data["wheel"]["addendum_mm"],
+            dedendum_mm=design_data["wheel"]["dedendum_mm"],
+            profile_shift=design_data["wheel"].get("profile_shift", 0.0)
+        )
+        large_worm = WormParams(
+            module_mm=design_data["worm"]["module_mm"],
+            num_starts=design_data["worm"]["num_starts"],
+            pitch_diameter_mm=design_data["worm"]["pitch_diameter_mm"],
+            tip_diameter_mm=design_data["worm"]["tip_diameter_mm"],
+            root_diameter_mm=design_data["worm"]["root_diameter_mm"],
+            lead_mm=design_data["worm"]["lead_mm"],
+            lead_angle_deg=design_data["worm"]["lead_angle_deg"],
+            addendum_mm=design_data["worm"]["addendum_mm"],
+            dedendum_mm=design_data["worm"]["dedendum_mm"],
+            thread_thickness_mm=design_data["worm"]["thread_thickness_mm"],
+            hand=design_data["worm"].get("hand", design_data["assembly"].get("hand", "right")),
+            profile_shift=design_data["worm"].get("profile_shift", 0.0)
+        )
+        large_assembly = AssemblyParams(
+            centre_distance_mm=design_data["assembly"]["centre_distance_mm"],
+            pressure_angle_deg=design_data["assembly"]["pressure_angle_deg"],
+            backlash_mm=design_data["assembly"]["backlash_mm"],
+            hand=design_data["assembly"]["hand"],
+            ratio=design_data["assembly"]["ratio"]
+        )
+
+        # Build with bore only (12mm bore fits in 60mm pitch diameter wheel)
         wheel_geo_bore = WheelGeometry(
-            params=wheel_params,
-            worm_params=worm_params,
-            assembly_params=assembly_params,
-            face_width=4.0,
-            bore=BoreFeature(diameter=6.0)
+            params=large_wheel,
+            worm_params=large_worm,
+            assembly_params=large_assembly,
+            face_width=10.0,
+            bore=BoreFeature(diameter=12.0)
         )
         wheel_bore = wheel_geo_bore.build()
 
         # Build with bore and keyway
         wheel_geo_both = WheelGeometry(
-            params=wheel_params,
-            worm_params=worm_params,
-            assembly_params=assembly_params,
-            face_width=4.0,
-            bore=BoreFeature(diameter=6.0),
+            params=large_wheel,
+            worm_params=large_worm,
+            assembly_params=large_assembly,
+            face_width=10.0,
+            bore=BoreFeature(diameter=12.0),
             keyway=KeywayFeature()
         )
         wheel_both = wheel_geo_both.build()

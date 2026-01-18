@@ -183,9 +183,12 @@ def create_keyway(
     """
     Create a keyway in a part (requires bore to already exist or be specified).
 
-    The keyway is cut into the bore surface. For hub keyways (wheel), the cut
-    extends outward from the bore. For shaft keyways (worm), the cut extends
-    inward from the outer surface.
+    For hub keyways (wheel): The slot is cut into the hub material around the bore.
+    The depth (t2) is measured radially outward from the bore surface.
+
+    For shaft keyways (worm): The slot is cut into the shaft.
+    The depth (t1) is measured radially inward from the shaft outer surface.
+    Note: For a shaft with a bore, the keyway is cut from the outer surface inward.
 
     Args:
         part: The part to add keyway to
@@ -206,35 +209,37 @@ def create_keyway(
     else:
         kw_length = part_length
 
-    # Create keyway as a box
-    # For hub keyway: positioned at bore radius, extending outward
-    # Width is tangential, depth is radial outward, length is axial
-
-    # The keyway is a rectangular slot cut into the bore wall
-    # Position: centered on +X axis at bore radius
-
     if keyway.is_shaft:
-        # Shaft keyway: cut extends inward from bore surface
-        # This is typically for the worm shaft
+        # Shaft keyway (worm): cut from center axis outward
+        # The keyway slot sits at the bore surface and extends outward by 'depth'
+        # But since we have a bore hole, we need to create a slot that goes
+        # from the center through the bore and into the shaft material by 'depth'
+        #
+        # DIN 6885 t1 is measured from the shaft surface, so the bottom of the
+        # keyway is at radius = bore_radius + depth
         keyway_box = Box(
-            depth,  # radial (into the shaft)
-            width,  # tangential
-            kw_length,  # axial
+            bore_radius + depth,  # from center to (bore_radius + depth)
+            width,  # tangential width
+            kw_length + 1.0,  # axial length (slightly longer for clean cut)
             align=(Align.MIN, Align.CENTER, Align.CENTER)
         )
-        # Position at bore radius, extending inward
-        keyway_box = keyway_box.translate((bore_radius - depth, 0, 0))
+        # Position starting from center (X=0), extending in +X direction
+        # No translation needed - MIN alignment puts it at origin
     else:
-        # Hub keyway: cut extends outward from bore surface
-        # This is typically for the wheel hub
+        # Hub keyway (wheel): cut into the hub material around the bore
+        # The slot extends from inside the bore outward through the hub material
+        # DIN 6885 t2 is measured from the bore surface outward
+        #
+        # To avoid a facet covering the bore, extend the box inward past the
+        # bore surface so it fully intersects with the cylindrical bore
         keyway_box = Box(
-            depth,  # radial (into the hub material)
-            width,  # tangential
-            kw_length,  # axial
+            bore_radius + depth,  # from center to (bore_radius + depth)
+            width,  # tangential width
+            kw_length + 1.0,  # axial length (slightly longer for clean cut)
             align=(Align.MIN, Align.CENTER, Align.CENTER)
         )
-        # Position at bore radius, extending outward
-        keyway_box = keyway_box.translate((bore_radius, 0, 0))
+        # Position starting from center (X=0), extending in +X direction
+        # No translation needed - MIN alignment puts it at origin
 
     # Rotate to correct axis if needed
     if axis == Axis.X:
@@ -283,5 +288,15 @@ def add_bore_and_keyway(
 
     if keyway is not None:
         result = create_keyway(result, bore, keyway, part_length, axis)
+
+    # Ensure we return a single Part/Solid, not a ShapeList
+    # Boolean operations can sometimes split geometry into multiple pieces
+    if hasattr(result, 'solids'):
+        solids = list(result.solids())
+        if len(solids) == 1:
+            result = solids[0]
+        elif len(solids) > 1:
+            # Return the largest solid (the main part)
+            result = max(solids, key=lambda s: s.volume)
 
     return result
