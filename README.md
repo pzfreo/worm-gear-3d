@@ -40,7 +40,9 @@ Geometry is exact and watertight - no approximations, no relying on manufacturin
 ### Phase 1: Basic Geometry ✓ Complete
 - [x] JSON input from wormgearcalc
 - [x] Worm thread generation (helical sweep with trapezoidal profile)
-- [x] Wheel generation (hybrid: helical gear + throat cut)
+- [x] Wheel generation with two options:
+  - **Helical** (default): Pure helical gear teeth with flat root
+  - **Hobbed** (`--hobbed`): Throated teeth matching worm curvature for better contact
 - [x] STEP export
 - [x] Python API
 - [x] Command-line interface
@@ -87,6 +89,15 @@ wormgear-geometry design.json --worm-length 50 --wheel-width 12
 # Generate only worm or wheel
 wormgear-geometry design.json --worm-only
 wormgear-geometry design.json --wheel-only
+
+# Generate hobbed wheel with throated teeth (better worm contact)
+wormgear-geometry design.json --hobbed
+
+# View in OCP viewer without saving files
+wormgear-geometry design.json --view --no-save
+
+# View with mesh alignment (rotate wheel for visual mesh)
+wormgear-geometry design.json --view --mesh-aligned
 ```
 
 ### Python API
@@ -105,13 +116,22 @@ worm_geo = WormGeometry(
 )
 worm_geo.export_step("worm.step")
 
-# Build and export wheel
+# Build and export wheel (helical - default)
 wheel_geo = WheelGeometry(
     params=design.wheel,
     worm_params=design.worm,
     assembly_params=design.assembly
 )
 wheel_geo.export_step("wheel.step")
+
+# Build and export hobbed wheel (throated for better contact)
+wheel_geo_hobbed = WheelGeometry(
+    params=design.wheel,
+    worm_params=design.worm,
+    assembly_params=design.assembly,
+    throated=True  # Enable throating
+)
+wheel_geo_hobbed.export_step("wheel_hobbed.step")
 ```
 
 ### Visualization (OCP Viewer)

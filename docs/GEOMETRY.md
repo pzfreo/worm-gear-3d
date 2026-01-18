@@ -4,7 +4,7 @@
 
 Tool 2 in the worm gear system. Takes validated parameters from the calculator (Tool 1) and generates CNC-ready STEP geometry.
 
-**Status: Not yet implemented**
+**Status: Phase 1 complete - basic geometry generation working**
 
 ## Target: CNC Manufacture
 
@@ -177,7 +177,7 @@ def build_wheel_hybrid(params, worm_params):
         face_width=params.face_width,
         pressure_angle=params.pressure_angle
     )
-    
+
     # 2. Throating cut - cylinder matching worm envelope
     throat_cutter = Cylinder(
         radius=worm_params.tip_radius + clearance,
@@ -185,12 +185,12 @@ def build_wheel_hybrid(params, worm_params):
     )
     throat_cutter = throat_cutter.rotate(X, 90)  # Perpendicular to wheel
     throat_cutter = throat_cutter.translate(Y=centre_distance)
-    
+
     wheel = wheel - throat_cutter
-    
+
     # 3. Add features
     wheel = add_features(wheel, params.features)
-    
+
     return wheel
 ```
 
@@ -198,6 +198,47 @@ def build_wheel_hybrid(params, worm_params):
 **Cons**: Not mathematically exact (but CNC will cut what you give it)
 
 **Recommendation**: Start with Option C, iterate to Option B if accuracy issues arise.
+
+#### Option D: Integrated Throating (✓ Implemented)
+
+Instead of a separate throat cut (which can incorrectly remove teeth), integrate the throating directly into the tooth profile generation:
+
+```python
+def build_wheel_integrated_throat(params, worm_params, throated=True):
+    # For each Z position along face width:
+    for z_pos in face_width_positions:
+        if throated and abs(z_pos) < worm_tip_radius:
+            # Calculate where worm surface is at this Z
+            worm_surface_dist = centre_distance - sqrt(worm_radius² - z_pos²)
+            # Use shallower root depth where worm doesn't reach
+            actual_root = max(calculated_root, worm_surface_dist)
+        else:
+            actual_root = calculated_root
+
+        # Create tooth profile with this root depth
+        profile = trapezoidal_profile(root=actual_root, ...)
+
+    # Loft profiles together - throat emerges naturally
+    wheel = loft(profiles)
+```
+
+**How it works**:
+- At the center of the face width (z=0), teeth can be deepest (worm cuts closest)
+- At the edges of the face width, teeth are shallower (worm doesn't reach as deep)
+- The varying depth across Z creates the characteristic concave throat shape
+- Teeth remain intact because the throat is part of the tooth geometry, not a separate cut
+
+**Pros**:
+- Teeth never get incorrectly removed
+- Natural throat shape emerges from geometry
+- Single loft operation (fast)
+- Produces functional, CNC-ready geometry
+
+**Cons**:
+- Not mathematically exact envelope (same as Option C)
+- Tooth flanks are still helical involute, not true worm-generated
+
+This is the current implementation, selected via `throated=True` or `--hobbed` CLI flag.
 
 ## Feature Options
 
@@ -254,37 +295,78 @@ class HubFeatures:
     flange_thickness: Optional[float] = None
 ```
 
-## Proposed API
+## Current API
 
 ```python
-from wormgears import WormGeometry, WheelGeometry, BoreFeatures
+from wormgear_geometry import load_design_json, WormGeometry, WheelGeometry
 
 # From JSON (Tool 1 output)
-params = load_design_json("design.json")
+design = load_design_json("design.json")
 
 # Build worm
 worm_geo = WormGeometry(
-    params=params.worm,
+    params=design.worm,
+    assembly_params=design.assembly,
     length=40,
-    bore=BoreFeatures(diameter=6, keyway=True)
+    sections_per_turn=36  # Smoothness (default: 36)
 )
-worm_part = worm_geo.build()
-worm_part.export_step("worm_m2_z1.step")
+worm = worm_geo.build()
+worm_geo.export_step("worm_m2_z1.step")
 
-# Build wheel
+# Build wheel (helical - default)
 wheel_geo = WheelGeometry(
-    params=params.wheel,
-    worm_params=params.worm,
-    centre_distance=params.assembly.centre_distance,
-    bore=BoreFeatures(diameter=10, keyway=True, set_screw="M4")
+    params=design.wheel,
+    worm_params=design.worm,
+    assembly_params=design.assembly,
+    face_width=None,  # Auto-calculated if None
+    throated=False    # Helical teeth (default)
 )
-wheel_part = wheel_geo.build()
-wheel_part.export_step("wheel_m2_z30.step")
+wheel = wheel_geo.build()
+wheel_geo.export_step("wheel_m2_z30.step")
 
-# Build assembly (positioned)
-assembly = build_assembly(worm_part, wheel_part, params)
-assembly.export_step("worm_gear_assembly.step")
+# Build wheel (hobbed/throated)
+wheel_geo_hobbed = WheelGeometry(
+    params=design.wheel,
+    worm_params=design.worm,
+    assembly_params=design.assembly,
+    throated=True  # Throated teeth for better worm contact
+)
+wheel_hobbed = wheel_geo_hobbed.build()
+wheel_geo_hobbed.export_step("wheel_m2_z30_hobbed.step")
 ```
+
+### Command Line Interface
+
+```bash
+# Basic usage
+wormgear-geometry design.json
+
+# With options
+wormgear-geometry design.json \
+    --worm-length 50 \
+    --wheel-width 12 \
+    --hobbed \
+    --sections 72 \
+    -o output/
+
+# View only (no save)
+wormgear-geometry design.json --view --no-save --mesh-aligned
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--worm-length` | Worm length in mm | 40 |
+| `--wheel-width` | Wheel face width in mm | auto |
+| `--sections` | Worm sections per turn (smoothness) | 36 |
+| `--hobbed` | Generate throated wheel | false (helical) |
+| `--worm-only` | Generate only worm | both |
+| `--wheel-only` | Generate only wheel | both |
+| `--view` | Display in OCP viewer | false |
+| `--no-save` | Don't save STEP files | false |
+| `--mesh-aligned` | Rotate wheel for visual mesh | false |
+| `-o, --output-dir` | Output directory | current |
 
 ## Build123d Integration
 
@@ -348,22 +430,29 @@ Surface Finish: Ra 1.6 (thread flanks)
 
 ## Implementation Phases
 
-### Phase 1: Basic Geometry
-- Worm thread generation (sweep-based)
-- Basic wheel (helical + throat cut)
-- STEP export validation
+### Phase 1: Basic Geometry ✓ Complete
+- [x] Worm thread generation (lofted sections along helix)
+- [x] Wheel generation with two options:
+  - Helical: flat-bottomed trapezoidal teeth
+  - Hobbed: throated teeth with depth varying to match worm curvature
+- [x] STEP export validation
+- [x] Python API and CLI
+- [x] OCP viewer integration
+- [x] Multi-start worm support
+- [x] Left/right hand support
 
-### Phase 2: Features
-- Bore with tolerances
-- Keyways (ISO 6885)
-- Set screw holes
+### Phase 2: Features (Next)
+- [ ] Bore with tolerances
+- [ ] Keyways (ISO 6885)
+- [ ] Set screw holes
+- [ ] Hub options
 
-### Phase 3: Accurate Wheel
-- Envelope calculation
-- B-spline surface generation
-- Comparison with Phase 1 hybrid
+### Phase 3: Accurate Wheel (Future)
+- [ ] Envelope calculation (Option B)
+- [ ] B-spline surface generation
+- [ ] Comparison with integrated throating approach
 
 ### Phase 4: Polish
-- Assembly positioning
-- Manufacturing specs output
-- Integration with Tool 1
+- [ ] Assembly positioning
+- [ ] Manufacturing specs output (markdown)
+- [ ] Integration improvements with Tool 1

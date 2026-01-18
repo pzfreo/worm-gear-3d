@@ -26,9 +26,9 @@ JSON export                    STEP files (CNC-ready)
 
 ## Current State
 
-**Status: Not yet implemented**
+**Status: Phase 1 complete - basic geometry generation working**
 
-This repo is being set up for the geometry generator implementation.
+The core geometry generator is functional with worm and wheel generation, STEP export, and CLI.
 
 ## Target Manufacturing Methods
 
@@ -42,35 +42,41 @@ The geometry must be **exact and watertight** - no approximations:
 1. **build123d for CAD** - Modern Python CAD library built on OpenCascade
 2. **Exact geometry** - No hobbing assumptions, CNC will cut exactly what we model
 3. **JSON input** - Accepts output from wormgearcalc (Tool 1)
-4. **Hybrid wheel approach initially** - Helical gear + throat cut (Option C from spec)
-   - Can iterate to envelope calculation (Option B) later if needed
-5. **Feature-rich** - Support bores, keyways (ISO 6885), set screws, hubs
+4. **Two wheel types**:
+   - **Helical** (default): Flat-bottomed trapezoidal teeth, simpler geometry
+   - **Hobbed** (`--hobbed`): Throated teeth with depth varying to match worm curvature
+5. **Feature-rich** - Support bores, keyways (ISO 6885), set screws, hubs (Phase 2)
 
-## Implementation Strategy
+## Implementation Status
 
-See `docs/GEOMETRY.md` for full specification. Recommended approach:
+See `docs/GEOMETRY.md` for full specification.
 
-### Phase 1: Basic Geometry (Start Here)
-- Worm thread generation (helical sweep of trapezoidal profile)
-- Basic wheel (helical involute + throating cut)
-- STEP export with validation
-- **Goal**: Get working parts that mesh correctly
+### Phase 1: Basic Geometry ✓ Complete
+- [x] Worm thread generation (lofted sections along helix path)
+- [x] Wheel generation with two options:
+  - Helical: flat-bottomed trapezoidal teeth
+  - Hobbed: integrated throating where tooth depth varies with Z to match worm curvature
+- [x] STEP export with validation
+- [x] Python API and CLI
+- [x] OCP viewer integration
+- [x] Multi-start worm support
+- [x] Left/right hand support
+- [x] Profile shift and backlash handling
 
-### Phase 2: Features
-- Bore with tolerances
-- Keyways (ISO 6885 standard sizes)
-- Set screw holes
-- Hub options (flush/extended/flanged)
+### Phase 2: Features (Next)
+- [ ] Bore with tolerances
+- [ ] Keyways (ISO 6885 standard sizes)
+- [ ] Set screw holes
+- [ ] Hub options (flush/extended/flanged)
 
-### Phase 3: Accurate Wheel (If Needed)
-- Mathematical envelope calculation
-- B-spline surface generation
-- Compare accuracy with Phase 1 hybrid approach
+### Phase 3: Accurate Wheel (Future)
+- [ ] Mathematical envelope calculation
+- [ ] B-spline surface generation
+- [ ] Compare accuracy with current approach
 
 ### Phase 4: Polish
-- Assembly positioning (correctly oriented parts)
-- Manufacturing specs markdown output
-- CLI/API refinement
+- [ ] Assembly positioning (correctly oriented parts)
+- [ ] Manufacturing specs markdown output
 
 ## JSON Input Format
 
@@ -112,36 +118,60 @@ The calculator outputs this format (example):
 }
 ```
 
-## Proposed API
+## Current API
 
 ```python
-from wormgear_geometry import WormGeometry, WheelGeometry, BoreFeatures
+from wormgear_geometry import load_design_json, WormGeometry, WheelGeometry
 
 # Load parameters from calculator JSON
-params = load_design_json("design.json")
+design = load_design_json("design.json")
 
 # Build worm
 worm_geo = WormGeometry(
-    params=params.worm,
+    params=design.worm,
+    assembly_params=design.assembly,
     length=40,  # User specifies worm length
-    bore=BoreFeatures(diameter=6, keyway=True)
+    sections_per_turn=36  # Smoothness (default: 36)
 )
-worm_part = worm_geo.build()
-worm_part.export_step("worm_m2_z1.step")
+worm = worm_geo.build()
+worm_geo.export_step("worm_m2_z1.step")
 
-# Build wheel
+# Build wheel (helical - default)
 wheel_geo = WheelGeometry(
-    params=params.wheel,
-    worm_params=params.worm,
-    centre_distance=params.assembly.centre_distance,
-    bore=BoreFeatures(diameter=10, keyway=True, set_screw="M4")
+    params=design.wheel,
+    worm_params=design.worm,
+    assembly_params=design.assembly,
+    face_width=None,  # Auto-calculated if None
+    throated=False    # Helical teeth (default)
 )
-wheel_part = wheel_geo.build()
-wheel_part.export_step("wheel_m2_z30.step")
+wheel = wheel_geo.build()
+wheel_geo.export_step("wheel_m2_z30.step")
 
-# Build positioned assembly
-assembly = build_assembly(worm_part, wheel_part, params)
-assembly.export_step("worm_gear_assembly.step")
+# Build wheel (hobbed/throated)
+wheel_geo_hobbed = WheelGeometry(
+    params=design.wheel,
+    worm_params=design.worm,
+    assembly_params=design.assembly,
+    throated=True  # Throated teeth for better worm contact
+)
+wheel_hobbed = wheel_geo_hobbed.build()
+wheel_geo_hobbed.export_step("wheel_m2_z30_hobbed.step")
+```
+
+### CLI Usage
+
+```bash
+# Generate both worm and wheel
+wormgear-geometry design.json
+
+# With hobbed wheel
+wormgear-geometry design.json --hobbed
+
+# Custom dimensions
+wormgear-geometry design.json --worm-length 50 --wheel-width 12
+
+# View in OCP viewer
+wormgear-geometry design.json --view --no-save --mesh-aligned
 ```
 
 ## Geometry Construction Approaches
