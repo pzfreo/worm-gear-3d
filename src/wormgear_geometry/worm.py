@@ -13,7 +13,8 @@ class WormGeometry:
     """
     Generates 3D geometry for a worm.
 
-    Uses helical sweep of trapezoidal tooth profile.
+    Creates worm by sweeping thread profile along helical path,
+    then unioning with core cylinder.
     """
 
     def __init__(
@@ -41,35 +42,48 @@ class WormGeometry:
         Returns:
             build123d Part object ready for export
         """
-        # Create core cylinder at root diameter
+        root_radius = self.params.root_diameter_mm / 2
+        tip_radius = self.params.tip_diameter_mm / 2
+
+        # Start with core cylinder at root diameter
         core = Cylinder(
-            radius=self.params.root_diameter_mm / 2,
+            radius=root_radius,
             height=self.length,
-            align=(Align.CENTER, Align.CENTER, Align.MIN)
+            align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
 
-        # Create thread(s)
+        # Add the thread(s)
         threads = self._create_threads()
 
-        # Union core and threads
-        worm = core + threads
+        if threads is not None:
+            worm = core + threads
+        else:
+            worm = core
+
+        # Trim to exact length
+        trim_box = Box(
+            tip_radius * 2 + 2,
+            tip_radius * 2 + 2,
+            self.length,
+            align=(Align.CENTER, Align.CENTER, Align.CENTER)
+        )
+        worm = worm & trim_box
 
         return worm
 
     def _create_threads(self) -> Part:
-        """Create helical thread(s) on the worm."""
-        # For multi-start worms, create multiple threads offset by lead/num_starts
+        """Create helical thread(s) to add to the core."""
         threads = []
 
         for start_index in range(self.params.num_starts):
-            # Angular offset for this start
             angle_offset = (360 / self.params.num_starts) * start_index
-
             thread = self._create_single_thread(angle_offset)
-            threads.append(thread)
+            if thread is not None:
+                threads.append(thread)
 
-        # Union all threads
-        if len(threads) == 1:
+        if len(threads) == 0:
+            return None
+        elif len(threads) == 1:
             return threads[0]
         else:
             result = threads[0]
@@ -79,133 +93,105 @@ class WormGeometry:
 
     def _create_single_thread(self, start_angle: float = 0) -> Part:
         """
-        Create a single helical thread.
+        Create a single helical thread using sweep with auxiliary spine.
 
-        Args:
-            start_angle: Starting angle offset in degrees (for multi-start)
-
-        Returns:
-            Part representing one thread
+        Uses the worm axis as an auxiliary spine to control profile orientation,
+        ensuring the profile stays aligned with the radial direction as it sweeps.
         """
-        # Calculate helix parameters
         pitch_radius = self.params.pitch_diameter_mm / 2
-        lead_angle_rad = math.radians(self.params.lead_angle_deg)
+        tip_radius = self.params.tip_diameter_mm / 2
+        root_radius = self.params.root_diameter_mm / 2
+        lead = self.params.lead_mm
+        is_right_hand = self.params.hand.upper() == "RIGHT"
 
-        # Number of complete turns needed
-        num_turns = math.ceil(self.length / self.params.lead_mm) + 1
+        # Thread profile dimensions
+        pressure_angle_rad = math.radians(self.assembly_params.pressure_angle_deg)
 
-        # Create helix path
-        helix_height = num_turns * self.params.lead_mm
-        helix_path = Helix(
-            pitch=self.params.lead_mm,
+        # Thread width at pitch circle (axial measurement)
+        thread_half_width_pitch = self.params.thread_thickness_mm / 2
+
+        # Thread is WIDER at root, NARROWER at tip due to pressure angle
+        addendum = self.params.addendum_mm
+        dedendum = self.params.dedendum_mm
+        thread_half_width_root = thread_half_width_pitch + dedendum * math.tan(pressure_angle_rad)
+        thread_half_width_tip = max(0.1, thread_half_width_pitch - addendum * math.tan(pressure_angle_rad))
+
+        # Number of turns needed
+        num_turns = math.ceil(self.length / lead) + 2
+        helix_height = num_turns * lead
+
+        # Create helix path at pitch radius
+        helix = Helix(
+            pitch=lead,
             height=helix_height,
             radius=pitch_radius,
-            direction=(0, 0, 1) if self.params.hand == "RIGHT" else (0, 0, -1)
+            center=(0, 0, -helix_height / 2),
+            direction=(0, 0, 1) if is_right_hand else (0, 0, -1)
         )
 
-        # Rotate helix to start at correct angle
         if start_angle != 0:
-            helix_path = helix_path.rotate(Axis.Z, start_angle)
+            helix = helix.rotate(Axis.Z, start_angle)
 
-        # Create tooth profile and sweep along helix
-        with BuildPart() as thread_builder:
-            # Create profile at start of helix
-            with BuildSketch(Plane.XZ.offset(pitch_radius)):
-                add(self._create_tooth_profile())
+        # Profile coordinates relative to pitch radius
+        inner_r = root_radius - pitch_radius
+        outer_r = tip_radius - pitch_radius
 
-            # Sweep profile along helix path
-            sweep(path=helix_path, multisection=False)
+        # Create profiles along the helix for lofting
+        # Use many sections for smooth 3D printing (every 10 degrees)
+        sections_per_turn = 36
+        num_sections = int(num_turns * sections_per_turn) + 1
+        sections = []
 
-        thread = thread_builder.part
+        for i in range(num_sections):
+            t = i / (num_sections - 1)
+            point = helix @ t
+            tangent = helix % t
 
-        # Trim to actual length
-        thread = thread & Box(
-            self.params.tip_diameter_mm,
-            self.params.tip_diameter_mm,
-            self.length,
-            align=(Align.CENTER, Align.CENTER, Align.MIN)
-        )
+            # Radial direction at this point
+            angle = math.atan2(point.Y, point.X)
+            radial_dir = Vector(math.cos(angle), math.sin(angle), 0)
+
+            # Profile plane perpendicular to helix tangent
+            profile_plane = Plane(origin=point, x_dir=radial_dir, z_dir=tangent)
+
+            with BuildSketch(profile_plane) as sk:
+                with BuildLine():
+                    Polyline([
+                        (inner_r, -thread_half_width_root),
+                        (outer_r, -thread_half_width_tip),
+                        (outer_r, thread_half_width_tip),
+                        (inner_r, thread_half_width_root),
+                        (inner_r, -thread_half_width_root),
+                    ])
+                make_face()
+
+            sections.append(sk.sketch.faces()[0])
+
+        # Loft with ruled=True for consistent geometry
+        thread = loft(sections, ruled=True)
 
         return thread
 
-    def _create_tooth_profile(self) -> Sketch:
-        """
-        Create trapezoidal tooth profile in axial plane.
-
-        Profile is symmetric about centerline, with flanks at pressure angle.
-
-        Returns:
-            Sketch of tooth profile
-        """
-        pressure_angle_rad = math.radians(self.assembly_params.pressure_angle_deg)
-
-        # Dimensions
-        addendum = self.params.addendum_mm
-        dedendum = self.params.dedendum_mm
-        total_depth = addendum + dedendum
-
-        # Thread thickness at pitch line (adjusted for backlash)
-        pitch_thickness = self.params.thread_thickness_mm - self.assembly_params.backlash_mm
-
-        # Calculate top and bottom widths
-        # At tip (addendum above pitch line)
-        tip_half_width = pitch_thickness / 2 - addendum * math.tan(pressure_angle_rad)
-
-        # At root (dedendum below pitch line)
-        root_half_width = pitch_thickness / 2 + dedendum * math.tan(pressure_angle_rad)
-
-        # Create profile as polygon
-        # Coordinates in (radial, axial) space
-        points = [
-            (addendum, -tip_half_width),           # Tip left
-            (addendum, tip_half_width),            # Tip right
-            (-dedendum, root_half_width),          # Root right
-            (-dedendum, -root_half_width),         # Root left
-        ]
-
-        with BuildSketch() as profile_sketch:
-            with BuildLine():
-                for i in range(len(points)):
-                    p1 = points[i]
-                    p2 = points[(i + 1) % len(points)]
-                    Line(p1, p2)
-            make_face()
-
-        return profile_sketch.sketch
-
     def show(self):
-        """
-        Display the worm in OCP viewer (Jupyter or VS Code).
-
-        Returns:
-            The built worm part for viewer display
-        """
+        """Display the worm in OCP viewer."""
         worm = self.build()
         try:
             from ocp_vscode import show as ocp_show
             ocp_show(worm)
         except ImportError:
-            # Fall back to build123d show if available
             try:
                 show(worm)
             except:
-                print("No viewer available. Install ocp-vscode or run in Jupyter with build123d viewer.")
+                print("No viewer available.")
         return worm
 
     def export_step(self, filepath: str):
-        """
-        Build and export worm to STEP file.
-
-        Args:
-            filepath: Output STEP file path
-        """
+        """Build and export worm to STEP file."""
         worm = self.build()
 
-        # Convert to Part if needed
         if hasattr(worm, 'export_step'):
             worm.export_step(filepath)
         else:
-            # Use exporter for Compound objects
             from build123d import export_step as exp_step
             exp_step(worm, filepath)
 
