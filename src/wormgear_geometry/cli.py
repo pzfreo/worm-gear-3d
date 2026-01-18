@@ -160,12 +160,16 @@ Examples:
         worm_keyway = None
         worm_bore_diameter = None
 
+        worm_thin_rim_warning = False
         if not args.no_bore:
             if args.worm_bore is not None:
                 worm_bore_diameter = args.worm_bore
+                # Check if user-specified bore has thin rim
+                actual_rim = (design.worm.root_diameter_mm - worm_bore_diameter) / 2
+                worm_thin_rim_warning = actual_rim < 1.5 and actual_rim > 0
             else:
                 # Auto-calculate bore (may return None for very small gears)
-                worm_bore_diameter = calculate_default_bore(
+                worm_bore_diameter, worm_thin_rim_warning = calculate_default_bore(
                     design.worm.pitch_diameter_mm,
                     design.worm.root_diameter_mm
                 )
@@ -205,12 +209,16 @@ Examples:
         wheel_keyway = None
         wheel_bore_diameter = None
 
+        wheel_thin_rim_warning = False
         if not args.no_bore:
             if args.wheel_bore is not None:
                 wheel_bore_diameter = args.wheel_bore
+                # Check if user-specified bore has thin rim
+                actual_rim = (design.wheel.root_diameter_mm - wheel_bore_diameter) / 2
+                wheel_thin_rim_warning = actual_rim < 1.5 and actual_rim > 0
             else:
                 # Auto-calculate bore (may return None for very small gears)
-                wheel_bore_diameter = calculate_default_bore(
+                wheel_bore_diameter, wheel_thin_rim_warning = calculate_default_bore(
                     design.wheel.pitch_diameter_mm,
                     design.wheel.root_diameter_mm
                 )
@@ -330,6 +338,10 @@ Examples:
                     print(f"  Wheel: {wheel_bore_diameter}mm{keyway_info}{override_note}")
                 else:
                     print(f"  Wheel: solid (too small for bore)")
+
+            # Print warnings for thin rims
+            if (generate_worm and worm_thin_rim_warning) or (generate_wheel and wheel_thin_rim_warning):
+                print(f"\n  Warning: thin rim on small bore - handle with care")
 
             print(f"\n  To generate solid parts: --no-bore")
 
