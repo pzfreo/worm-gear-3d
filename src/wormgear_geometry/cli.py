@@ -139,14 +139,16 @@ Examples:
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        from build123d import export_step
+
         if worm is not None:
             output_file = output_dir / f"worm_m{design.worm.module_mm}_z{design.worm.num_starts}.step"
-            worm.export_step(str(output_file))
+            export_step(worm, str(output_file))
             print(f"  Saved: {output_file}")
 
         if wheel is not None:
             output_file = output_dir / f"wheel_m{design.wheel.module_mm}_z{design.wheel.num_teeth}.step"
-            wheel.export_step(str(output_file))
+            export_step(wheel, str(output_file))
             print(f"  Saved: {output_file}")
 
     # View in OCP viewer
