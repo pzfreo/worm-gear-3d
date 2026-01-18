@@ -21,6 +21,12 @@ from .io import (
     AssemblyParams,
     WormGearDesign
 )
+from .features import (
+    BoreFeature,
+    KeywayFeature,
+    get_din_6885_keyway,
+    calculate_default_bore,
+)
 
 __all__ = [
     "WormGeometry",
@@ -30,4 +36,8 @@ __all__ = [
     "WheelParams",
     "AssemblyParams",
     "WormGearDesign",
+    "BoreFeature",
+    "KeywayFeature",
+    "get_din_6885_keyway",
+    "calculate_default_bore",
 ]
