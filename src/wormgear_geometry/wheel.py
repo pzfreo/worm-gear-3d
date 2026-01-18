@@ -145,18 +145,36 @@ class WheelGeometry:
             inner = root_radius - pitch_radius - 0.5
             outer = tip_radius + 0.5 - pitch_radius
 
-            # Create and sweep tooth space
+            # Create and sweep tooth space with involute-like curved flanks
             try:
                 with BuildPart() as space_builder:
                     with BuildSketch(sweep_plane):
                         with BuildLine():
-                            Polyline([
-                                (inner, -half_root),
-                                (outer, -half_tip),
-                                (outer, half_tip),
-                                (inner, half_root),
-                                (inner, -half_root),
-                            ])
+                            # Create involute-like curved flanks to match worm
+                            num_flank_points = 5
+                            left_flank = []
+                            right_flank = []
+
+                            for j in range(num_flank_points):
+                                # Parameter along the flank (0 = inner/root, 1 = outer/tip)
+                                t_flank = j / (num_flank_points - 1)
+                                r_pos = inner + t_flank * (outer - inner)
+
+                                # Interpolate width with slight curve (involute approximation)
+                                linear_width = half_root + t_flank * (half_tip - half_root)
+                                # Add subtle curve - max bulge at middle of flank
+                                curve_factor = 4 * t_flank * (1 - t_flank)
+                                bulge = curve_factor * 0.05 * (half_root - half_tip)
+                                width = linear_width + bulge
+
+                                left_flank.append((r_pos, -width))
+                                right_flank.append((r_pos, width))
+
+                            # Build profile: left flank up, across outer, right flank down, across inner
+                            Spline(left_flank)
+                            Line(left_flank[-1], right_flank[-1])  # Outer edge
+                            Spline(list(reversed(right_flank)))
+                            Line(right_flank[0], left_flank[0])  # Inner edge (closes profile)
                         make_face()
                     sweep(path=helix_path)
 

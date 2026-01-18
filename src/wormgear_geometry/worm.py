@@ -21,7 +21,8 @@ class WormGeometry:
         self,
         params: WormParams,
         assembly_params: AssemblyParams,
-        length: float = 40.0
+        length: float = 40.0,
+        sections_per_turn: int = 36
     ):
         """
         Initialize worm geometry generator.
@@ -30,10 +31,12 @@ class WormGeometry:
             params: Worm parameters from calculator
             assembly_params: Assembly parameters (for pressure angle)
             length: Total worm length in mm (default: 40)
+            sections_per_turn: Number of loft sections per helix turn (default: 36)
         """
         self.params = params
         self.assembly_params = assembly_params
         self.length = length
+        self.sections_per_turn = sections_per_turn
 
     def build(self) -> Part:
         """
@@ -137,9 +140,7 @@ class WormGeometry:
         outer_r = tip_radius - pitch_radius
 
         # Create profiles along the helix for lofting
-        # Use many sections for smooth 3D printing (every 10 degrees)
-        sections_per_turn = 36
-        num_sections = int(num_turns * sections_per_turn) + 1
+        num_sections = int(num_turns * self.sections_per_turn) + 1
         sections = []
 
         for i in range(num_sections):
@@ -156,13 +157,33 @@ class WormGeometry:
 
             with BuildSketch(profile_plane) as sk:
                 with BuildLine():
-                    Polyline([
-                        (inner_r, -thread_half_width_root),
-                        (outer_r, -thread_half_width_tip),
-                        (outer_r, thread_half_width_tip),
-                        (inner_r, thread_half_width_root),
-                        (inner_r, -thread_half_width_root),
-                    ])
+                    # Create involute-like curved flanks for better wear
+                    # Use spline through points that approximate involute curve
+                    num_flank_points = 5
+                    left_flank = []
+                    right_flank = []
+
+                    for j in range(num_flank_points):
+                        # Parameter along the flank (0 = root, 1 = tip)
+                        t_flank = j / (num_flank_points - 1)
+                        r_pos = inner_r + t_flank * (outer_r - inner_r)
+
+                        # Interpolate width with slight curve (involute approximation)
+                        # True involute has slight bulge in the middle
+                        linear_width = thread_half_width_root + t_flank * (thread_half_width_tip - thread_half_width_root)
+                        # Add subtle curve - max bulge at middle of flank
+                        curve_factor = 4 * t_flank * (1 - t_flank)  # Parabolic, peaks at 0.5
+                        bulge = curve_factor * 0.05 * (thread_half_width_root - thread_half_width_tip)
+                        width = linear_width + bulge
+
+                        left_flank.append((r_pos, -width))
+                        right_flank.append((r_pos, width))
+
+                    # Build profile: left flank up, across tip, right flank down, across root
+                    Spline(left_flank)
+                    Line(left_flank[-1], right_flank[-1])  # Tip
+                    Spline(list(reversed(right_flank)))
+                    Line(right_flank[0], left_flank[0])  # Root (closes the profile)
                 make_face()
 
             sections.append(sk.sketch.faces()[0])

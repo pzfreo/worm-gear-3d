@@ -18,17 +18,20 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Generate both worm and wheel
+  # Generate both worm and wheel STEP files
   wormgear-geometry design.json
+
+  # View in OCP viewer without saving
+  wormgear-geometry design.json --view
 
   # Specify output directory
   wormgear-geometry design.json -o output/
 
-  # Custom worm length
-  wormgear-geometry design.json --worm-length 50
+  # Custom worm length and smoother geometry
+  wormgear-geometry design.json --worm-length 50 --sections 72
 
-  # Custom wheel face width
-  wormgear-geometry design.json --wheel-width 12
+  # Generate only worm and view it
+  wormgear-geometry design.json --worm-only --view
         """
     )
 
@@ -60,6 +63,13 @@ Examples:
     )
 
     parser.add_argument(
+        '--sections',
+        type=int,
+        default=36,
+        help='Worm sections per turn for smoothness (default: 36)'
+    )
+
+    parser.add_argument(
         '--worm-only',
         action='store_true',
         help='Generate only the worm'
@@ -69,6 +79,18 @@ Examples:
         '--wheel-only',
         action='store_true',
         help='Generate only the wheel'
+    )
+
+    parser.add_argument(
+        '--view',
+        action='store_true',
+        help='View in OCP viewer (requires ocp_vscode extension)'
+    )
+
+    parser.add_argument(
+        '--no-save',
+        action='store_true',
+        help='Do not save STEP files (use with --view)'
     )
 
     args = parser.parse_args()
@@ -81,13 +103,12 @@ Examples:
         print(f"Error loading design: {e}", file=sys.stderr)
         return 1
 
-    # Create output directory
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     # Determine what to generate
     generate_worm = not args.wheel_only
     generate_wheel = not args.worm_only
+
+    worm = None
+    wheel = None
 
     # Generate worm
     if generate_worm:
@@ -95,11 +116,11 @@ Examples:
         worm_geo = WormGeometry(
             params=design.worm,
             assembly_params=design.assembly,
-            length=args.worm_length
+            length=args.worm_length,
+            sections_per_turn=args.sections
         )
-
-        output_file = output_dir / f"worm_m{design.worm.module_mm}_z{design.worm.num_starts}.step"
-        worm_geo.export_step(str(output_file))
+        worm = worm_geo.build()
+        print(f"  Volume: {worm.volume:.2f} mm³")
 
     # Generate wheel
     if generate_wheel:
@@ -110,13 +131,63 @@ Examples:
             assembly_params=design.assembly,
             face_width=args.wheel_width
         )
+        wheel = wheel_geo.build()
+        print(f"  Volume: {wheel.volume:.2f} mm³")
 
-        output_file = output_dir / f"wheel_m{design.wheel.module_mm}_z{design.wheel.num_teeth}.step"
-        wheel_geo.export_step(str(output_file))
+    # Save STEP files
+    if not args.no_save:
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n✓ Generation complete! Files saved to {output_dir}")
+        if worm is not None:
+            output_file = output_dir / f"worm_m{design.worm.module_mm}_z{design.worm.num_starts}.step"
+            worm.export_step(str(output_file))
+            print(f"  Saved: {output_file}")
+
+        if wheel is not None:
+            output_file = output_dir / f"wheel_m{design.wheel.module_mm}_z{design.wheel.num_teeth}.step"
+            wheel.export_step(str(output_file))
+            print(f"  Saved: {output_file}")
+
+    # View in OCP viewer
+    if args.view:
+        try:
+            from ocp_vscode import show, set_defaults, reset_show
+            from build123d import Axis, Location
+
+            set_defaults(helper_scale=1, transparent=False, angular_tolerance=0.1, edge_accuracy=0.01)
+            reset_show()
+
+            parts = []
+            names = []
+            colors = []
+
+            if wheel is not None:
+                parts.append(wheel)
+                names.append('wheel')
+                colors.append('steelblue')
+
+            if worm is not None:
+                # Position worm at centre distance, rotated to mesh with wheel
+                centre_distance = design.assembly.centre_distance_mm
+                worm_positioned = worm.rotate(Axis.X, 90).move(Location((centre_distance, 0, 0)))
+                parts.append(worm_positioned)
+                names.append('worm')
+                colors.append('orange')
+
+            if parts:
+                show(*parts, names=names, colors=colors)
+                print("\nDisplayed in OCP viewer")
+
+        except ImportError:
+            print("\nWarning: ocp_vscode not available for viewing", file=sys.stderr)
+            print("Install with: pip install ocp_vscode", file=sys.stderr)
+
+    # Summary
+    print(f"\nDesign summary:")
     print(f"  Ratio: {design.assembly.ratio}:1")
     print(f"  Centre distance: {design.assembly.centre_distance_mm:.2f} mm")
+    print(f"  Pressure angle: {design.assembly.pressure_angle_deg}°")
 
     return 0
 
