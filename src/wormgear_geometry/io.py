@@ -95,7 +95,11 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
         )
 
     # Parse worm parameters
+    # Note: 'hand' may be in worm or assembly section depending on Tool 1 version
     worm_data = data['worm']
+    asm_data = data['assembly']
+    worm_hand = worm_data.get('hand', asm_data.get('hand', 'RIGHT'))
+
     worm = WormParams(
         module_mm=worm_data['module_mm'],
         num_starts=worm_data['num_starts'],
@@ -107,7 +111,7 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
         addendum_mm=worm_data['addendum_mm'],
         dedendum_mm=worm_data['dedendum_mm'],
         thread_thickness_mm=worm_data['thread_thickness_mm'],
-        hand=worm_data['hand'],
+        hand=worm_hand,
         profile_shift=worm_data.get('profile_shift', 0.0)
     )
 
@@ -126,13 +130,12 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
         profile_shift=wheel_data.get('profile_shift', 0.0)
     )
 
-    # Parse assembly parameters
-    asm_data = data['assembly']
+    # Parse assembly parameters (asm_data already extracted above)
     assembly = AssemblyParams(
         centre_distance_mm=asm_data['centre_distance_mm'],
         pressure_angle_deg=asm_data['pressure_angle_deg'],
         backlash_mm=asm_data['backlash_mm'],
-        hand=asm_data['hand'],
+        hand=asm_data.get('hand', worm_hand),
         ratio=asm_data['ratio'],
         efficiency_percent=asm_data.get('efficiency_percent'),
         self_locking=asm_data.get('self_locking')

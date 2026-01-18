@@ -93,6 +93,12 @@ Examples:
         help='Do not save STEP files (use with --view)'
     )
 
+    parser.add_argument(
+        '--mesh-aligned',
+        action='store_true',
+        help='Rotate wheel by half tooth pitch for mesh alignment in viewer'
+    )
+
     args = parser.parse_args()
 
     # Load design
@@ -154,32 +160,30 @@ Examples:
     # View in OCP viewer
     if args.view:
         try:
-            from ocp_vscode import show, set_defaults, reset_show
-            from build123d import Axis, Location
+            from ocp_vscode import show
+            from build123d import Rot, Pos
 
-            set_defaults(helper_scale=1, transparent=False, angular_tolerance=0.1, edge_accuracy=0.01)
-            reset_show()
-
-            parts = []
-            names = []
-            colors = []
-
-            if wheel is not None:
-                parts.append(wheel)
-                names.append('wheel')
-                colors.append('steelblue')
-
-            if worm is not None:
-                # Position worm at centre distance, rotated to mesh with wheel
+            # Position worm to mesh with wheel
+            if wheel is not None and worm is not None:
+                # Move worm to centre distance, rotate 90° so its axis is horizontal (along Y)
                 centre_distance = design.assembly.centre_distance_mm
-                worm_positioned = worm.rotate(Axis.X, 90).move(Location((centre_distance, 0, 0)))
-                parts.append(worm_positioned)
-                names.append('worm')
-                colors.append('orange')
+                worm_positioned = Pos(centre_distance, 0, 0) * Rot(X=90) * worm
 
-            if parts:
-                show(*parts, names=names, colors=colors)
-                print("\nDisplayed in OCP viewer")
+                # Optionally rotate wheel by half a tooth pitch for mesh alignment
+                if args.mesh_aligned:
+                    z = design.wheel.num_teeth
+                    tooth_pitch_angle = 360 / z
+                    wheel_rotation = tooth_pitch_angle / 2
+                    wheel_positioned = Rot(Z=wheel_rotation) * wheel
+                else:
+                    wheel_positioned = wheel
+
+                show(wheel_positioned, worm_positioned, names=["wheel", "worm"], colors=["steelblue", "orange"])
+            elif wheel is not None:
+                show(wheel, names=["wheel"], colors=["steelblue"])
+            elif worm is not None:
+                show(worm, names=["worm"], colors=["orange"])
+            print("\nDisplayed in OCP viewer")
 
         except ImportError:
             print("\nWarning: ocp_vscode not available for viewing", file=sys.stderr)

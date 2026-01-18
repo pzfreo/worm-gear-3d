@@ -48,30 +48,41 @@ class WormGeometry:
         root_radius = self.params.root_diameter_mm / 2
         tip_radius = self.params.tip_diameter_mm / 2
 
-        # Start with core cylinder at root diameter
+        # Create thread(s) first to determine helix extent
+        threads = self._create_threads()
+
+        # Calculate helix extent from thread parameters
+        lead = self.params.lead_mm
+        num_turns = math.ceil(self.length / lead) + 1
+        helix_height = num_turns * lead
+
+        # Create core cylinder matching helix height for clean boolean operations
         core = Cylinder(
             radius=root_radius,
-            height=self.length,
+            height=helix_height,
             align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
-
-        # Add the thread(s)
-        threads = self._create_threads()
 
         if threads is not None:
             worm = core + threads
         else:
             worm = core
 
-        # Trim to exact length
+        # Trim to exact length by intersecting with a box
         trim_box = Box(
-            tip_radius * 2 + 2,
-            tip_radius * 2 + 2,
-            self.length,
+            tip_radius * 4, tip_radius * 4, self.length,
             align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
         worm = worm & trim_box
 
+        # Ensure we return a single Solid for proper display in ocp_vscode
+        if hasattr(worm, 'solids'):
+            solids = list(worm.solids())
+            if len(solids) == 1:
+                return solids[0]
+            elif len(solids) > 1:
+                # Return the largest solid (should be the worm)
+                return max(solids, key=lambda s: s.volume)
         return worm
 
     def _create_threads(self) -> Part:
@@ -119,8 +130,8 @@ class WormGeometry:
         thread_half_width_root = thread_half_width_pitch + dedendum * math.tan(pressure_angle_rad)
         thread_half_width_tip = max(0.1, thread_half_width_pitch - addendum * math.tan(pressure_angle_rad))
 
-        # Number of turns needed
-        num_turns = math.ceil(self.length / lead) + 2
+        # Number of turns needed - add just 1 extra turn, keep it close to length
+        num_turns = math.ceil(self.length / lead) + 1
         helix_height = num_turns * lead
 
         # Create helix path at pitch radius

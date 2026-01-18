@@ -66,7 +66,10 @@ class WheelGeometry:
 
     def _create_helical_gear(self) -> Part:
         """
-        Create helical gear by sweeping tooth spaces along helical paths.
+        Create helical gear by extruding and twisting tooth space profiles.
+
+        Uses extrusion with rotation rather than helix sweep to avoid
+        self-intersection issues with tight helix pitches.
         """
         z = self.params.num_teeth
         m = self.params.module_mm
@@ -75,8 +78,15 @@ class WheelGeometry:
         pitch_radius = self.params.pitch_diameter_mm / 2
         pressure_angle = math.radians(self.assembly_params.pressure_angle_deg)
 
-        # The wheel's helix angle should match the worm's lead angle
+        # The wheel's helix angle equals 90° - worm lead angle
+        # This determines how much the teeth twist over the face width
         lead_angle = math.radians(self.worm_params.lead_angle_deg)
+
+        # Total twist angle over face width
+        # At pitch radius, the teeth advance by (face_width * tan(lead_angle)) axially
+        # This corresponds to a rotation of: twist = face_width * tan(lead_angle) / pitch_radius (radians)
+        twist_radians = self.face_width * math.tan(lead_angle) / pitch_radius
+        twist_degrees = math.degrees(twist_radians)
 
         # Create gear blank
         blank = Cylinder(
@@ -92,26 +102,17 @@ class WheelGeometry:
         # Space is wider at tip, narrower at root (inverse of tooth shape)
         space_width_tip = space_width_pitch + 2 * (tip_radius - pitch_radius) * math.tan(pressure_angle)
         space_width_root = space_width_pitch - 2 * (pitch_radius - root_radius) * math.tan(pressure_angle)
-        space_width_root = max(0.5, space_width_root)
+        space_width_root = max(0.1 * m, space_width_root)
 
         half_root = space_width_root / 2
         half_tip = space_width_tip / 2
 
-        # Helical twist across face width (using lead angle)
-        twist_rad = self.face_width * math.tan(lead_angle) / pitch_radius
-        twist_deg = math.degrees(twist_rad)
-
         # Extend cut beyond face to get clean edges
-        extension = 2
+        extension = 0.5
         cut_height = self.face_width + 2 * extension
-        twist_extended_rad = cut_height * math.tan(lead_angle) / pitch_radius
-        twist_extended_deg = math.degrees(twist_extended_rad)
 
-        # Calculate helix pitch for the sweep
-        if abs(twist_extended_deg) > 0.1:
-            helix_pitch = cut_height / (twist_extended_deg / 360)
-        else:
-            helix_pitch = 10000  # Nearly straight
+        # Number of sections for lofting the twisted extrusion
+        num_sections = max(8, int(abs(twist_degrees) / 5) + 1)
 
         # Cut tooth spaces
         gear = blank
@@ -119,66 +120,64 @@ class WheelGeometry:
         for i in range(z):
             base_angle = (360 / z) * i
 
-            # Create helix path for this tooth space
-            helix_path = Helix(
-                pitch=helix_pitch,
-                height=cut_height,
-                radius=pitch_radius,
-                center=(0, 0, -cut_height / 2),
-            )
+            # Create sections along Z for lofting
+            sections = []
 
-            # Rotate helix to correct starting angle
-            helix_path = helix_path.rotate(Axis.Z, base_angle - twist_extended_deg / 2)
+            for s in range(num_sections):
+                t = s / (num_sections - 1)  # 0 to 1
+                z_pos = -cut_height / 2 + t * cut_height
 
-            # Get start point and tangent for sweep plane
-            start_pt = helix_path @ 0
-            tangent = helix_path % 0
+                # Rotation at this Z position (linear interpolation of twist)
+                rotation_at_z = -twist_degrees / 2 + t * twist_degrees
+                section_angle = base_angle + rotation_at_z
+                section_angle_rad = math.radians(section_angle)
 
-            # Radial direction at start
-            start_angle_rad = math.radians(base_angle - twist_extended_deg / 2)
-            radial = Vector(math.cos(start_angle_rad), math.sin(start_angle_rad), 0)
+                # Create profile plane at this Z, rotated appropriately
+                radial = Vector(math.cos(section_angle_rad), math.sin(section_angle_rad), 0)
+                tangent = Vector(-math.sin(section_angle_rad), math.cos(section_angle_rad), 0)
 
-            # Create sweep plane with X = radial outward, Z = along helix
-            sweep_plane = Plane(origin=start_pt, x_dir=radial, z_dir=tangent)
+                # Profile plane: origin at pitch radius, X = radial outward, Y = tangential
+                origin = Vector(
+                    pitch_radius * math.cos(section_angle_rad),
+                    pitch_radius * math.sin(section_angle_rad),
+                    z_pos
+                )
+                profile_plane = Plane(origin=origin, x_dir=radial, z_dir=Vector(0, 0, 1))
 
-            # Profile offsets from pitch radius
-            inner = root_radius - pitch_radius - 0.5
-            outer = tip_radius + 0.5 - pitch_radius
+                # Profile offsets from pitch radius (in radial direction)
+                inner = root_radius - pitch_radius - 0.3
+                outer = tip_radius + 0.3 - pitch_radius
 
-            # Create and sweep tooth space with involute-like curved flanks
+                with BuildSketch(profile_plane) as sk:
+                    with BuildLine():
+                        # Create involute-like curved flanks
+                        num_flank_points = 5
+                        left_flank = []
+                        right_flank = []
+
+                        for j in range(num_flank_points):
+                            t_flank = j / (num_flank_points - 1)
+                            r_pos = inner + t_flank * (outer - inner)
+
+                            linear_width = half_root + t_flank * (half_tip - half_root)
+                            curve_factor = 4 * t_flank * (1 - t_flank)
+                            bulge = curve_factor * 0.05 * (half_root - half_tip)
+                            width = linear_width + bulge
+
+                            left_flank.append((r_pos, -width))
+                            right_flank.append((r_pos, width))
+
+                        Spline(left_flank)
+                        Line(left_flank[-1], right_flank[-1])
+                        Spline(list(reversed(right_flank)))
+                        Line(right_flank[0], left_flank[0])
+                    make_face()
+
+                sections.append(sk.sketch.faces()[0])
+
+            # Loft the sections to create twisted tooth space
             try:
-                with BuildPart() as space_builder:
-                    with BuildSketch(sweep_plane):
-                        with BuildLine():
-                            # Create involute-like curved flanks to match worm
-                            num_flank_points = 5
-                            left_flank = []
-                            right_flank = []
-
-                            for j in range(num_flank_points):
-                                # Parameter along the flank (0 = inner/root, 1 = outer/tip)
-                                t_flank = j / (num_flank_points - 1)
-                                r_pos = inner + t_flank * (outer - inner)
-
-                                # Interpolate width with slight curve (involute approximation)
-                                linear_width = half_root + t_flank * (half_tip - half_root)
-                                # Add subtle curve - max bulge at middle of flank
-                                curve_factor = 4 * t_flank * (1 - t_flank)
-                                bulge = curve_factor * 0.05 * (half_root - half_tip)
-                                width = linear_width + bulge
-
-                                left_flank.append((r_pos, -width))
-                                right_flank.append((r_pos, width))
-
-                            # Build profile: left flank up, across outer, right flank down, across inner
-                            Spline(left_flank)
-                            Line(left_flank[-1], right_flank[-1])  # Outer edge
-                            Spline(list(reversed(right_flank)))
-                            Line(right_flank[0], left_flank[0])  # Inner edge (closes profile)
-                        make_face()
-                    sweep(path=helix_path)
-
-                space = space_builder.part
+                space = loft(sections, ruled=True)
                 gear = gear - space
             except Exception as e:
                 print(f"Warning: Tooth space {i} failed: {e}")
