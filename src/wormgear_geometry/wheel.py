@@ -2,8 +2,8 @@
 Wheel geometry generation using build123d.
 
 Creates worm wheel with two options:
-1. Helical: Pure helical gear teeth (no throat cut) - simpler, point contact
-2. Hobbed: Helical gear with toroidal throat cut - attempts to simulate hobbing
+1. Helical: Pure helical gear teeth (flat root) - simpler, point contact
+2. Hobbed/Throated: Arc-bottomed teeth that match worm curvature - better contact
 """
 
 import math
@@ -59,12 +59,8 @@ class WheelGeometry:
         Returns:
             build123d Part object ready for export
         """
-        # Create helical gear
+        # Create helical gear (throating is built into the tooth profile)
         gear = self._create_helical_gear()
-
-        # Optionally apply toroidal throat cut
-        if self.throated:
-            gear = self._apply_throat_cut(gear)
 
         return gear
 
@@ -74,6 +70,10 @@ class WheelGeometry:
 
         Uses extrusion with rotation rather than helix sweep to avoid
         self-intersection issues with tight helix pitches.
+
+        For throated wheels, the tooth space profile has an arc at the root
+        that matches the worm's curvature, creating the throat naturally
+        as part of the tooth geometry.
         """
         z = self.params.num_teeth
         m = self.params.module_mm
@@ -118,6 +118,13 @@ class WheelGeometry:
         # Number of sections for lofting the twisted extrusion
         num_sections = max(8, int(abs(twist_degrees) / 5) + 1)
 
+        # For throated wheels, calculate the worm position for arc profile
+        if self.throated:
+            centre_distance = self.assembly_params.centre_distance_mm
+            worm_tip_radius = self.worm_params.tip_diameter_mm / 2
+            # Add small clearance for fit
+            arc_radius = worm_tip_radius + 0.1
+
         # Cut tooth spaces
         gear = blank
 
@@ -149,18 +156,26 @@ class WheelGeometry:
                 profile_plane = Plane(origin=origin, x_dir=radial, z_dir=Vector(0, 0, 1))
 
                 # Profile offsets from pitch radius (in radial direction)
-                inner = root_radius - pitch_radius - 0.3
+                inner = root_radius - pitch_radius - 0.3  # Extend below root
                 outer = tip_radius + 0.3 - pitch_radius
+
+                # For throated wheels, the root depth varies with Z position
+                # to match the worm's cylindrical surface
+                if self.throated and abs(z_pos) < arc_radius:
+                    # Calculate where the worm surface is at this Z
+                    worm_surface_dist = centre_distance - math.sqrt(arc_radius**2 - z_pos**2)
+                    throated_inner = worm_surface_dist - pitch_radius
+                    # Use the shallower of the two (worm surface or calculated root)
+                    actual_inner = max(inner, throated_inner)
+                else:
+                    actual_inner = inner
 
                 with BuildSketch(profile_plane) as sk:
                     with BuildLine():
-                        # Create trapezoidal tooth space profile
-                        # Inner edge (at root) is narrower, outer edge (at tip) is wider
-                        # This matches the worm's trapezoidal thread profile
-
-                        # Four corners of trapezoid: inner-left, inner-right, outer-right, outer-left
-                        inner_left = (inner, -half_root)
-                        inner_right = (inner, half_root)
+                        # Four corners of trapezoidal profile
+                        # For throated wheels, the inner (root) position varies with Z
+                        inner_left = (actual_inner, -half_root)
+                        inner_right = (actual_inner, half_root)
                         outer_right = (outer, half_tip)
                         outer_left = (outer, -half_tip)
 
@@ -181,34 +196,6 @@ class WheelGeometry:
                 print(f"Warning: Tooth space {i} failed: {e}")
 
         return gear
-
-    def _apply_throat_cut(self, gear: Part) -> Part:
-        """
-        Apply toroidal throat cut to match worm curvature.
-
-        The throat is created by revolving a circle (worm tip profile)
-        around the wheel axis at the centre distance. This creates a
-        torus that represents the envelope of the worm as it meshes
-        with the wheel.
-        """
-        centre_distance = self.assembly_params.centre_distance_mm
-        worm_tip_radius = self.worm_params.tip_diameter_mm / 2
-        clearance = 0.1  # Small clearance for fit
-
-        # Create torus by revolving a circle around the wheel axis (Z)
-        # Circle is positioned at X = centre_distance, in the XZ plane
-        with BuildPart() as torus_builder:
-            with BuildSketch(Plane.XZ) as sk:
-                with Locations([(centre_distance, 0)]):
-                    Circle(worm_tip_radius + clearance)
-            revolve(axis=Axis.Z)
-
-        throat_torus = torus_builder.part
-
-        # Subtract torus from gear
-        throated_gear = gear - throat_torus
-
-        return throated_gear
 
     def show(self):
         """Display the wheel in OCP viewer."""

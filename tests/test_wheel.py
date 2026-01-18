@@ -253,6 +253,135 @@ class TestWheelGeometry:
         assert wheel.is_valid
 
 
+class TestThroatedWheel:
+    """Tests for throated (hobbed) wheel functionality."""
+
+    @pytest.fixture
+    def worm_params(self, sample_design_7mm):
+        """Create WormParams from sample design."""
+        return WormParams(
+            module_mm=sample_design_7mm["worm"]["module_mm"],
+            num_starts=sample_design_7mm["worm"]["num_starts"],
+            pitch_diameter_mm=sample_design_7mm["worm"]["pitch_diameter_mm"],
+            tip_diameter_mm=sample_design_7mm["worm"]["tip_diameter_mm"],
+            root_diameter_mm=sample_design_7mm["worm"]["root_diameter_mm"],
+            lead_mm=sample_design_7mm["worm"]["lead_mm"],
+            lead_angle_deg=sample_design_7mm["worm"]["lead_angle_deg"],
+            addendum_mm=sample_design_7mm["worm"]["addendum_mm"],
+            dedendum_mm=sample_design_7mm["worm"]["dedendum_mm"],
+            thread_thickness_mm=sample_design_7mm["worm"]["thread_thickness_mm"],
+            hand="right",
+            profile_shift=0.0
+        )
+
+    @pytest.fixture
+    def wheel_params(self, sample_design_7mm):
+        """Create WheelParams from sample design."""
+        return WheelParams(
+            module_mm=sample_design_7mm["wheel"]["module_mm"],
+            num_teeth=sample_design_7mm["wheel"]["num_teeth"],
+            pitch_diameter_mm=sample_design_7mm["wheel"]["pitch_diameter_mm"],
+            tip_diameter_mm=sample_design_7mm["wheel"]["tip_diameter_mm"],
+            root_diameter_mm=sample_design_7mm["wheel"]["root_diameter_mm"],
+            throat_diameter_mm=sample_design_7mm["wheel"]["throat_diameter_mm"],
+            helix_angle_deg=sample_design_7mm["wheel"]["helix_angle_deg"],
+            addendum_mm=sample_design_7mm["wheel"]["addendum_mm"],
+            dedendum_mm=sample_design_7mm["wheel"]["dedendum_mm"],
+            profile_shift=0.0
+        )
+
+    @pytest.fixture
+    def assembly_params(self, sample_design_7mm):
+        """Create AssemblyParams from sample design."""
+        return AssemblyParams(
+            centre_distance_mm=sample_design_7mm["assembly"]["centre_distance_mm"],
+            pressure_angle_deg=sample_design_7mm["assembly"]["pressure_angle_deg"],
+            backlash_mm=sample_design_7mm["assembly"]["backlash_mm"],
+            hand=sample_design_7mm["assembly"]["hand"],
+            ratio=sample_design_7mm["assembly"]["ratio"]
+        )
+
+    def test_throated_wheel_builds_successfully(self, wheel_params, worm_params, assembly_params):
+        """Test that throated wheel builds without errors."""
+        wheel_geo = WheelGeometry(
+            params=wheel_params,
+            worm_params=worm_params,
+            assembly_params=assembly_params,
+            face_width=4.0,
+            throated=True
+        )
+        wheel = wheel_geo.build()
+
+        assert wheel is not None
+        assert wheel.volume > 0
+        assert wheel.is_valid
+
+    def test_throated_wheel_has_more_volume(self, wheel_params, worm_params, assembly_params):
+        """Test that throated wheel has more volume than helical (shallower teeth at edges)."""
+        # Build helical wheel
+        helical_geo = WheelGeometry(
+            params=wheel_params,
+            worm_params=worm_params,
+            assembly_params=assembly_params,
+            face_width=4.0,
+            throated=False
+        )
+        helical_wheel = helical_geo.build()
+
+        # Build throated wheel
+        throated_geo = WheelGeometry(
+            params=wheel_params,
+            worm_params=worm_params,
+            assembly_params=assembly_params,
+            face_width=4.0,
+            throated=True
+        )
+        throated_wheel = throated_geo.build()
+
+        # Throated wheel should have more volume because teeth are shallower
+        # at the edges where the worm doesn't reach as deep
+        assert throated_wheel.volume > helical_wheel.volume
+
+    def test_throated_default_is_false(self, wheel_params, worm_params, assembly_params):
+        """Test that throated defaults to False."""
+        wheel_geo = WheelGeometry(
+            params=wheel_params,
+            worm_params=worm_params,
+            assembly_params=assembly_params,
+            face_width=4.0
+        )
+        assert wheel_geo.throated is False
+
+    def test_throated_wheel_is_watertight(self, wheel_params, worm_params, assembly_params):
+        """Test that throated wheel geometry is watertight (valid solid)."""
+        wheel_geo = WheelGeometry(
+            params=wheel_params,
+            worm_params=worm_params,
+            assembly_params=assembly_params,
+            face_width=4.0,
+            throated=True
+        )
+        wheel = wheel_geo.build()
+
+        assert wheel.is_valid
+
+    def test_throated_wheel_different_face_widths(self, wheel_params, worm_params, assembly_params):
+        """Test throated wheel with different face widths."""
+        for face_width in [2.0, 4.0, 6.0]:
+            wheel_geo = WheelGeometry(
+                params=wheel_params,
+                worm_params=worm_params,
+                assembly_params=assembly_params,
+                face_width=face_width,
+                throated=True
+            )
+            wheel = wheel_geo.build()
+
+            assert wheel is not None
+            assert wheel.volume > 0
+            assert wheel.is_valid
+
+
 class TestWheelFromJsonFile:
     """Tests using actual JSON files."""
 
@@ -268,6 +397,26 @@ class TestWheelFromJsonFile:
             worm_params=design.worm,
             assembly_params=design.assembly,
             face_width=4.0
+        )
+        wheel = wheel_geo.build()
+
+        assert wheel is not None
+        assert wheel.volume > 0
+        assert wheel.is_valid
+
+    def test_build_throated_wheel_from_7mm_json(self, examples_dir):
+        """Test building throated wheel from 7mm.json example file."""
+        example_file = examples_dir / "7mm.json"
+        if not example_file.exists():
+            pytest.skip("Example file not found")
+
+        design = load_design_json(example_file)
+        wheel_geo = WheelGeometry(
+            params=design.wheel,
+            worm_params=design.worm,
+            assembly_params=design.assembly,
+            face_width=4.0,
+            throated=True
         )
         wheel = wheel_geo.build()
 
