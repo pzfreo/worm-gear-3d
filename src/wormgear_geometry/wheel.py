@@ -1,7 +1,9 @@
 """
 Wheel geometry generation using build123d.
 
-Creates worm wheel using hybrid approach: helical involute gear + throating cut.
+Creates worm wheel using hybrid approach:
+1. Helical gear with correct tooth profile
+2. Toroidal throat cut to match worm curvature
 """
 
 import math
@@ -13,8 +15,9 @@ class WheelGeometry:
     """
     Generates 3D geometry for a worm wheel.
 
-    Uses hybrid approach: creates helical involute gear, then applies
-    throating cylinder cut to match worm curvature.
+    Uses hybrid approach (Option C from spec):
+    - Creates helical gear with involute-approximation teeth
+    - Applies toroidal throat cut to match worm curvature
     """
 
     def __init__(
@@ -38,12 +41,10 @@ class WheelGeometry:
         self.assembly_params = assembly_params
 
         # Calculate face width if not provided
-        # Rule of thumb: b ≈ 0.73 × d1^(1/3) × sqrt(ratio)
         if face_width is None:
             d1 = worm_params.pitch_diameter_mm
             ratio = assembly_params.ratio
             self.face_width = 0.73 * (d1 ** (1/3)) * math.sqrt(ratio)
-            # Clamp to practical range
             self.face_width = max(0.3 * d1, min(0.67 * d1, self.face_width))
         else:
             self.face_width = face_width
@@ -55,147 +56,165 @@ class WheelGeometry:
         Returns:
             build123d Part object ready for export
         """
-        # Create basic helical gear
+        # Create helical gear
         gear = self._create_helical_gear()
 
-        # Apply throating cut
+        # Apply toroidal throat cut
         throated_gear = self._apply_throat_cut(gear)
 
         return throated_gear
 
     def _create_helical_gear(self) -> Part:
         """
-        Create basic helical involute gear.
-
-        This is a simplified approach - creates straight involute teeth
-        then helixes them to match the worm.
+        Create helical gear by sweeping tooth spaces along helical paths.
         """
-        # Create gear blank (cylinder)
+        z = self.params.num_teeth
+        m = self.params.module_mm
+        tip_radius = self.params.tip_diameter_mm / 2
+        root_radius = self.params.root_diameter_mm / 2
+        pitch_radius = self.params.pitch_diameter_mm / 2
+        pressure_angle = math.radians(self.assembly_params.pressure_angle_deg)
+
+        # The wheel's helix angle should match the worm's lead angle
+        lead_angle = math.radians(self.worm_params.lead_angle_deg)
+
+        # Create gear blank
         blank = Cylinder(
-            radius=self.params.tip_diameter_mm / 2,
+            radius=tip_radius,
             height=self.face_width,
             align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
 
-        # Create tooth spaces (simplified approach - use rectangles)
-        # In a production version, we'd use true involute curves
-        tooth_space = self._create_tooth_space()
+        # Calculate tooth space dimensions
+        circular_pitch = math.pi * m
+        space_width_pitch = circular_pitch / 2 + self.assembly_params.backlash_mm
 
-        # Pattern around circumference
-        with BuildPart() as gear_builder:
-            add(blank)
+        # Space is wider at tip, narrower at root (inverse of tooth shape)
+        space_width_tip = space_width_pitch + 2 * (tip_radius - pitch_radius) * math.tan(pressure_angle)
+        space_width_root = space_width_pitch - 2 * (pitch_radius - root_radius) * math.tan(pressure_angle)
+        space_width_root = max(0.5, space_width_root)
 
-            # Cut each tooth space
-            for i in range(self.params.num_teeth):
-                angle = (360 / self.params.num_teeth) * i
-                rotated_space = tooth_space.rotate(Axis.Z, angle)
-                gear_builder.part = gear_builder.part - rotated_space
+        half_root = space_width_root / 2
+        half_tip = space_width_tip / 2
 
-        gear = gear_builder.part
+        # Helical twist across face width (using lead angle)
+        twist_rad = self.face_width * math.tan(lead_angle) / pitch_radius
+        twist_deg = math.degrees(twist_rad)
 
-        # Apply helix twist to teeth
-        # Twist amount: helix_angle over the face width
-        twist_angle = math.degrees(
-            math.atan(self.face_width / self.params.pitch_diameter_mm) *
-            math.tan(math.radians(self.params.helix_angle_deg))
-        )
+        # Extend cut beyond face to get clean edges
+        extension = 2
+        cut_height = self.face_width + 2 * extension
+        twist_extended_rad = cut_height * math.tan(lead_angle) / pitch_radius
+        twist_extended_deg = math.degrees(twist_extended_rad)
 
-        # Note: build123d doesn't have built-in twist, so we approximate with sections
-        # For now, return the gear without twist (will still mesh, just not perfectly)
-        # TODO: Implement true helical twist using multiple cross-sections
+        # Calculate helix pitch for the sweep
+        if abs(twist_extended_deg) > 0.1:
+            helix_pitch = cut_height / (twist_extended_deg / 360)
+        else:
+            helix_pitch = 10000  # Nearly straight
+
+        # Cut tooth spaces
+        gear = blank
+
+        for i in range(z):
+            base_angle = (360 / z) * i
+
+            # Create helix path for this tooth space
+            helix_path = Helix(
+                pitch=helix_pitch,
+                height=cut_height,
+                radius=pitch_radius,
+                center=(0, 0, -cut_height / 2),
+            )
+
+            # Rotate helix to correct starting angle
+            helix_path = helix_path.rotate(Axis.Z, base_angle - twist_extended_deg / 2)
+
+            # Get start point and tangent for sweep plane
+            start_pt = helix_path @ 0
+            tangent = helix_path % 0
+
+            # Radial direction at start
+            start_angle_rad = math.radians(base_angle - twist_extended_deg / 2)
+            radial = Vector(math.cos(start_angle_rad), math.sin(start_angle_rad), 0)
+
+            # Create sweep plane with X = radial outward, Z = along helix
+            sweep_plane = Plane(origin=start_pt, x_dir=radial, z_dir=tangent)
+
+            # Profile offsets from pitch radius
+            inner = root_radius - pitch_radius - 0.5
+            outer = tip_radius + 0.5 - pitch_radius
+
+            # Create and sweep tooth space
+            try:
+                with BuildPart() as space_builder:
+                    with BuildSketch(sweep_plane):
+                        with BuildLine():
+                            Polyline([
+                                (inner, -half_root),
+                                (outer, -half_tip),
+                                (outer, half_tip),
+                                (inner, half_root),
+                                (inner, -half_root),
+                            ])
+                        make_face()
+                    sweep(path=helix_path)
+
+                space = space_builder.part
+                gear = gear - space
+            except Exception as e:
+                print(f"Warning: Tooth space {i} failed: {e}")
 
         return gear
 
-    def _create_tooth_space(self) -> Part:
-        """
-        Create a single tooth space (gap between teeth).
-
-        Simplified approach using rectangular cut.
-        A production version would use true involute curves.
-        """
-        # Tooth space at pitch diameter
-        circular_pitch = math.pi * self.params.module_mm
-        space_width = circular_pitch / 2  # Half of circular pitch
-        space_depth = self.params.addendum_mm + self.params.dedendum_mm
-
-        # Create radial cut
-        # Position at pitch radius, extend outward and inward
-        pitch_radius = self.params.pitch_diameter_mm / 2
-
-        with BuildPart() as space_builder:
-            Box(
-                space_width,
-                self.params.tip_diameter_mm,  # Long enough to cut through
-                self.face_width * 1.1,  # Slightly taller than gear
-                align=(Align.CENTER, Align.MIN, Align.CENTER)
-            )
-
-        return space_builder.part
-
     def _apply_throat_cut(self, gear: Part) -> Part:
         """
-        Apply throating cylinder cut to match worm curvature.
+        Apply toroidal throat cut to match worm curvature.
 
-        The throat is cut by a cylinder at the worm's tip radius,
-        positioned at the correct centre distance.
+        The throat is created by revolving a circle (worm tip profile)
+        around the wheel axis at the centre distance. This creates a
+        torus that represents the envelope of the worm as it meshes
+        with the wheel.
         """
-        # Throat cutting cylinder parameters
-        throat_radius = self.worm_params.tip_diameter_mm / 2 + 0.1  # Small clearance
-        throat_length = self.params.tip_diameter_mm * 2  # Long enough
+        centre_distance = self.assembly_params.centre_distance_mm
+        worm_tip_radius = self.worm_params.tip_diameter_mm / 2
+        clearance = 0.1  # Small clearance for fit
 
-        # Create cutting cylinder
-        # Positioned perpendicular to wheel axis, at centre distance
-        throat_cutter = Cylinder(
-            radius=throat_radius,
-            height=throat_length,
-            align=(Align.CENTER, Align.CENTER, Align.CENTER)
-        )
+        # Create torus by revolving a circle around the wheel axis (Z)
+        # Circle is positioned at X = centre_distance, in the XZ plane
+        with BuildPart() as torus_builder:
+            with BuildSketch(Plane.XZ) as sk:
+                with Locations([(centre_distance, 0)]):
+                    Circle(worm_tip_radius + clearance)
+            revolve(axis=Axis.Z)
 
-        # Rotate to be perpendicular to wheel (along X axis)
-        throat_cutter = throat_cutter.rotate(Axis.Y, 90)
+        throat_torus = torus_builder.part
 
-        # Move to correct position (centre distance from wheel centre)
-        # In assembly, worm is above wheel at centre distance
-        throat_cutter = throat_cutter.translate((0, 0, self.assembly_params.centre_distance_mm))
-
-        # Subtract from gear
-        throated_gear = gear - throat_cutter
+        # Subtract torus from gear
+        throated_gear = gear - throat_torus
 
         return throated_gear
 
     def show(self):
-        """
-        Display the wheel in OCP viewer (Jupyter or VS Code).
-
-        Returns:
-            The built wheel part for viewer display
-        """
+        """Display the wheel in OCP viewer."""
         wheel = self.build()
         try:
             from ocp_vscode import show as ocp_show
             ocp_show(wheel)
         except ImportError:
-            # Fall back to build123d show if available
             try:
                 show(wheel)
             except:
-                print("No viewer available. Install ocp-vscode or run in Jupyter with build123d viewer.")
+                print("No viewer available.")
         return wheel
 
     def export_step(self, filepath: str):
-        """
-        Build and export wheel to STEP file.
-
-        Args:
-            filepath: Output STEP file path
-        """
+        """Build and export wheel to STEP file."""
         wheel = self.build()
 
-        # Convert to Part if needed
         if hasattr(wheel, 'export_step'):
             wheel.export_step(filepath)
         else:
-            # Use exporter for Compound objects
             from build123d import export_step as exp_step
             exp_step(wheel, filepath)
 

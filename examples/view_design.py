@@ -106,7 +106,7 @@ def main():
         # Show parts with labels
         reset_show()
         for name, part in parts_to_show:
-            show(part, name=name)
+            show(part, names=[name])
 
         print(f"✓ Displaying {len(parts_to_show)} part(s) in viewer")
 
