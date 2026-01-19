@@ -40,9 +40,13 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
 def run_server(port=8000):
     """Run the development server."""
 
-    # Change to the web directory
+    # Change to the project root directory (parent of web/)
+    # This allows serving both web/ files and src/examples/ files
     web_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(web_dir)
+    project_root = os.path.dirname(web_dir)
+    os.chdir(project_root)
+
+    print(f"📁 Serving from: {project_root}")
 
     server_address = ('', port)
     httpd = HTTPServer(server_address, CORSRequestHandler)
@@ -54,16 +58,21 @@ def run_server(port=8000):
 
 📍 Server running at:
 
-    http://localhost:{port}
+    http://localhost:{port}/web/
 
 🌐 Access from network:
 
-    http://<your-ip>:{port}
+    http://<your-ip>:{port}/web/
 
 💡 Usage:
     - Open the URL above in your browser
     - Test with sample designs or upload JSON
     - Check browser console for detailed logs
+
+📁 Accessible paths:
+    - /web/         → Web interface
+    - /src/         → Python source files
+    - /examples/    → Sample JSON designs
 
 ⌨️  Press Ctrl+C to stop the server
 

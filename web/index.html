@@ -767,16 +767,16 @@ if '/home/pyodide' not in sys.path:
                 for (const filename of packageFiles) {
                     let content = null;
 
-                    // Try deployed path first (src/ relative to index.html)
+                    // Try local dev path first (../src/ when serving from project root)
                     try {
-                        const response = await fetch(`src/wormgear_geometry/${filename}`);
+                        const response = await fetch(`../src/wormgear_geometry/${filename}`);
                         if (response.ok) {
                             content = await response.text();
                         }
                     } catch (e) {
-                        // Try local dev path
+                        // Try deployed path (src/ when web/ is root)
                         try {
-                            const response = await fetch(`../src/wormgear_geometry/${filename}`);
+                            const response = await fetch(`src/wormgear_geometry/${filename}`);
                             if (response.ok) {
                                 content = await response.text();
                             }
