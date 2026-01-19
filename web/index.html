@@ -1191,7 +1191,11 @@ wheel_params = WheelParams(**design['wheel'])
 assembly_params = AssemblyParams(**design['assembly'])
 
 # Handle None wheel_width - convert JS null to Python None
-wheel_width = None if wheel_width_val is None else float(wheel_width_val)
+# JsNull is not Python None, so we need to check if it's truthy or use try/except
+try:
+    wheel_width = float(wheel_width_val) if wheel_width_val else None
+except (TypeError, ValueError):
+    wheel_width = None
 print(f"Wheel width: {wheel_width if wheel_width else 'auto-calculated'}")
 
 print("✓ Parameters parsed")
