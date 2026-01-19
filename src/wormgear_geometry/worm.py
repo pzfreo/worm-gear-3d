@@ -61,7 +61,12 @@ class WormGeometry:
         tip_radius = self.params.tip_diameter_mm / 2
 
         # Create thread(s) first to determine helix extent
+        print(f"    Creating {self.params.num_starts} thread(s)...")
         threads = self._create_threads()
+        if threads is None:
+            print("    WARNING: No threads created!")
+        else:
+            print(f"    ✓ Threads created")
 
         # Calculate helix extent from thread parameters
         lead = self.params.lead_mm
@@ -69,6 +74,7 @@ class WormGeometry:
         helix_height = num_turns * lead
 
         # Create core cylinder matching helix height for clean boolean operations
+        print(f"    Creating core cylinder (radius={root_radius:.2f}mm, height={helix_height:.2f}mm)...")
         core = Cylinder(
             radius=root_radius,
             height=helix_height,
@@ -76,8 +82,11 @@ class WormGeometry:
         )
 
         if threads is not None:
+            print(f"    Unioning core with threads...")
             worm = core + threads
+            print(f"    ✓ Union complete")
         else:
+            print(f"    No threads to union - using core only")
             worm = core
 
         # Trim to exact length by intersecting with a box
@@ -140,6 +149,7 @@ class WormGeometry:
         root_radius = self.params.root_diameter_mm / 2
         lead = self.params.lead_mm
         is_right_hand = self.params.hand.upper() == "RIGHT"
+        print(f"      Thread: pitch_r={pitch_radius:.2f}, tip_r={tip_radius:.2f}, root_r={root_radius:.2f}, lead={lead:.2f}mm")
 
         # Thread profile dimensions
         pressure_angle_rad = math.radians(self.assembly_params.pressure_angle_deg)
@@ -223,7 +233,9 @@ class WormGeometry:
             sections.append(sk.sketch.faces()[0])
 
         # Loft with ruled=True for consistent geometry
+        print(f"      Lofting {len(sections)} sections...")
         thread = loft(sections, ruled=True)
+        print(f"      ✓ Thread lofted successfully")
 
         return thread
 
