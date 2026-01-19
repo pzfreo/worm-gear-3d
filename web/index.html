@@ -684,10 +684,23 @@ else:
                 jsonInput.value = e.target.result;
                 log(`Loaded file: ${file.name}`, 'success');
                 try {
-                    JSON.parse(e.target.result);
-                    log('JSON validated successfully', 'success');
+                    const data = JSON.parse(e.target.result);
+
+                    // Validate structure
+                    if (!data.design) {
+                        log('⚠ Warning: JSON missing "design" object', 'warning');
+                        log('Expected format: { "design": { "worm": {...}, "wheel": {...}, "assembly": {...} } }', 'info');
+                    } else if (!data.design.worm || !data.design.wheel || !data.design.assembly) {
+                        log('⚠ Warning: Incomplete design structure', 'warning');
+                        if (!data.design.worm) log('  Missing: design.worm', 'warning');
+                        if (!data.design.wheel) log('  Missing: design.wheel', 'warning');
+                        if (!data.design.assembly) log('  Missing: design.assembly', 'warning');
+                    } else {
+                        log('✓ JSON validated successfully', 'success');
+                        log(`  Module: ${data.design.worm.module_mm} mm, Ratio: ${data.design.assembly.ratio}:1`, 'info');
+                    }
                 } catch (error) {
-                    log(`Invalid JSON: ${error.message}`, 'error');
+                    log(`✗ Invalid JSON: ${error.message}`, 'error');
                 }
             };
             reader.readAsText(file);
@@ -816,6 +829,14 @@ print(f"wormgear_geometry loaded (version {wormgear_geometry.__version__})")
 
                 const designData = JSON.parse(jsonText);
                 log('✓ JSON parsed successfully', 'success');
+
+                // Validate structure
+                if (!designData.design || !designData.design.worm || !designData.design.wheel || !designData.design.assembly) {
+                    log('✗ Invalid JSON structure', 'error');
+                    log('Expected format: { "design": { "worm": {...}, "wheel": {...}, "assembly": {...} } }', 'error');
+                    log('See examples/sample_m2_ratio30.json for correct format', 'info');
+                    return;
+                }
 
                 // Extract parameters from UI
                 const wormLength = parseFloat(document.getElementById('wormLength').value) || 40;
