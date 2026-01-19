@@ -1,0 +1,61 @@
+name: Deploy Web Interface to GitHub Pages
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'web/**'
+      - 'src/**'
+      - 'examples/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare deployment files
+        run: |
+          # Copy web interface files to deployment directory
+          mkdir -p deploy
+          cp -r web/* deploy/
+
+          # Copy source files (for loading in browser)
+          cp -r src deploy/src
+
+          # Copy example files (for sample designs)
+          cp -r examples deploy/examples
+
+          # Add .nojekyll to prevent Jekyll processing
+          touch deploy/.nojekyll
+
+          echo "Deployment directory contents:"
+          ls -la deploy/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './deploy'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

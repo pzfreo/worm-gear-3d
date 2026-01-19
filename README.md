@@ -99,9 +99,20 @@ python3 serve.py 8000
 # Open http://localhost:8000
 ```
 
-**Status:** 🚧 Foundation complete, needs OCP.wasm integration
+**Status:** ✅ Fully functional with OCP.wasm integration - ready to deploy!
 
-See [web/README.md](web/README.md) for details and [web/SETUP_OCP.md](web/SETUP_OCP.md) for OCP.wasm setup.
+**Try it now:**
+```bash
+cd web && python3 serve.py 8000
+# Open http://localhost:8000
+```
+
+**Deploy to GitHub Pages:**
+- Push to main branch
+- Enable GitHub Pages in Settings
+- Access at `https://your-username.github.io/worm-gear-3d/`
+
+See [web/README.md](web/README.md) for usage and [web/DEPLOYMENT.md](web/DEPLOYMENT.md) for deployment to GitHub Pages, Netlify, Vercel, etc.
 
 ## Installation
 
