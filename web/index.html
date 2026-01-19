@@ -405,7 +405,7 @@
     </div>
 
     <!-- Load Pyodide -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
 
     <script>
         let pyodide = null;
@@ -451,7 +451,7 @@
                 updateStatus('Loading Pyodide...', 'Downloading Python runtime', 'loading');
 
                 pyodide = await loadPyodide({
-                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/'
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.0/full/'
                 });
 
                 log('Pyodide loaded successfully', 'success');
@@ -477,59 +477,92 @@
         // Install build123d and dependencies
         async function installBuild123d(micropip) {
             try {
-                updateStatus('Configuring OCP.wasm...', 'Setting up WebAssembly CAD kernel', 'loading');
-                log('Configuring micropip to use OCP.wasm package index...');
+                // Use Jojain's approach from build123d-sandbox
+                // https://github.com/Jojain/build123d-sandbox
+                updateStatus('Installing CAD packages...', 'Following Jojain\'s working method', 'loading');
+                log('📦 Using proven installation method from build123d-sandbox');
+                log('⏳ Large download - please be patient (2-5 minutes)...', 'info');
 
-                // Set package index to prioritize OCP.wasm repository
-                // This provides WebAssembly-compiled versions of OCP and dependencies
-                await pyodide.runPythonAsync(`
+                const result = await pyodide.runPythonAsync(`
 import micropip
-micropip.set_index_urls([
-    "https://yeicor.github.io/OCP.wasm",  # OCP.wasm packages (prioritized)
-    "https://pypi.org/simple"              # Fallback to PyPI
-])
-                `);
 
-                log('Package index configured successfully', 'success');
+print("Starting package installation...")
+print("Setting index URLs...")
+micropip.set_index_urls(["https://yeicor.github.io/OCP.wasm", "https://pypi.org/simple"])
+print("Index URLs set")
 
-                // Install lib3mf (required for build123d <0.10.0)
-                updateStatus('Installing dependencies...', 'Loading lib3mf library', 'loading');
-                log('Installing lib3mf...');
-                await micropip.install('lib3mf');
-                log('lib3mf installed', 'success');
+print("Installing lib3mf...")
+await micropip.install("lib3mf")
+print("✓ lib3mf installed")
 
-                // Add mock package for py-lib3mf compatibility
-                await pyodide.runPythonAsync(`
+print("Installing ssl...")
+await micropip.install("ssl")
+print("✓ ssl installed")
+
+print("Installing ocp_vscode from Jojain's fork...")
+await micropip.install("https://raw.githubusercontent.com/Jojain/vscode-ocp-cad-viewer/no_pyperclip/ocp_vscode-2.9.0-py3-none-any.whl")
+print("✓ ocp_vscode installed")
+
+# Mock package for build123d<0.10.0 compatibility
 micropip.add_mock_package("py-lib3mf", "2.4.1", modules={"py_lib3mf": '''from lib3mf import *'''})
+print("✓ Mock package added")
+
+print("Installing build123d and sqlite3...")
+await micropip.install(["build123d", "sqlite3"])
+print("✓ Installation completed")
+
+# Test imports
+print("Testing imports...")
+try:
+    import build123d
+    print(f"✓ build123d imported (version: {getattr(build123d, '__version__', 'unknown')})")
+    success = True
+except ImportError as e:
+    print(f"✗ build123d import failed: {e}")
+    success = False
+
+"SUCCESS" if success else "FAILED"
                 `);
-                log('py-lib3mf compatibility layer added', 'success');
 
-                // Install build123d (will get WebAssembly OCP from OCP.wasm repo)
-                updateStatus('Installing build123d...', 'This will take 2-5 minutes (50-100MB download)', 'loading');
-                log('Installing build123d with OCP.wasm...');
-                log('This is a large download - please be patient...', 'info');
+                if (result === 'SUCCESS') {
+                    log('✓ All packages installed successfully!', 'success');
+                    log('✓ build123d is ready to use', 'success');
+                    updateStatus('Ready to Generate', 'build123d loaded and tested', 'success');
 
-                await micropip.install(['build123d', 'sqlite3']);
+                    document.getElementById('generateBtn').disabled = false;
+                    document.getElementById('testBtn').disabled = false;
 
-                log('build123d installed successfully!', 'success');
-                updateStatus('Ready to Generate', 'build123d + OCP.wasm loaded successfully', 'success');
+                    log('System ready - click "Test build123d" to verify geometry creation', 'info');
+                } else {
+                    log('⚠ Packages installed but import test failed', 'warning');
+                    log('Click "Test build123d" to see detailed error', 'info');
+                    updateStatus('Partially Ready', 'Packages installed, imports may fail', 'warning');
 
-                // Enable buttons
-                document.getElementById('generateBtn').disabled = false;
-                document.getElementById('testBtn').disabled = false;
-
-                log('System ready for geometry generation', 'success');
-                log('Click "Test build123d" to verify installation', 'info');
+                    document.getElementById('testBtn').disabled = false;
+                }
 
             } catch (error) {
-                log(`Error installing build123d: ${error.message}`, 'error');
-                log('Installation failed - check browser console for details', 'error');
-                updateStatus('Installation Failed',
-                    'Could not load OCP.wasm - see console for details', 'error');
-                console.error('build123d install error:', error);
+                log(`✗ Installation failed`, 'error');
+                log(`Error: ${error.message}`, 'error');
 
-                // Still enable test button to show what's available
+                // Show traceback
+                try {
+                    const tb = await pyodide.runPythonAsync('import traceback; traceback.format_exc()');
+                    log('Python traceback:', 'error');
+                    tb.split('\\n').forEach(line => line && log(line, 'error'));
+                } catch (e) {}
+
+                updateStatus('Installation Failed',
+                    'Could not install CAD packages', 'error');
+                console.error('Installation error:', error);
+
                 document.getElementById('testBtn').disabled = false;
+
+                log('', 'info');
+                log('📝 Troubleshooting:', 'warning');
+                log('• Check browser console for detailed errors', 'info');
+                log('• Try using the Python library locally instead (recommended)', 'info');
+                log('• See web/CURRENT_STATUS.md for known issues', 'info');
             }
         }
 
@@ -547,22 +580,24 @@ micropip.add_mock_package("py-lib3mf", "2.4.1", modules={"py_lib3mf": '''from li
                 const result = await pyodide.runPythonAsync(`
 import sys
 
+output = []
+
 # Test OCP import
 try:
     import OCP
-    print(f"✓ OCP imported successfully")
+    output.append("✓ OCP imported successfully")
     ocp_ok = True
 except ImportError as e:
-    print(f"✗ OCP import failed: {e}")
+    output.append(f"✗ OCP import failed: {e}")
     ocp_ok = False
 
 # Test build123d import
 try:
     import build123d
-    print(f"✓ build123d imported (version: {getattr(build123d, '__version__', 'unknown')})")
+    output.append(f"✓ build123d imported (version: {getattr(build123d, '__version__', 'unknown')})")
     b3d_ok = True
 except ImportError as e:
-    print(f"✗ build123d import failed: {e}")
+    output.append(f"✗ build123d import failed: {e}")
     b3d_ok = False
 
 # If both work, try to create a simple object
@@ -571,15 +606,22 @@ if ocp_ok and b3d_ok:
         from build123d import Box, Cylinder
         box = Box(10, 10, 10)
         cyl = Cylinder(5, 20)
-        print(f"✓ Created test box (volume: {box.volume:.2f} mm³)")
-        print(f"✓ Created test cylinder (volume: {cyl.volume:.2f} mm³)")
-        "SUCCESS: build123d fully functional!"
+        output.append(f"✓ Created test box (volume: {box.volume:.2f} mm³)")
+        output.append(f"✓ Created test cylinder (volume: {cyl.volume:.2f} mm³)")
+        result = "SUCCESS"
     except Exception as e:
-        print(f"✗ Geometry creation failed: {e}")
-        "PARTIAL: Libraries imported but geometry creation failed"
+        output.append(f"✗ Geometry creation failed: {e}")
+        result = "PARTIAL"
 else:
-    "FAILED: Core libraries not available"
+    result = "FAILED"
+
+"\\n".join(output) + "\\n" + result
                 `);
+
+                if (!result) {
+                    log('Test returned no result', 'error');
+                    return;
+                }
 
                 const lines = result.split('\n');
                 for (const line of lines) {
@@ -587,17 +629,19 @@ else:
                         log(line, 'success');
                     } else if (line.includes('✗')) {
                         log(line, 'error');
-                    } else if (line) {
+                    } else if (line === 'SUCCESS' || line === 'PARTIAL' || line === 'FAILED') {
+                        // Skip these, we'll handle them below
+                    } else if (line.trim()) {
                         log(line, 'info');
                     }
                 }
 
                 if (result.includes('SUCCESS')) {
-                    log('All tests passed! Ready to generate worm gears', 'success');
+                    log('✓ All tests passed! Ready to generate worm gears', 'success');
                 } else if (result.includes('PARTIAL')) {
-                    log('Partial success - some features may not work', 'warning');
+                    log('⚠ Partial success - some features may not work', 'warning');
                 } else {
-                    log('Tests failed - check installation', 'error');
+                    log('✗ Tests failed - installation incomplete', 'error');
                 }
 
             } catch (error) {
@@ -640,10 +684,23 @@ else:
                 jsonInput.value = e.target.result;
                 log(`Loaded file: ${file.name}`, 'success');
                 try {
-                    JSON.parse(e.target.result);
-                    log('JSON validated successfully', 'success');
+                    const data = JSON.parse(e.target.result);
+
+                    // Validate structure
+                    if (!data.design) {
+                        log('⚠ Warning: JSON missing "design" object', 'warning');
+                        log('Expected format: { "design": { "worm": {...}, "wheel": {...}, "assembly": {...} } }', 'info');
+                    } else if (!data.design.worm || !data.design.wheel || !data.design.assembly) {
+                        log('⚠ Warning: Incomplete design structure', 'warning');
+                        if (!data.design.worm) log('  Missing: design.worm', 'warning');
+                        if (!data.design.wheel) log('  Missing: design.wheel', 'warning');
+                        if (!data.design.assembly) log('  Missing: design.assembly', 'warning');
+                    } else {
+                        log('✓ JSON validated successfully', 'success');
+                        log(`  Module: ${data.design.worm.module_mm} mm, Ratio: ${data.design.assembly.ratio}:1`, 'info');
+                    }
                 } catch (error) {
-                    log(`Invalid JSON: ${error.message}`, 'error');
+                    log(`✗ Invalid JSON: ${error.message}`, 'error');
                 }
             };
             reader.readAsText(file);
@@ -653,10 +710,37 @@ else:
         async function loadSampleDesign(name) {
             try {
                 log(`Loading sample design: ${name}...`);
-                const response = await fetch(`../examples/${name}.json`);
-                const json = await response.json();
-                jsonInput.value = JSON.stringify(json, null, 2);
-                log(`Loaded ${name} design`, 'success');
+
+                // Try both paths (for local dev and deployed versions)
+                let json = null;
+                let loaded = false;
+
+                // Try deployed path first (examples/ relative to index.html)
+                try {
+                    const response = await fetch(`examples/${name}.json`);
+                    if (response.ok) {
+                        json = await response.json();
+                        loaded = true;
+                    }
+                } catch (e) {
+                    // Fallback to local dev path
+                    try {
+                        const response = await fetch(`../examples/${name}.json`);
+                        if (response.ok) {
+                            json = await response.json();
+                            loaded = true;
+                        }
+                    } catch (e2) {
+                        // Will be caught below
+                    }
+                }
+
+                if (loaded && json) {
+                    jsonInput.value = JSON.stringify(json, null, 2);
+                    log(`✓ Loaded ${name} design`, 'success');
+                } else {
+                    log(`Could not load ${name}.json - file not found`, 'error');
+                }
             } catch (error) {
                 log(`Error loading sample: ${error.message}`, 'error');
             }
@@ -678,15 +762,40 @@ if '/home/pyodide' not in sys.path:
 
                 // Fetch and load package files
                 const packageFiles = ['__init__.py', 'io.py', 'worm.py', 'wheel.py', 'features.py'];
+                let loadedCount = 0;
+
                 for (const filename of packageFiles) {
+                    let content = null;
+
+                    // Try local dev path first (../src/ when serving from project root)
                     try {
                         const response = await fetch(`../src/wormgear_geometry/${filename}`);
-                        const content = await response.text();
+                        if (response.ok) {
+                            content = await response.text();
+                        }
+                    } catch (e) {
+                        // Try deployed path (src/ when web/ is root)
+                        try {
+                            const response = await fetch(`src/wormgear_geometry/${filename}`);
+                            if (response.ok) {
+                                content = await response.text();
+                            }
+                        } catch (e2) {
+                            // Will be caught below
+                        }
+                    }
+
+                    if (content) {
                         pyodide.FS.writeFile(`/home/pyodide/wormgear_geometry/${filename}`, content);
                         log(`  ✓ Loaded ${filename}`, 'success');
-                    } catch (error) {
-                        log(`  ✗ Failed to load ${filename}`, 'warning');
+                        loadedCount++;
+                    } else {
+                        log(`  ✗ Failed to load ${filename}`, 'error');
                     }
+                }
+
+                if (loadedCount < packageFiles.length) {
+                    log(`Warning: Only loaded ${loadedCount}/${packageFiles.length} files`, 'warning');
                 }
 
                 // Test import
@@ -695,10 +804,11 @@ import wormgear_geometry
 print(f"wormgear_geometry loaded (version {wormgear_geometry.__version__})")
                 `);
 
-                log('wormgear_geometry package ready', 'success');
+                log('✓ wormgear_geometry package ready', 'success');
                 return true;
             } catch (error) {
-                log(`Failed to load wormgear_geometry: ${error.message}`, 'error');
+                log(`✗ Failed to load wormgear_geometry: ${error.message}`, 'error');
+                console.error('Package loading error:', error);
                 return false;
             }
         }
@@ -719,6 +829,14 @@ print(f"wormgear_geometry loaded (version {wormgear_geometry.__version__})")
 
                 const designData = JSON.parse(jsonText);
                 log('✓ JSON parsed successfully', 'success');
+
+                // Validate structure
+                if (!designData.design || !designData.design.worm || !designData.design.wheel || !designData.design.assembly) {
+                    log('✗ Invalid JSON structure', 'error');
+                    log('Expected format: { "design": { "worm": {...}, "wheel": {...}, "assembly": {...} } }', 'error');
+                    log('See examples/sample_m2_ratio30.json for correct format', 'info');
+                    return;
+                }
 
                 // Extract parameters from UI
                 const wormLength = parseFloat(document.getElementById('wormLength').value) || 40;
