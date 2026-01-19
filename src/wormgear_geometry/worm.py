@@ -90,11 +90,14 @@ class WormGeometry:
             worm = core
 
         # Trim to exact length by intersecting with a box
+        print(f"    Trimming to length {self.length}mm...")
+        print(f"      Worm volume before trim: {worm.volume:.2f} mm³")
         trim_box = Box(
             tip_radius * 4, tip_radius * 4, self.length,
             align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
         worm = worm & trim_box
+        print(f"      Worm volume after trim: {worm.volume:.2f} mm³")
 
         # Ensure we have a single Solid for proper display in ocp_vscode
         if hasattr(worm, 'solids'):
@@ -115,6 +118,7 @@ class WormGeometry:
                 axis=Axis.Z
             )
 
+        print(f"    ✓ Final worm volume: {worm.volume:.2f} mm³")
         return worm
 
     def _create_threads(self) -> Part:
@@ -256,6 +260,7 @@ class WormGeometry:
         """Build and export worm to STEP file."""
         worm = self.build()
 
+        print(f"    Exporting worm: volume={worm.volume:.2f} mm³")
         if hasattr(worm, 'export_step'):
             worm.export_step(filepath)
         else:
