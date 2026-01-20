@@ -258,6 +258,8 @@ Choose how to start:
 │ Diameter quotient:   8.0 (q = d₁/m) ✓ DIN 3975    │
 │                                                     │
 │ ═══ Wheel ═══                                      │
+│ Teeth:               30                            │
+│ Hunting ratio:       ✓ Yes (GCD=1) - even wear    │
 │ Tip diameter (OD):   64.00 mm                      │
 │ Pitch diameter:      60.00 mm                      │
 │ Root diameter:       55.00 mm                      │
@@ -357,53 +359,111 @@ Worm: 2.0mm bore, rim thickness 1.38mm
 
 ---
 
-### Step 4: Generation & Download
+### Step 4: Quick Preview (3D Visualization)
 
 ```
 ┌────────────────────────────────────────────────────┐
-│ Generating Geometry...                              │
+│ Generating Preview...                               │
 ├────────────────────────────────────────────────────┤
 │                                                     │
-│ [████████████████░░░░] 80%                        │
+│ [████████████████████] 100%                       │
 │                                                     │
-│ Building wheel (hobbed, 30 teeth)...               │
+│ Preview ready (5 seconds)                          │
 │                                                     │
 └────────────────────────────────────────────────────┘
 
-↓ After completion ↓
+↓ Preview displays ↓
 
 ┌────────────────────────────────────────────────────┐
-│ ✅ Generation Complete!                            │
+│ 3D Preview                          [Fullscreen] □ │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│     ┌─────────────────────────────────────┐       │
+│     │                                       │       │
+│     │         [3D WebGL Viewer]            │       │
+│     │                                       │       │
+│     │    Interactive view of worm + wheel  │       │
+│     │    • Rotate: drag                     │       │
+│     │    • Zoom: scroll                     │       │
+│     │    • Pan: right-drag                  │       │
+│     │                                       │       │
+│     │    [Show Worm] [Show Wheel] [Both]   │       │
+│     │    [Mesh Aligned]                     │       │
+│     │                                       │       │
+│     └─────────────────────────────────────┘       │
+│                                                     │
+│ ⓘ This is a fast preview with simplified geometry │
+│   Production STEP files will have exact detail     │
+│                                                     │
+│ Design Summary                                     │
+│ Module: 2.0mm | Ratio: 30:1 | Center: 38.00mm     │
+│ Worm: Ø20×40mm | Wheel: Ø64×12mm (hobbed)         │
+│                                                     │
+│    [← Adjust Parameters]  [Generate Production] ──►│
+│                                                     │
+└────────────────────────────────────────────────────┘
+```
+
+**Quick Preview Characteristics:**
+- **Fast**: 5-10 seconds generation
+- **Simplified geometry**: Fewer sections (12 per turn vs 36)
+- **Approximate**: Simplified tooth profiles, basic throating
+- **Purpose**: Visual validation, catch major errors
+
+---
+
+### Step 5: Production Generation & Downloads
+
+```
+┌────────────────────────────────────────────────────┐
+│ Generating Production Files...                      │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│ [████████████████░░░░] 75%                        │
+│                                                     │
+│ Building wheel (hobbed, full detail, 30 teeth)...  │
+│ Estimated time remaining: 15 seconds               │
+│                                                     │
+└────────────────────────────────────────────────────┘
+
+↓ After completion (30-60 seconds) ↓
+
+┌────────────────────────────────────────────────────┐
+│ ✅ Production Files Ready!                         │
 ├────────────────────────────────────────────────────┤
 │                                                     │
 │ Download Files:                                    │
 │                                                     │
-│ 📥 [worm_m2_z1_r30.step]         (16 KB)          │
-│ 📥 [wheel_m2_z30_r30_hobbed.step] (1.1 MB)        │
-│ 📥 [design.json]                  (2 KB)           │
+│ 📥 [worm_m2_z1_r30.step]                (18 KB)   │
+│    CNC-ready STEP file - exact geometry           │
+│                                                     │
+│ 📥 [wheel_m2_z30_r30_hobbed.step]      (1.2 MB)   │
+│    CNC-ready STEP file - exact geometry           │
+│                                                     │
+│ 📄 [manufacturing_spec.pdf]             (125 KB)   │
+│    Complete manufacturing specification            │
+│    • Dimensional drawings with tolerances          │
+│    • Material recommendations                      │
+│    • Assembly instructions                         │
+│    • Machining notes                               │
+│                                                     │
+│ 📥 [design.json]                        (2 KB)     │
+│    Design parameters (for reproducibility)         │
 │                                                     │
 │ ─────────────────────────────────────              │
 │                                                     │
-│ Design Summary                                     │
+│ ⓘ All files downloaded as: worm-gear-m2-r30.zip  │
 │                                                     │
-│ Module: 2.0mm (ISO 54)                             │
-│ Ratio: 30:1                                        │
-│ Centre distance: 38.00mm (±0.05mm)                 │
-│ Efficiency: 72%                                    │
-│ Self-locking: No                                   │
-│                                                     │
-│ Worm:  Ø20mm × 40mm, bore 4mm, no keyway          │
-│ Wheel: Ø64mm × 12mm, bore 15mm, keyway 5×2.3mm   │
-│                                                     │
-│ ⓘ Assembly Notes:                                  │
-│ • Axes must be perpendicular (90°)                │
-│ • Lubrication required                             │
-│ • Verify alignment within ±0.1mm                  │
-│                                                     │
-│      [Design Another]  [Adjust & Regenerate]       │
+│      [View 3D Again]  [Design Another]             │
 │                                                     │
 └────────────────────────────────────────────────────┘
 ```
+
+**Production Output Characteristics:**
+- **Exact**: Full detail, exact geometry per spec
+- **Slower**: 30-60 seconds generation
+- **CNC-Ready**: STEP files with proper tolerances
+- **Complete Package**: STEP + PDF + JSON
 
 ---
 
@@ -565,6 +625,7 @@ Then continues to Step 3 (Manufacturing) and Step 4 (Generation) same as Path A.
 - Worm diameter quotient q < 5 (verify shaft strength)
 - Worm diameter quotient q > 20 (very thick, check efficiency)
 - Worm diameter quotient q non-standard (suggest nearest DIN 3975: 8, 10, 12.5, 16, 20, 25)
+- Non-hunting tooth ratio when multi-start (GCD(starts, teeth) > 1) - uneven wear
 - Rim thickness < 1.5mm (thin rim)
 
 **ℹ️ Info (Helpful context):**
@@ -594,6 +655,12 @@ Then continues to Step 3 (Manufacturing) and Step 4 (Generation) same as Path A.
 
 **Info (q non-standard):**
 "Diameter quotient q=11.3 is not a DIN 3975 standard value. Nearest standards: q=10 or q=12.5. Check 'Prefer standard q' for automatic adjustment."
+
+**Warning (non-hunting ratio with multi-start):**
+"Non-hunting tooth ratio detected: 2-start worm with 30 teeth (GCD=2). Same threads will always contact same teeth, causing uneven wear. Consider 29 or 31 teeth for hunting ratio (even wear distribution)."
+
+**Info (hunting ratio confirmed):**
+"Hunting tooth ratio: GCD(starts=2, teeth=31) = 1. All worm threads will contact all wheel teeth over time, ensuring even wear."
 
 ---
 
@@ -647,16 +714,151 @@ STEP Files + Design JSON
 
 ## File Outputs
 
-### When user clicks "Generate":
+### Quick Preview Generation:
+- **3D preview model** (in-browser only, not downloadable)
+- Simplified geometry for fast rendering
+- Interactive WebGL view
+
+### Production Generation:
 
 **Always:**
-1. `worm_mX_zY_rZ.step` - Worm STEP file
-2. `wheel_mX_zY_rZ.step` - Wheel STEP file (or `_hobbed`)
-3. `design.json` - Complete design parameters (for reproducibility)
+1. `worm_mX_zY_rZ.step` - Worm STEP file (exact, CNC-ready)
+2. `wheel_mX_zY_rZ.step` - Wheel STEP file (exact, CNC-ready)
+3. `manufacturing_spec.pdf` - Complete manufacturing specification
+4. `design.json` - Complete design parameters (for reproducibility)
 
-**Optional (Phase 2):**
-4. `README.txt` - Plain text summary
-5. `assembly-notes.md` - Assembly instructions
+**Packaged as:**
+- `worm-gear-mX-rY.zip` - All files in one download
+
+---
+
+## Manufacturing Specification PDF
+
+The PDF should be a complete document suitable for CNC machining:
+
+### Page 1: Design Summary
+```
+┌─────────────────────────────────────────────┐
+│ WORM GEAR DESIGN SPECIFICATION              │
+│ Module 2.0mm, Ratio 30:1                    │
+├─────────────────────────────────────────────┤
+│                                              │
+│ Design Parameters                            │
+│ • Module: 2.0mm (ISO 54)                    │
+│ • Ratio: 30:1                               │
+│ • Pressure Angle: 20°                       │
+│ • Hand: Right                               │
+│ • Centre Distance: 38.00mm (±0.05mm)        │
+│                                              │
+│ Performance                                  │
+│ • Estimated Efficiency: 72%                 │
+│ • Self-locking: No                          │
+│ • Diameter Quotient (q): 8.0 ✓ DIN 3975    │
+│                                              │
+│ Files Included                               │
+│ • worm_m2_z1_r30.step                       │
+│ • wheel_m2_z30_r30_hobbed.step              │
+│ • design.json                               │
+│                                              │
+│ Generated: 2026-01-20 14:32 UTC             │
+│ Tool: Worm Gear Design Tool v2.0            │
+└─────────────────────────────────────────────┘
+```
+
+### Page 2: Worm Specification
+
+**Dimensional Drawing:**
+- Side view with key dimensions labeled
+- Cross-section showing thread profile
+- All dimensions with tolerances
+
+**Dimension Table:**
+| Parameter | Nominal | Tolerance | Note |
+|-----------|---------|-----------|------|
+| Outside Diameter (OD) | 20.00mm | ±0.02mm | Finish ground |
+| Pitch Diameter | 16.00mm | Reference | Measured over wires |
+| Root Diameter | 11.00mm | +0.05/-0mm | - |
+| Length | 40.00mm | ±0.1mm | Overall |
+| Lead | 6.283mm | ±0.01mm | Per thread |
+| Lead Angle | 7.1° | ±0.1° | Reference |
+| Thread Hand | Right | - | - |
+| Bore Diameter | 4.00mm | H7 | Through |
+
+**Material Recommendations:**
+- Steel: EN24 (heat treated), 41Cr4, or equivalent
+- Bronze: PB2 or SAE 660 for higher loads
+- Surface Finish: Ra 1.6μm on thread flanks
+
+**Machining Notes:**
+- Best practice: 4-axis lathe with live tooling
+- Alternative: 5-axis mill
+- Thread cutting: Single-point or whirl cutter
+- Final finish: Grind thread flanks for precision
+
+### Page 3: Wheel Specification
+
+**Dimensional Drawing:**
+- Front view showing teeth
+- Side view showing face width and throat
+- Section view showing tooth profile
+
+**Dimension Table:**
+| Parameter | Nominal | Tolerance | Note |
+|-----------|---------|-----------|------|
+| Outside Diameter (OD) | 64.00mm | ±0.05mm | - |
+| Pitch Diameter | 60.00mm | Reference | - |
+| Root Diameter | 55.00mm | +0.1/-0mm | - |
+| Throat Diameter | 62.00mm | ±0.05mm | Hobbed type |
+| Face Width | 12.00mm | ±0.1mm | - |
+| Number of Teeth | 30 | - | - |
+| Bore Diameter | 15.00mm | H7 | Through |
+| Keyway | 5×2.3mm | DIN 6885 | Hub depth |
+
+**Material Recommendations:**
+- Phosphor Bronze: PB2, PB4 (preferred for wear)
+- Aluminum Bronze: AB2
+- Cast Iron: For low-speed, low-load applications
+- Surface Finish: Ra 3.2μm
+
+**Machining Notes:**
+- Best practice: 5-axis mill for true tooth form
+- Alternative: Indexed 4-axis with ball-nose finishing
+- Throating: Match worm tip radius exactly
+- Keyway: Standard broaching
+
+### Page 4: Assembly Instructions
+
+**Assembly Requirements:**
+- Axes must be perpendicular: 90° ±0.05°
+- Centre distance: 38.00mm ±0.05mm
+- Axial alignment: ±0.1mm
+- Angular alignment: ±0.1°
+
+**Lubrication:**
+- Required for all applications
+- Recommended: ISO VG 220 gear oil
+- Initial break-in: Run at 25% load for 1 hour
+- Maintenance: Check oil level every 100 hours
+
+**Quality Checks:**
+- Backlash: Should be 0.05-0.15mm
+- Contact pattern: Check with marking compound
+- Smooth operation: No binding or excessive noise
+- Temperature: Should not exceed 60°C under load
+
+**Warnings:**
+- Do not run dry - permanent damage will occur
+- Verify alignment before full load operation
+- Self-locking: This design is NOT self-locking
+  (brake or lock mechanism required if needed)
+
+### Page 5: Technical Drawings
+
+**2D dimensional drawings with GD&T:**
+- Worm profile view
+- Wheel profile view
+- Assembly view showing meshing
+- Critical dimensions highlighted
 
 ### design.json structure
 
@@ -689,37 +891,46 @@ Same as current wormgearcalc output:
 - [ ] Implement Path B (envelope constraints)
 - [ ] Implement Path C (JSON import)
 - [ ] Connect calculator → 3D generator flow
-- [ ] Basic validation UI (errors, warnings, info)
-- [ ] Manufacturing parameter controls
-- [ ] STEP file download
+- [ ] Validation UI (errors, warnings, info) with actionable messages
+- [ ] Manufacturing parameter controls (bore, keyway, lengths)
+- [ ] **Quick preview generation** (simplified geometry, 5-10 seconds)
+- [ ] **3D visualization** (WebGL viewer - Three.js or model-viewer)
+- [ ] Interactive 3D controls (rotate, zoom, pan, toggle parts)
+- [ ] **Production generation** (full detail STEP files, 30-60 seconds)
+- [ ] **PDF manufacturing spec** (complete with drawings, tolerances, assembly)
 - [ ] design.json export
+- [ ] Zip package download (STEP + PDF + JSON)
+- [ ] All validation rules including q, hunting teeth
 
 ### Phase 2: Polish & Usability
 - [ ] Example gallery with presets
-- [ ] Improved validation messages (actionable)
-- [ ] Design summary panel
-- [ ] Assembly notes generation
+- [ ] Design summary panel (always visible)
 - [ ] Mobile responsive design
-- [ ] Loading states & progress indicators
+- [ ] Loading states & progress indicators (estimated time)
 - [ ] Error recovery (retry logic)
 - [ ] Share links (URL params with encoded JSON)
+- [ ] "Prefer standard q" checkbox implementation
+- [ ] Fullscreen 3D viewer mode
+- [ ] Assembly view (both parts meshed, animated rotation)
 
 ### Phase 3: Advanced Features
-- [ ] 3D preview (Three.js or model-viewer)
-- [ ] Interactive assembly view (rotate worm, see wheel mesh)
-- [ ] Manufacturing notes with tolerances
-- [ ] PDF export of design summary
+- [ ] 2D technical drawings in PDF (GD&T annotations)
+- [ ] Editable tolerances in manufacturing options
+- [ ] Custom material selection in UI
 - [ ] Offline support (service worker)
 - [ ] Batch generation (multiple designs)
+- [ ] Design history (localStorage)
+- [ ] Comparison mode (compare 2-3 designs side-by-side)
 
 ### Phase 4: Educational & Pro Features
-- [ ] Inline help & tooltips
-- [ ] "What's this?" explanations for each parameter
-- [ ] Efficiency calculator with graphs
-- [ ] Comparison mode (compare 2-3 designs side-by-side)
-- [ ] Design optimization suggestions
-- [ ] Material recommendations
+- [ ] Inline help & tooltips for every parameter
+- [ ] "What's this?" explanations with diagrams
+- [ ] Efficiency calculator with interactive graphs
+- [ ] Design optimization suggestions (AI-powered)
+- [ ] Contact pattern visualization
+- [ ] Stress analysis integration
 - [ ] Cost estimation (material + machining time)
+- [ ] Integration with CAM software (generate toolpaths)
 
 ---
 
@@ -790,19 +1001,21 @@ Manufacturing Options: [Auto ▼]
 
 ---
 
-### 4. 3D Preview - Essential or Phase 2?
+### 4. 3D Viewer Technology - Three.js or model-viewer?
 
-**Arguments for Phase 1:**
-- Huge value add - see before generating
-- Catch mistakes visually
-- Educational (see how gears mesh)
+**Three.js:**
+- More control over rendering
+- Custom interactions and animations
+- Lightweight for preview geometry
+- Community support
 
-**Arguments for Phase 2:**
-- Adds complexity (Three.js, rendering)
-- STEP generation already works
-- Can iterate on core UX first
+**model-viewer:**
+- Simpler integration (web component)
+- Built-in AR support
+- Standard glTF/GLTF loading
+- Less code to maintain
 
-**Recommendation:** Phase 2. Get calculator + generator working first, add preview as enhancement.
+**Recommendation:** Three.js for flexibility, especially for quick preview rendering and assembly animations.
 
 ---
 
