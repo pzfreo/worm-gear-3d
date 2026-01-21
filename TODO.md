@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Phase 2: Features - Bore & Keyway Complete ✅**
+**Phase 1.1: Set Screws & Hubs Complete ✅**
 
 Completed features:
 - ✅ Auto-calculated bore diameters (~25% of pitch diameter, constrained by rim)
@@ -11,6 +11,10 @@ Completed features:
 - ✅ Thin rim warnings (when rim thickness <1.5mm)
 - ✅ CLI defaults to bore+keyway with opt-out flags
 - ✅ Rim thickness display in CLI output
+- ✅ Set screw holes with auto-sizing (M2.5-M8, 1-3 screws)
+- ✅ Hub options (flush/extended/flanged with bolt patterns)
+- ✅ Extended JSON format for manufacturing features
+- ✅ CLI --save-json flag for full design reproducibility
 - ✅ Comprehensive documentation with troubleshooting
 - ✅ Documentation power review complete
 
@@ -47,77 +51,9 @@ Completed features:
 
 ---
 
-## Next Immediate Tasks (Phase 1.1)
+## Next Immediate Tasks (Phase 1.2)
 
-### 1. Set Screw Holes (1 week) 🎯
-
-**Goal:** Allow securing gears to shafts with set screws
-
-**Tasks:**
-- [ ] Define placement strategy (radial through bore wall, 90° from keyway)
-- [ ] Auto-sizing table based on bore diameter
-  - 6-10mm bore → M3 set screw
-  - 10-20mm bore → M4 set screw
-  - 20mm+ bore → M5 set screw
-- [ ] Create `SetScrewFeature` class in `features.py`
-  - Parameters: size (M3/M4/M5), count (1-3), angular_position
-  - Method: `create_set_screw()` - cylindrical hole perpendicular to bore
-- [ ] Integrate into WormGeometry and WheelGeometry
-- [ ] CLI flags:
-  - `--set-screw` (auto-size from bore)
-  - `--set-screw-size M4` (override size)
-  - `--set-screw-count 2` (default: 1)
-- [ ] Update Python API examples
-- [ ] Documentation updates (README, GEOMETRY.md, CLAUDE.md)
-- [ ] Write unit tests (test_features.py)
-
-**Success criteria:**
-- ✅ Generate worm with M4 set screw through 8mm bore
-- ✅ Set screw positioned 90° from keyway
-- ✅ STEP file validates and imports to CAD software
-- ✅ Tests pass
-
-**Estimated effort:** 1 week
-
----
-
-### 2. Hub Options (2 weeks)
-
-**Goal:** Add hub variations for wheel mounting flexibility
-
-**Tasks:**
-- [ ] Design hub types:
-  - **Flush** (default): Hub face flush with wheel face
-  - **Extended**: Hub extends beyond wheel face by user-specified length
-  - **Flanged**: Hub with larger diameter flange (specify OD, thickness, bolt holes)
-- [ ] Create `HubFeature` class or integrate into WheelGeometry
-  - Parameters: type, length (extended), flange_diameter, flange_thickness, bolt_holes
-- [ ] Geometry generation:
-  - Extended: extrude cylinder from wheel face
-  - Flanged: extended hub + flange disk + bolt hole array
-- [ ] Validation:
-  - Hub doesn't interfere with worm mesh (check clearance)
-  - Flange OD doesn't exceed practical limits
-- [ ] CLI flags:
-  - `--hub-type flush|extended|flanged` (default: flush)
-  - `--hub-length 15` (for extended/flanged)
-  - `--flange-diameter 80 --flange-thickness 5`
-  - `--flange-bolts 4` (bolt hole count)
-- [ ] Update Python API
-- [ ] Documentation updates
-- [ ] Write tests
-
-**Success criteria:**
-- ✅ Generate wheel with 15mm extended hub
-- ✅ Generate wheel with 40mm flange, 5mm thick, 4× M4 bolt holes
-- ✅ Validate no interference with worm mesh
-- ✅ Tests pass
-
-**Estimated effort:** 2 weeks
-
----
-
-### 3. Manufacturing Specifications Output (2-3 weeks)
+### 1. Manufacturing Specifications Output (2-3 weeks) 🎯
 
 **Goal:** Generate CNC-ready documentation alongside STEP files
 
@@ -280,7 +216,9 @@ Key milestones:
 ## Notes
 
 ### Current Focus
-**We are in Phase 1.1** - Completing remaining core features before moving to web tool.
+**We are in Phase 1.2** - Manufacturing specifications, testing, and documentation polish before v1.0.
+
+**Phase 1.1 Complete ✅**: Set screws, hubs, and extended JSON format implemented.
 
 Web tool development (Phase 2) will begin after Phase 1 is complete and v1.0 is released.
 
@@ -298,4 +236,4 @@ Web tool development (Phase 2) will begin after Phase 1 is complete and v1.0 is 
 ---
 
 **Last Updated:** 2026-01-21
-**Current Task:** Ready to begin set screw holes implementation (Phase 1.1, Task 1)
+**Current Task:** Set screws ✅, Hubs ✅, JSON integration ✅ - Ready for manufacturing specs (Phase 1.2, Task 1)
