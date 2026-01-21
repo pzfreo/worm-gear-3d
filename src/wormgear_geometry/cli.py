@@ -13,6 +13,7 @@ from .features import (
     BoreFeature,
     KeywayFeature,
     SetScrewFeature,
+    HubFeature,
     calculate_default_bore,
     get_din_6885_keyway,
     get_set_screw_size
@@ -40,6 +41,12 @@ Examples:
 
   # Set screws with specific size and count
   wormgear-geometry design.json --set-screw --set-screw-size M4 --set-screw-count 2
+
+  # Extended hub for bearing support
+  wormgear-geometry design.json --hub-type extended --hub-length 15
+
+  # Flanged hub with bolt holes for mounting
+  wormgear-geometry design.json --hub-type flanged --flange-diameter 60 --flange-bolts 4
 
   # Bores but no keyways
   wormgear-geometry design.json --no-keyway
@@ -168,6 +175,50 @@ Examples:
         type=int,
         default=1,
         help='Number of set screws (1-3, default: 1, evenly distributed)'
+    )
+
+    # Hub options (for wheel only, default: flush hub)
+    parser.add_argument(
+        '--hub-type',
+        type=str,
+        choices=['flush', 'extended', 'flanged'],
+        default='flush',
+        help='Hub type for wheel mounting (default: flush)'
+    )
+
+    parser.add_argument(
+        '--hub-length',
+        type=float,
+        default=10.0,
+        help='Hub extension length in mm for extended/flanged hubs (default: 10mm)'
+    )
+
+    parser.add_argument(
+        '--flange-diameter',
+        type=float,
+        default=None,
+        help='Flange outer diameter in mm (for flanged hub, default: auto-sized)'
+    )
+
+    parser.add_argument(
+        '--flange-thickness',
+        type=float,
+        default=5.0,
+        help='Flange thickness in mm (for flanged hub, default: 5mm)'
+    )
+
+    parser.add_argument(
+        '--flange-bolts',
+        type=int,
+        default=4,
+        help='Number of bolt holes in flange (for flanged hub, 0-8, default: 4)'
+    )
+
+    parser.add_argument(
+        '--bolt-diameter',
+        type=float,
+        default=None,
+        help='Bolt hole diameter in mm (for flanged hub, default: auto-sized)'
     )
 
     args = parser.parse_args()
@@ -319,6 +370,18 @@ Examples:
                     else:
                         wheel_set_screw = SetScrewFeature(count=args.set_screw_count)
 
+        # Create hub feature
+        wheel_hub = None
+        if args.hub_type != "flush":
+            wheel_hub = HubFeature(
+                hub_type=args.hub_type,
+                length=args.hub_length,
+                flange_diameter=args.flange_diameter,
+                flange_thickness=args.flange_thickness,
+                bolt_holes=args.flange_bolts,
+                bolt_diameter=args.bolt_diameter
+            )
+
         # Build description
         wheel_type_desc = "hobbed (throated)" if args.hobbed else "helical"
         features_desc = ""
@@ -335,6 +398,16 @@ Examples:
                     screw_desc += f" x{wheel_set_screw.count}"
                 features_desc += f" + set screw ({screw_desc})"
 
+        if wheel_hub and wheel_hub.hub_type != "flush":
+            hub_desc = f"{wheel_hub.hub_type} hub ({wheel_hub.length}mm"
+            if wheel_hub.hub_type == "flanged":
+                flange_dia = wheel_hub.flange_diameter if wheel_hub.flange_diameter else "auto"
+                hub_desc += f", flange {flange_dia}mm"
+                if wheel_hub.bolt_holes > 0:
+                    hub_desc += f", {wheel_hub.bolt_holes} bolts"
+            hub_desc += ")"
+            features_desc += f", {hub_desc}"
+
         print(f"\nGenerating wheel ({design.wheel.num_teeth} teeth, module {design.wheel.module_mm}mm, {wheel_type_desc}{features_desc})...")
         wheel_geo = WheelGeometry(
             params=design.wheel,
@@ -344,7 +417,8 @@ Examples:
             throated=args.hobbed,
             bore=wheel_bore,
             keyway=wheel_keyway,
-            set_screw=wheel_set_screw
+            set_screw=wheel_set_screw,
+            hub=wheel_hub
         )
         wheel = wheel_geo.build()
         print(f"  Volume: {wheel.volume:.2f} mm³")

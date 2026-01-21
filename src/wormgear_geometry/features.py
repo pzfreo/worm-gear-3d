@@ -5,6 +5,7 @@ Supports:
 - Center bores (through holes)
 - Keyways per DIN 6885 / ISO 6885 standard
 - Set screw holes for shaft retention
+- Hub options for wheel mounting (flush, extended, flanged)
 """
 
 import math
@@ -280,6 +281,60 @@ class SetScrewFeature:
         return (size, diameter)
 
 
+@dataclass
+class HubFeature:
+    """
+    Hub feature specification for wheel mounting.
+
+    Hubs provide mounting surface and positioning for the wheel. Three types:
+    - flush: Hub face is flush with wheel face (default, no extension)
+    - extended: Hub extends beyond wheel face for bearing support
+    - flanged: Extended hub with larger diameter flange and bolt holes
+
+    Attributes:
+        hub_type: Type of hub - "flush", "extended", or "flanged"
+        length: Hub extension length in mm (for extended/flanged, default: 10mm)
+        flange_diameter: Outer diameter of flange in mm (for flanged only)
+        flange_thickness: Thickness of flange in mm (for flanged, default: 5mm)
+        bolt_holes: Number of bolt holes in flange (for flanged, 0-8, default: 4)
+        bolt_diameter: Bolt hole diameter in mm (for flanged, default: auto from wheel)
+    """
+    hub_type: str = "flush"
+    length: Optional[float] = None
+    flange_diameter: Optional[float] = None
+    flange_thickness: Optional[float] = None
+    bolt_holes: int = 4
+    bolt_diameter: Optional[float] = None
+
+    def __post_init__(self):
+        valid_types = ["flush", "extended", "flanged"]
+        if self.hub_type not in valid_types:
+            raise ValueError(
+                f"Hub type must be one of {valid_types}, got '{self.hub_type}'"
+            )
+
+        if self.hub_type in ["extended", "flanged"]:
+            if self.length is None:
+                self.length = 10.0  # Default 10mm extension
+            elif self.length <= 0:
+                raise ValueError(f"Hub length must be positive, got {self.length}")
+
+        if self.hub_type == "flanged":
+            if self.flange_thickness is None:
+                self.flange_thickness = 5.0  # Default 5mm flange
+            elif self.flange_thickness <= 0:
+                raise ValueError(
+                    f"Flange thickness must be positive, got {self.flange_thickness}"
+                )
+
+            if self.bolt_holes < 0 or self.bolt_holes > 8:
+                raise ValueError(
+                    f"Bolt holes must be 0-8, got {self.bolt_holes}"
+                )
+
+            # Flange diameter will be validated when we know wheel size
+
+
 def create_bore(
     part: Part,
     bore: BoreFeature,
@@ -473,6 +528,192 @@ def create_set_screw(
 
         # Subtract from part
         result = result - screw_hole
+
+    return result
+
+
+def create_hub(
+    wheel: Part,
+    hub: HubFeature,
+    wheel_face_width: float,
+    wheel_root_diameter: float,
+    bore_diameter: Optional[float] = None,
+    axis: Axis = Axis.Z
+) -> Part:
+    """
+    Create hub extension on a wheel (additive feature).
+
+    Hubs extend from the wheel face to provide mounting surface.
+    This is an additive operation - it adds material to the wheel.
+
+    Args:
+        wheel: The wheel part to add hub to
+        hub: Hub specification
+        wheel_face_width: Face width of the wheel
+        wheel_root_diameter: Root diameter of wheel (to size hub properly)
+        bore_diameter: Bore diameter if present (hub must fit around it)
+        axis: Axis along which wheel is oriented (default: Z)
+
+    Returns:
+        Wheel with hub added
+
+    Raises:
+        ValueError: If hub parameters are invalid for wheel size
+    """
+    if hub.hub_type == "flush":
+        # Flush hub - no extension, just return wheel as-is
+        return wheel
+
+    # Hub inner diameter is slightly larger than bore (if present) or very small
+    if bore_diameter is not None:
+        hub_inner_diameter = bore_diameter
+    else:
+        hub_inner_diameter = 0.0  # Solid hub if no bore
+
+    # Hub outer diameter - use wheel root diameter as base
+    # Make hub slightly smaller than root to avoid interfering with teeth
+    hub_outer_diameter = wheel_root_diameter * 0.8
+
+    # Extended or flanged hub
+    if hub.hub_type in ["extended", "flanged"]:
+        # Create hub cylinder extending from wheel face
+        hub_cylinder = Cylinder(
+            radius=hub_outer_diameter / 2,
+            height=hub.length,
+            align=(Align.CENTER, Align.CENTER, Align.MIN)
+        )
+
+        # Position hub to extend from one face of wheel
+        # Wheel is centered, so move hub to start at +face_width/2
+        if axis == Axis.Z:
+            hub_cylinder = hub_cylinder.move(Location((0, 0, wheel_face_width / 2)))
+        elif axis == Axis.X:
+            hub_cylinder = hub_cylinder.rotate(Axis.Y, 90)
+            hub_cylinder = hub_cylinder.move(Location((wheel_face_width / 2, 0, 0)))
+        elif axis == Axis.Y:
+            hub_cylinder = hub_cylinder.rotate(Axis.X, 90)
+            hub_cylinder = hub_cylinder.move(Location((0, wheel_face_width / 2, 0)))
+
+        # Remove bore from hub if needed
+        if bore_diameter is not None and bore_diameter > 0:
+            bore_length = hub.length + 1.0  # Slightly longer
+            hub_bore = Cylinder(
+                radius=bore_diameter / 2,
+                height=bore_length,
+                align=(Align.CENTER, Align.CENTER, Align.MIN)
+            )
+            if axis == Axis.Z:
+                hub_bore = hub_bore.move(Location((0, 0, wheel_face_width / 2)))
+            elif axis == Axis.X:
+                hub_bore = hub_bore.rotate(Axis.Y, 90)
+                hub_bore = hub_bore.move(Location((wheel_face_width / 2, 0, 0)))
+            elif axis == Axis.Y:
+                hub_bore = hub_bore.rotate(Axis.X, 90)
+                hub_bore = hub_bore.move(Location((0, wheel_face_width / 2, 0)))
+
+            hub_cylinder = hub_cylinder - hub_bore
+
+        result = wheel + hub_cylinder
+
+    # Flanged hub - add flange at end of hub extension
+    if hub.hub_type == "flanged":
+        # Determine flange diameter
+        if hub.flange_diameter is None:
+            # Auto-size: 1.5x hub outer diameter, but at least 1.3x
+            hub.flange_diameter = max(
+                hub_outer_diameter * 1.5,
+                hub_outer_diameter + 20.0  # At least 20mm larger
+            )
+
+        # Validate flange diameter
+        if hub.flange_diameter <= hub_outer_diameter:
+            raise ValueError(
+                f"Flange diameter ({hub.flange_diameter}mm) must be larger than "
+                f"hub diameter ({hub_outer_diameter}mm)"
+            )
+
+        # Create flange disk
+        flange = Cylinder(
+            radius=hub.flange_diameter / 2,
+            height=hub.flange_thickness,
+            align=(Align.CENTER, Align.CENTER, Align.MIN)
+        )
+
+        # Position flange at end of hub
+        flange_position = wheel_face_width / 2 + hub.length
+        if axis == Axis.Z:
+            flange = flange.move(Location((0, 0, flange_position)))
+        elif axis == Axis.X:
+            flange = flange.rotate(Axis.Y, 90)
+            flange = flange.move(Location((flange_position, 0, 0)))
+        elif axis == Axis.Y:
+            flange = flange.rotate(Axis.X, 90)
+            flange = flange.move(Location((0, flange_position, 0)))
+
+        # Remove center bore from flange if present
+        if bore_diameter is not None and bore_diameter > 0:
+            flange_bore = Cylinder(
+                radius=bore_diameter / 2,
+                height=hub.flange_thickness + 1.0,
+                align=(Align.CENTER, Align.CENTER, Align.MIN)
+            )
+            if axis == Axis.Z:
+                flange_bore = flange_bore.move(Location((0, 0, flange_position)))
+            elif axis == Axis.X:
+                flange_bore = flange_bore.rotate(Axis.Y, 90)
+                flange_bore = flange_bore.move(Location((flange_position, 0, 0)))
+            elif axis == Axis.Y:
+                flange_bore = flange_bore.rotate(Axis.X, 90)
+                flange_bore = flange_bore.move(Location((0, flange_position, 0)))
+
+            flange = flange - flange_bore
+
+        # Add bolt holes if requested
+        if hub.bolt_holes > 0:
+            # Determine bolt diameter
+            if hub.bolt_diameter is None:
+                # Auto-size based on flange
+                # Typical: M4 for small flanges, M5 for medium, M6 for large
+                if hub.flange_diameter < 50:
+                    hub.bolt_diameter = 4.5  # M4 clearance hole
+                elif hub.flange_diameter < 80:
+                    hub.bolt_diameter = 5.5  # M5 clearance hole
+                else:
+                    hub.bolt_diameter = 6.5  # M6 clearance hole
+
+            # Bolt circle diameter - midway between hub OD and flange OD
+            bolt_circle_radius = (hub_outer_diameter / 2 + hub.flange_diameter / 2) / 2
+
+            # Create bolt holes evenly distributed
+            angle_step = 360.0 / hub.bolt_holes
+            for i in range(hub.bolt_holes):
+                angle = i * angle_step
+                angle_rad = math.radians(angle)
+
+                # Calculate bolt hole position
+                bolt_x = bolt_circle_radius * math.cos(angle_rad)
+                bolt_y = bolt_circle_radius * math.sin(angle_rad)
+
+                # Create bolt hole
+                bolt_hole = Cylinder(
+                    radius=hub.bolt_diameter / 2,
+                    height=hub.flange_thickness + 1.0,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN)
+                )
+
+                # Position and orient based on axis
+                if axis == Axis.Z:
+                    bolt_hole = bolt_hole.move(Location((bolt_x, bolt_y, flange_position)))
+                elif axis == Axis.X:
+                    bolt_hole = bolt_hole.rotate(Axis.Y, 90)
+                    bolt_hole = bolt_hole.move(Location((flange_position, bolt_y, bolt_x)))
+                elif axis == Axis.Y:
+                    bolt_hole = bolt_hole.rotate(Axis.X, 90)
+                    bolt_hole = bolt_hole.move(Location((bolt_x, flange_position, bolt_y)))
+
+                flange = flange - bolt_hole
+
+        result = result + flange
 
     return result
 

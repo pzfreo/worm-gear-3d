@@ -10,7 +10,14 @@ import math
 from typing import Optional
 from build123d import *
 from .io import WheelParams, WormParams, AssemblyParams
-from .features import BoreFeature, KeywayFeature, SetScrewFeature, add_bore_and_keyway
+from .features import (
+    BoreFeature,
+    KeywayFeature,
+    SetScrewFeature,
+    HubFeature,
+    add_bore_and_keyway,
+    create_hub
+)
 
 
 class WheelGeometry:
@@ -33,7 +40,8 @@ class WheelGeometry:
         throated: bool = False,
         bore: Optional[BoreFeature] = None,
         keyway: Optional[KeywayFeature] = None,
-        set_screw: Optional[SetScrewFeature] = None
+        set_screw: Optional[SetScrewFeature] = None,
+        hub: Optional[HubFeature] = None
     ):
         """
         Initialize wheel geometry generator.
@@ -47,6 +55,7 @@ class WheelGeometry:
             bore: Optional bore feature specification
             keyway: Optional keyway feature specification (requires bore)
             set_screw: Optional set screw feature specification (requires bore)
+            hub: Optional hub feature specification (flush/extended/flanged)
         """
         self.params = params
         self.worm_params = worm_params
@@ -55,6 +64,7 @@ class WheelGeometry:
         self.bore = bore
         self.keyway = keyway
         self.set_screw = set_screw
+        self.hub = hub
 
         # Set keyway as hub type if specified
         if self.keyway is not None:
@@ -87,6 +97,18 @@ class WheelGeometry:
                 bore=self.bore,
                 keyway=self.keyway,
                 set_screw=self.set_screw,
+                axis=Axis.Z
+            )
+
+        # Add hub if specified (additive feature, comes after subtractive features)
+        if self.hub is not None:
+            bore_diameter = self.bore.diameter if self.bore is not None else None
+            gear = create_hub(
+                gear,
+                hub=self.hub,
+                wheel_face_width=self.face_width,
+                wheel_root_diameter=self.params.root_diameter_mm,
+                bore_diameter=bore_diameter,
                 axis=Axis.Z
             )
 
