@@ -6,7 +6,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from .io import load_design_json
+from .io import (
+    load_design_json,
+    save_design_json,
+    WormGearDesign,
+    ManufacturingParams,
+    ManufacturingFeatures
+)
 from .worm import WormGeometry
 from .wheel import WheelGeometry
 from .features import (
@@ -56,6 +62,9 @@ Examples:
 
   # Custom worm length and smoother geometry
   wormgear-geometry design.json --worm-length 50 --sections 72
+
+  # Save extended JSON with all manufacturing features for reproducibility
+  wormgear-geometry design.json --set-screw --hub-type extended --save-json complete_design.json
         """
     )
 
@@ -115,6 +124,13 @@ Examples:
         '--no-save',
         action='store_true',
         help='Do not save STEP files (use with --view)'
+    )
+
+    parser.add_argument(
+        '--save-json',
+        type=str,
+        default=None,
+        help='Save extended JSON with all manufacturing features (makes design fully reproducible)'
     )
 
     parser.add_argument(
@@ -516,6 +532,61 @@ Examples:
                 print(f"\n  Warning: thin rim on small bore - handle with care")
 
             print(f"\n  To generate solid parts: --no-bore")
+
+    # Save extended JSON with manufacturing features
+    if args.save_json:
+        # Collect worm manufacturing features
+        worm_features = None
+        if worm_bore_diameter or worm_set_screw:
+            keyway_dims = get_din_6885_keyway(worm_bore_diameter) if worm_bore_diameter else None
+            worm_features = ManufacturingFeatures(
+                bore_diameter=worm_bore_diameter,
+                keyway_width=keyway_dims[0] if keyway_dims and worm_keyway else None,
+                keyway_depth=keyway_dims[2] if keyway_dims and worm_keyway else None,
+                set_screw_size=worm_set_screw.size if worm_set_screw else None,
+                set_screw_count=worm_set_screw.count if worm_set_screw else None
+            )
+
+        # Collect wheel manufacturing features
+        wheel_features = None
+        if wheel_bore_diameter or wheel_set_screw or wheel_hub:
+            keyway_dims = get_din_6885_keyway(wheel_bore_diameter) if wheel_bore_diameter else None
+            wheel_features = ManufacturingFeatures(
+                bore_diameter=wheel_bore_diameter,
+                keyway_width=keyway_dims[0] if keyway_dims and wheel_keyway else None,
+                keyway_depth=keyway_dims[3] if keyway_dims and wheel_keyway else None,
+                set_screw_size=wheel_set_screw.size if wheel_set_screw else None,
+                set_screw_count=wheel_set_screw.count if wheel_set_screw else None,
+                hub_type=wheel_hub.hub_type if wheel_hub else None,
+                hub_length=wheel_hub.length if wheel_hub else None,
+                flange_diameter=wheel_hub.flange_diameter if wheel_hub else None,
+                flange_thickness=wheel_hub.flange_thickness if wheel_hub else None,
+                flange_bolts=wheel_hub.bolt_holes if wheel_hub else None,
+                bolt_diameter=wheel_hub.bolt_diameter if wheel_hub else None
+            )
+
+        # Create manufacturing parameters
+        manufacturing = ManufacturingParams(
+            worm_length=args.worm_length,
+            wheel_width=args.wheel_width,
+            wheel_throated=args.hobbed,
+            worm_features=worm_features,
+            wheel_features=wheel_features
+        )
+
+        # Create complete design with manufacturing parameters
+        complete_design = WormGearDesign(
+            worm=design.worm,
+            wheel=design.wheel,
+            assembly=design.assembly,
+            manufacturing=manufacturing
+        )
+
+        # Save to file
+        output_path = Path(args.save_json)
+        save_design_json(complete_design, output_path)
+        print(f"\nSaved extended JSON: {output_path}")
+        print(f"  This JSON includes all manufacturing features and can fully reproduce this design")
 
     return 0
 
