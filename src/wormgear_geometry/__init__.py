@@ -16,10 +16,14 @@ from .worm import WormGeometry
 from .wheel import WheelGeometry
 from .io import (
     load_design_json,
+    save_design_json,
     WormParams,
     WheelParams,
     AssemblyParams,
-    WormGearDesign
+    WormGearDesign,
+    ManufacturingParams,
+    ManufacturingFeatures,
+    create_manufacturing_features_from_parts
 )
 from .features import (
     BoreFeature,
@@ -35,10 +39,14 @@ __all__ = [
     "WormGeometry",
     "WheelGeometry",
     "load_design_json",
+    "save_design_json",
     "WormParams",
     "WheelParams",
     "AssemblyParams",
     "WormGearDesign",
+    "ManufacturingParams",
+    "ManufacturingFeatures",
+    "create_manufacturing_features_from_parts",
     "BoreFeature",
     "KeywayFeature",
     "SetScrewFeature",
