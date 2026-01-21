@@ -4,6 +4,7 @@ Bore and keyway feature generation for worm gear components.
 Supports:
 - Center bores (through holes)
 - Keyways per DIN 6885 / ISO 6885 standard
+- Set screw holes for shaft retention
 """
 
 import math
@@ -30,6 +31,19 @@ DIN_6885_KEYWAYS = {
     (65, 75): (20, 12, 7.5, 4.9),
     (75, 85): (22, 14, 9.0, 5.4),
     (85, 95): (25, 14, 9.0, 5.4),
+}
+
+
+# Set screw sizing based on bore diameter
+# Format: bore_range: (screw_size_name, thread_diameter_mm)
+# Common sizes: M3 (3mm), M4 (4mm), M5 (5mm), M6 (6mm)
+SET_SCREW_SIZES = {
+    (2, 6): ("M2.5", 2.5),    # Very small bores (below DIN 6885 range)
+    (6, 10): ("M3", 3.0),     # Small bores
+    (10, 20): ("M4", 4.0),    # Medium bores
+    (20, 35): ("M5", 5.0),    # Large bores
+    (35, 60): ("M6", 6.0),    # Very large bores
+    (60, 100): ("M8", 8.0),   # Extra large bores
 }
 
 
@@ -112,6 +126,32 @@ def get_din_6885_keyway(bore_diameter: float) -> Optional[Tuple[float, float, fl
     return None
 
 
+def get_set_screw_size(bore_diameter: float) -> Tuple[str, float]:
+    """
+    Determine appropriate set screw size based on bore diameter.
+
+    Args:
+        bore_diameter: Bore diameter in mm
+
+    Returns:
+        Tuple of (size_name, thread_diameter) in mm (e.g., ("M4", 4.0))
+
+    Raises:
+        ValueError: If bore is too small for set screws
+    """
+    if bore_diameter < 2.0:
+        raise ValueError(
+            f"Bore diameter {bore_diameter}mm is too small for set screws (min 2mm)"
+        )
+
+    for (min_d, max_d), (name, diameter) in SET_SCREW_SIZES.items():
+        if min_d <= bore_diameter < max_d:
+            return (name, diameter)
+
+    # For bores larger than table, use M8
+    return ("M8", 8.0)
+
+
 @dataclass
 class BoreFeature:
     """
@@ -187,6 +227,57 @@ class KeywayFeature:
             depth = shaft_depth if self.is_shaft else hub_depth
 
         return (width, depth)
+
+
+@dataclass
+class SetScrewFeature:
+    """
+    Set screw hole feature specification for shaft retention.
+
+    Set screws are threaded holes drilled radially through the bore wall,
+    allowing grub screws to secure the gear to a shaft.
+
+    If size is not specified, it is auto-calculated from the bore diameter.
+
+    Attributes:
+        size: Screw size name (e.g., "M3", "M4") - auto-sized if None
+        diameter: Thread diameter in mm - auto-sized if None
+        count: Number of set screws (1-3, default: 1)
+        angular_offset: Starting angle in degrees (0 = aligned with +X axis)
+                       For parts with keyways, screws are automatically positioned
+                       90° from keyway to avoid interference
+    """
+    size: Optional[str] = None
+    diameter: Optional[float] = None
+    count: int = 1
+    angular_offset: float = 90.0  # Default: 90° from keyway (top position)
+
+    def __post_init__(self):
+        if self.count < 1 or self.count > 3:
+            raise ValueError(f"Set screw count must be 1-3, got {self.count}")
+        if self.diameter is not None and self.diameter <= 0:
+            raise ValueError(f"Set screw diameter must be positive, got {self.diameter}")
+
+    def get_screw_specs(self, bore_diameter: float) -> Tuple[str, float]:
+        """
+        Get set screw size and diameter, auto-sizing if not specified.
+
+        Args:
+            bore_diameter: Bore diameter in mm
+
+        Returns:
+            Tuple of (size_name, thread_diameter) in mm
+        """
+        if self.size is not None and self.diameter is not None:
+            return (self.size, self.diameter)
+
+        # Auto-size from bore
+        auto_size, auto_diameter = get_set_screw_size(bore_diameter)
+
+        size = self.size if self.size is not None else auto_size
+        diameter = self.diameter if self.diameter is not None else auto_diameter
+
+        return (size, diameter)
 
 
 def create_bore(
@@ -315,33 +406,109 @@ def create_keyway(
     return result
 
 
+def create_set_screw(
+    part: Part,
+    bore: BoreFeature,
+    set_screw: SetScrewFeature,
+    part_length: float,
+    axis: Axis = Axis.Z
+) -> Part:
+    """
+    Create set screw holes in a part (requires bore to already exist or be specified).
+
+    Set screws are drilled radially through the bore wall. Multiple set screws
+    are evenly spaced around the circumference.
+
+    Args:
+        part: The part to add set screw holes to
+        bore: Bore specification (set screws go through bore wall)
+        set_screw: Set screw specification
+        part_length: Length of the part along axis
+        axis: Axis along which part is oriented (default: Z)
+
+    Returns:
+        Part with set screw holes cut
+    """
+    bore_radius = bore.diameter / 2
+    screw_size, screw_diameter = set_screw.get_screw_specs(bore.diameter)
+
+    # Set screw holes are drilled radially (perpendicular to axis)
+    # They should extend from outside the part through the bore wall
+    # Use a generous length to ensure they fully penetrate
+    screw_hole_length = bore_radius + 10.0  # Extend 10mm beyond center
+
+    # Calculate angular positions for multiple set screws
+    # Evenly distributed around circumference
+    if set_screw.count == 1:
+        angles = [set_screw.angular_offset]
+    else:
+        # Multiple screws: distribute evenly (e.g., 2 screws = 180° apart)
+        angle_step = 360.0 / set_screw.count
+        angles = [set_screw.angular_offset + i * angle_step for i in range(set_screw.count)]
+
+    result = part
+
+    for angle in angles:
+        # Create cylindrical hole for set screw
+        # The hole is positioned at the bore surface and drilled radially inward
+        screw_hole = Cylinder(
+            radius=screw_diameter / 2,
+            height=screw_hole_length,
+            align=(Align.MIN, Align.CENTER, Align.CENTER)
+        )
+
+        # Position and orient the hole based on axis
+        if axis == Axis.Z:
+            # Part is along Z axis, set screw holes are in XY plane
+            # Rotate hole to be radial at the specified angle
+            screw_hole = screw_hole.rotate(Axis.Z, angle)
+        elif axis == Axis.X:
+            # Part is along X axis, set screw holes are in YZ plane
+            screw_hole = screw_hole.rotate(Axis.Y, 90)  # Orient along X
+            screw_hole = screw_hole.rotate(Axis.X, angle)
+        elif axis == Axis.Y:
+            # Part is along Y axis, set screw holes are in XZ plane
+            screw_hole = screw_hole.rotate(Axis.X, -90)  # Orient along Y
+            screw_hole = screw_hole.rotate(Axis.Y, angle)
+
+        # Subtract from part
+        result = result - screw_hole
+
+    return result
+
+
 def add_bore_and_keyway(
     part: Part,
     part_length: float,
     bore: Optional[BoreFeature] = None,
     keyway: Optional[KeywayFeature] = None,
+    set_screw: Optional[SetScrewFeature] = None,
     axis: Axis = Axis.Z
 ) -> Part:
     """
-    Add bore and optionally keyway to a part.
+    Add bore, keyway, and set screw holes to a part.
 
-    Convenience function that applies bore first, then keyway if specified.
+    Convenience function that applies features in order: bore → keyway → set screws.
 
     Args:
         part: The part to modify
         part_length: Length of the part along axis
-        bore: Bore specification (required if keyway is specified)
+        bore: Bore specification (required if keyway or set_screw specified)
         keyway: Keyway specification (optional)
-        axis: Axis for bore and keyway (default: Z)
+        set_screw: Set screw specification (optional)
+        axis: Axis for bore and features (default: Z)
 
     Returns:
-        Modified part with bore and keyway
+        Modified part with requested features
 
     Raises:
-        ValueError: If keyway specified without bore
+        ValueError: If keyway or set_screw specified without bore
     """
     if keyway is not None and bore is None:
         raise ValueError("Keyway requires a bore to be specified")
+
+    if set_screw is not None and bore is None:
+        raise ValueError("Set screw requires a bore to be specified")
 
     result = part
 
@@ -350,6 +517,9 @@ def add_bore_and_keyway(
 
     if keyway is not None:
         result = create_keyway(result, bore, keyway, part_length, axis)
+
+    if set_screw is not None:
+        result = create_set_screw(result, bore, set_screw, part_length, axis)
 
     # Ensure we return a single Part/Solid, not a ShapeList
     # Boolean operations can sometimes split geometry into multiple pieces

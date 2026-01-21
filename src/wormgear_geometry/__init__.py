@@ -24,7 +24,9 @@ from .io import (
 from .features import (
     BoreFeature,
     KeywayFeature,
+    SetScrewFeature,
     get_din_6885_keyway,
+    get_set_screw_size,
     calculate_default_bore,
 )
 
@@ -38,6 +40,8 @@ __all__ = [
     "WormGearDesign",
     "BoreFeature",
     "KeywayFeature",
+    "SetScrewFeature",
     "get_din_6885_keyway",
+    "get_set_screw_size",
     "calculate_default_bore",
 ]

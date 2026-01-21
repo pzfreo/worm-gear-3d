@@ -10,7 +10,7 @@ import math
 from typing import Optional
 from build123d import *
 from .io import WheelParams, WormParams, AssemblyParams
-from .features import BoreFeature, KeywayFeature, add_bore_and_keyway
+from .features import BoreFeature, KeywayFeature, SetScrewFeature, add_bore_and_keyway
 
 
 class WheelGeometry:
@@ -32,7 +32,8 @@ class WheelGeometry:
         face_width: float = None,
         throated: bool = False,
         bore: Optional[BoreFeature] = None,
-        keyway: Optional[KeywayFeature] = None
+        keyway: Optional[KeywayFeature] = None,
+        set_screw: Optional[SetScrewFeature] = None
     ):
         """
         Initialize wheel geometry generator.
@@ -45,6 +46,7 @@ class WheelGeometry:
             throated: If True, apply throat cut (hobbed style); if False, pure helical
             bore: Optional bore feature specification
             keyway: Optional keyway feature specification (requires bore)
+            set_screw: Optional set screw feature specification (requires bore)
         """
         self.params = params
         self.worm_params = worm_params
@@ -52,6 +54,7 @@ class WheelGeometry:
         self.throated = throated
         self.bore = bore
         self.keyway = keyway
+        self.set_screw = set_screw
 
         # Set keyway as hub type if specified
         if self.keyway is not None:
@@ -76,13 +79,14 @@ class WheelGeometry:
         # Create helical gear (throating is built into the tooth profile)
         gear = self._create_helical_gear()
 
-        # Add bore and keyway if specified
-        if self.bore is not None or self.keyway is not None:
+        # Add bore, keyway, and set screw if specified
+        if self.bore is not None or self.keyway is not None or self.set_screw is not None:
             gear = add_bore_and_keyway(
                 gear,
                 part_length=self.face_width,
                 bore=self.bore,
                 keyway=self.keyway,
+                set_screw=self.set_screw,
                 axis=Axis.Z
             )
 
