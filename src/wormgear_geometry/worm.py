@@ -102,6 +102,12 @@ class WormGeometry:
 
         # Trim to exact length - removes fragile tapered thread ends
         print(f"    Trimming to final length ({self.length:.2f}mm)...")
+        try:
+            pre_trim_volume = worm.volume
+            print(f"    Pre-trim volume: {pre_trim_volume:.2f} mm³")
+        except:
+            print(f"    Pre-trim volume: unable to calculate")
+
         # Trim box needs to be large enough in XY to contain the worm diameter
         # but exact in Z (height) to trim to the desired length
         trim_diameter = tip_radius * 4  # Plenty of margin
@@ -111,7 +117,16 @@ class WormGeometry:
             height=self.length,    # Exact length in Z
             align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
+        print(f"    Trim box: {trim_diameter:.2f} x {trim_diameter:.2f} x {self.length:.2f} mm")
+
         worm = worm & trim_box
+
+        try:
+            post_trim_volume = worm.volume
+            print(f"    Post-trim volume: {post_trim_volume:.2f} mm³")
+        except:
+            print(f"    Post-trim volume: unable to calculate")
+
         print(f"    ✓ Worm trimmed to length")
 
         # Ensure we have a single Solid for proper display in ocp_vscode
