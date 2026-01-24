@@ -140,7 +140,12 @@ self.throat_curvature_radius = wheel_pitch_radius
 
 ### Medium-term (Phase 3)
 
-1. **Implement envelope calculation** for wheel tooth surface
+1. **Implement envelope calculation** for wheel tooth surface - ✅ **IMPLEMENTED as Virtual Hobbing**
+   - `VirtualHobbingWheelGeometry` class simulates hobbing manufacturing process
+   - Uses kinematic subtraction at discrete angular positions
+   - Approximates true conjugate surface through boolean operations
+   - CLI flag: `--virtual-hobbing` with `--hobbing-steps N` to control accuracy
+   - Trade-off: More steps = more accurate but slower (72 steps default)
 2. **Add meshing verification**: Check for interference at multiple positions
 3. **Contact pattern analysis**: Visualize tooth contact regions
 

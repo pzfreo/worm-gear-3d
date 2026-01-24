@@ -16,6 +16,7 @@ from .io import (
 from .worm import WormGeometry
 from .globoid_worm import GloboidWormGeometry
 from .wheel import WheelGeometry
+from .virtual_hobbing import VirtualHobbingWheelGeometry
 from .features import (
     BoreFeature,
     KeywayFeature,
@@ -167,6 +168,20 @@ Examples:
         choices=['ZA', 'ZK', 'za', 'zk'],
         default='ZA',
         help='Tooth profile type per DIN 3975: ZA=straight flanks for CNC (default), ZK=convex for 3D printing'
+    )
+
+    # Experimental virtual hobbing
+    parser.add_argument(
+        '--virtual-hobbing',
+        action='store_true',
+        help='EXPERIMENTAL: Use virtual hobbing simulation for wheel (more accurate but slower)'
+    )
+
+    parser.add_argument(
+        '--hobbing-steps',
+        type=int,
+        default=72,
+        help='Number of steps for virtual hobbing (default: 72, higher=more accurate but slower)'
     )
 
     # Bore and keyway options (defaults: auto-calculated bore with keyway)
@@ -469,19 +484,37 @@ Examples:
 
         profile = args.profile.upper()
         profile_desc = "ZK/3D-print" if profile == "ZK" else "ZA/CNC"
-        print(f"\nGenerating wheel ({design.wheel.num_teeth} teeth, module {design.wheel.module_mm}mm, {wheel_type_desc}, {profile_desc}{features_desc})...")
-        wheel_geo = WheelGeometry(
-            params=design.wheel,
-            worm_params=design.worm,
-            assembly_params=design.assembly,
-            face_width=args.wheel_width,
-            throated=args.hobbed,
-            bore=wheel_bore,
-            keyway=wheel_keyway,
-            set_screw=wheel_set_screw,
-            hub=wheel_hub,
-            profile=profile
-        )
+
+        if args.virtual_hobbing:
+            # EXPERIMENTAL: Virtual hobbing simulation
+            print(f"\nGenerating wheel ({design.wheel.num_teeth} teeth, module {design.wheel.module_mm}mm, VIRTUAL HOBBING [EXPERIMENTAL], {profile_desc}{features_desc})...")
+            print(f"  Using {args.hobbing_steps} hobbing steps (--hobbing-steps to adjust)")
+            wheel_geo = VirtualHobbingWheelGeometry(
+                params=design.wheel,
+                worm_params=design.worm,
+                assembly_params=design.assembly,
+                face_width=args.wheel_width,
+                hobbing_steps=args.hobbing_steps,
+                bore=wheel_bore,
+                keyway=wheel_keyway,
+                set_screw=wheel_set_screw,
+                hub=wheel_hub,
+                profile=profile
+            )
+        else:
+            print(f"\nGenerating wheel ({design.wheel.num_teeth} teeth, module {design.wheel.module_mm}mm, {wheel_type_desc}, {profile_desc}{features_desc})...")
+            wheel_geo = WheelGeometry(
+                params=design.wheel,
+                worm_params=design.worm,
+                assembly_params=design.assembly,
+                face_width=args.wheel_width,
+                throated=args.hobbed,
+                bore=wheel_bore,
+                keyway=wheel_keyway,
+                set_screw=wheel_set_screw,
+                hub=wheel_hub,
+                profile=profile
+            )
         wheel = wheel_geo.build()
         print(f"  Volume: {wheel.volume:.2f} mm³")
 
