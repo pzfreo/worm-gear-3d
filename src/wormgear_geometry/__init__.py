@@ -14,6 +14,7 @@ __version__ = "0.1.0"
 
 from .worm import WormGeometry
 from .wheel import WheelGeometry
+from .virtual_hobbing import VirtualHobbingWheelGeometry
 from .io import (
     load_design_json,
     save_design_json,
@@ -38,6 +39,7 @@ from .features import (
 __all__ = [
     "WormGeometry",
     "WheelGeometry",
+    "VirtualHobbingWheelGeometry",
     "load_design_json",
     "save_design_json",
     "WormParams",
