@@ -75,6 +75,7 @@ class ManufacturingFeatures:
 @dataclass
 class ManufacturingParams:
     """Manufacturing parameters for worm and wheel."""
+    worm_type: str = "cylindrical"  # "cylindrical" or "globoid"
     worm_length: float = 40.0
     wheel_width: Optional[float] = None
     wheel_throated: bool = False
@@ -206,6 +207,7 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
             )
 
         manufacturing = ManufacturingParams(
+            worm_type=mfg_data.get('worm_type', 'cylindrical'),
             worm_length=mfg_data.get('worm_length', 40.0),
             wheel_width=mfg_data.get('wheel_width'),
             wheel_throated=mfg_data.get('wheel_throated', False),
@@ -243,6 +245,7 @@ def save_design_json(design: WormGearDesign, filepath: Union[str, Path]) -> None
     # Add manufacturing section if present
     if design.manufacturing is not None:
         mfg_dict: Dict[str, Any] = {
+            'worm_type': design.manufacturing.worm_type,
             'worm_length': design.manufacturing.worm_length,
             'wheel_throated': design.manufacturing.wheel_throated
         }

@@ -14,6 +14,7 @@ from .io import (
     ManufacturingFeatures
 )
 from .worm import WormGeometry
+from .globoid_worm import GloboidWormGeometry
 from .wheel import WheelGeometry
 from .features import (
     BoreFeature,
@@ -65,6 +66,9 @@ Examples:
 
   # Save extended JSON with all manufacturing features for reproducibility
   wormgear-geometry design.json --set-screw --hub-type extended --save-json complete_design.json
+
+  # Generate globoid (hourglass) worm for 30-50% higher load capacity
+  wormgear-geometry design.json --globoid
         """
     )
 
@@ -143,6 +147,12 @@ Examples:
         '--hobbed',
         action='store_true',
         help='Generate hobbed wheel with throated teeth (default: helical without throating)'
+    )
+
+    parser.add_argument(
+        '--globoid',
+        action='store_true',
+        help='Generate globoid (double-enveloping) worm with hourglass shape for 30-50%% higher load capacity'
     )
 
     # Bore and keyway options (defaults: auto-calculated bore with keyway)
@@ -321,16 +331,31 @@ Examples:
                     screw_desc += f" x{worm_set_screw.count}"
                 features_desc += f" + set screw ({screw_desc})"
 
-        print(f"\nGenerating worm ({design.worm.num_starts}-start, module {design.worm.module_mm}mm{features_desc})...")
-        worm_geo = WormGeometry(
-            params=design.worm,
-            assembly_params=design.assembly,
-            length=args.worm_length,
-            sections_per_turn=args.sections,
-            bore=worm_bore,
-            keyway=worm_keyway,
-            set_screw=worm_set_screw
-        )
+        worm_type_desc = "globoid (hourglass)" if args.globoid else "cylindrical"
+        print(f"\nGenerating worm ({worm_type_desc}, {design.worm.num_starts}-start, module {design.worm.module_mm}mm{features_desc})...")
+
+        if args.globoid:
+            worm_geo = GloboidWormGeometry(
+                params=design.worm,
+                assembly_params=design.assembly,
+                wheel_pitch_diameter=design.wheel.pitch_diameter_mm,
+                length=args.worm_length,
+                sections_per_turn=args.sections,
+                bore=worm_bore,
+                keyway=worm_keyway,
+                set_screw=worm_set_screw
+            )
+        else:
+            worm_geo = WormGeometry(
+                params=design.worm,
+                assembly_params=design.assembly,
+                length=args.worm_length,
+                sections_per_turn=args.sections,
+                bore=worm_bore,
+                keyway=worm_keyway,
+                set_screw=worm_set_screw
+            )
+
         worm = worm_geo.build()
         print(f"  Volume: {worm.volume:.2f} mm³")
 
@@ -567,6 +592,7 @@ Examples:
 
         # Create manufacturing parameters
         manufacturing = ManufacturingParams(
+            worm_type="globoid" if args.globoid else "cylindrical",
             worm_length=args.worm_length,
             wheel_width=args.wheel_width,
             wheel_throated=args.hobbed,
