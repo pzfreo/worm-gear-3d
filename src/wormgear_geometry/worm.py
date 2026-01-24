@@ -261,13 +261,13 @@ class WormGeometry:
                         for j in range(num_flank_points):
                             # Parameter along the flank (0 = root, 1 = tip)
                             t_flank = j / (num_flank_points - 1)
-                            r_pos = inner_r + t_flank * (outer_r - inner_r)
+                            r_pos = local_inner_r + t_flank * (local_outer_r - local_inner_r)
 
                             # Interpolate width with slight convex curve
-                            linear_width = thread_half_width_root + t_flank * (thread_half_width_tip - thread_half_width_root)
+                            linear_width = local_thread_half_width_root + t_flank * (local_thread_half_width_tip - local_thread_half_width_root)
                             # Add subtle convex bulge - max at middle of flank
                             curve_factor = 4 * t_flank * (1 - t_flank)  # Parabolic, peaks at 0.5
-                            bulge = curve_factor * 0.05 * (thread_half_width_root - thread_half_width_tip)
+                            bulge = curve_factor * 0.05 * (local_thread_half_width_root - local_thread_half_width_tip)
                             width = linear_width + bulge
 
                             left_flank.append((r_pos, -width))
