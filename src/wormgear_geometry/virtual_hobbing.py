@@ -21,6 +21,8 @@ Trade-offs:
 """
 
 import math
+import sys
+import time
 from typing import Optional, Literal, Callable
 from build123d import *
 from .io import WheelParams, WormParams, AssemblyParams
@@ -409,6 +411,9 @@ class VirtualHobbingWheelGeometry:
         # Track progress - more frequent updates for WASM
         progress_interval = max(1, self.hobbing_steps // 20)
 
+        # Time Phase 1
+        phase1_start = time.time()
+
         # Build envelope by unioning all hob positions
         envelope = None
 
@@ -433,7 +438,6 @@ class VirtualHobbingWheelGeometry:
             if (step + 1) % progress_interval == 0:
                 # Phase 1 is 0-90% of total progress
                 pct = ((step + 1) / self.hobbing_steps) * 90
-<<<<<<< HEAD
                 # Only print 25%, 50%, 75% to console; all updates go to callback
                 verbose = (step + 1) in [
                     self.hobbing_steps // 4,
@@ -444,24 +448,45 @@ class VirtualHobbingWheelGeometry:
                     f"      {pct:.0f}% envelope built ({step + 1}/{self.hobbing_steps} steps)",
                     pct,
                     verbose=verbose
-=======
-                self._report_progress(
-                    f"      {pct:.0f}% envelope built ({step + 1}/{self.hobbing_steps} steps)",
-                    pct
->>>>>>> origin/main
                 )
 
         if envelope is None:
             self._report_progress(f"    ERROR: Failed to build envelope", -1)
             return blank
 
-        self._report_progress(f"    Phase 2: Subtracting envelope from wheel blank...", 92.0)
+        # Report Phase 1 completion time
+        phase1_time = time.time() - phase1_start
+        self._report_progress(
+            f"    ✓ Phase 1 complete in {phase1_time:.1f}s ({self.hobbing_steps} unions)",
+            91.0
+        )
+
+        # Phase 2: Subtract envelope (this is a single complex boolean operation)
+        self._report_progress(
+            f"    Phase 2: Subtracting envelope from wheel blank (this may take several minutes)...",
+            92.0
+        )
+
+        # Force flush to ensure message is displayed immediately
+        sys.stdout.flush()
+
+        # Time this operation since it can be slow
+        phase2_start = time.time()
 
         # Subtract the envelope from the wheel blank
         try:
             wheel = blank - envelope
+            phase2_time = time.time() - phase2_start
+            self._report_progress(
+                f"    ✓ Envelope subtracted in {phase2_time:.1f}s",
+                95.0
+            )
         except Exception as e:
-            self._report_progress(f"    ERROR: Envelope subtraction failed: {e}", -1)
+            phase2_time = time.time() - phase2_start
+            self._report_progress(
+                f"    ERROR: Envelope subtraction failed after {phase2_time:.1f}s: {e}",
+                -1
+            )
             return blank
 
         self._report_progress(f"    ✓ Virtual hobbing complete", 100.0)
