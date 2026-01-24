@@ -127,10 +127,11 @@ class GloboidWormGeometry:
         if self.bore or self.keyway or self.set_screw:
             result = add_bore_and_keyway(
                 part=result,
+                part_length=self.length,
                 bore=self.bore,
                 keyway=self.keyway,
                 set_screw=self.set_screw,
-                part_type="worm"
+                axis=Axis.Z
             )
 
         self._part = result

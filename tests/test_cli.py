@@ -303,3 +303,159 @@ class TestCLIMeshAligned:
 
         # Should succeed (view won't work without ocp_vscode but flag should be accepted)
         assert result.returncode == 0
+
+
+class TestCLIGloboid:
+    """Tests for globoid worm generation via CLI."""
+
+    def test_cli_globoid_flag_accepted(self, temp_json_file):
+        """Test that --globoid flag is accepted."""
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wormgear_geometry.cli",
+                str(temp_json_file),
+                "--no-save",
+                "--globoid",
+                "--worm-length", "10",
+                "--sections", "12"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0
+        assert "globoid" in result.stdout.lower() or "hourglass" in result.stdout.lower()
+
+    def test_cli_globoid_generates_files(self, temp_json_file, tmp_path):
+        """Test that globoid flag generates STEP files."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wormgear_geometry.cli",
+                str(temp_json_file),
+                "-o", str(output_dir),
+                "--globoid",
+                "--worm-length", "10",
+                "--sections", "12"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0
+        step_files = list(output_dir.glob("*.step"))
+        assert len(step_files) == 2  # Both worm and wheel
+
+    def test_cli_globoid_worm_only(self, temp_json_file, tmp_path):
+        """Test globoid worm generation with --worm-only."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wormgear_geometry.cli",
+                str(temp_json_file),
+                "-o", str(output_dir),
+                "--globoid",
+                "--worm-only",
+                "--worm-length", "10",
+                "--sections", "12"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0
+        assert "Generating worm" in result.stdout
+        assert "globoid" in result.stdout.lower() or "hourglass" in result.stdout.lower()
+
+        step_files = list(output_dir.glob("*.step"))
+        assert len(step_files) == 1
+
+    def test_cli_globoid_with_features(self, temp_json_file, tmp_path):
+        """Test globoid worm with bore and keyway features."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wormgear_geometry.cli",
+                str(temp_json_file),
+                "-o", str(output_dir),
+                "--globoid",
+                "--worm-only",
+                "--worm-bore", "6",
+                "--worm-length", "10",
+                "--sections", "12"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0
+        assert "bore" in result.stdout.lower()
+
+    def test_cli_globoid_save_json(self, temp_json_file, tmp_path):
+        """Test saving extended JSON with globoid worm type."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        json_output = tmp_path / "complete_design.json"
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wormgear_geometry.cli",
+                str(temp_json_file),
+                "-o", str(output_dir),
+                "--globoid",
+                "--worm-length", "12",
+                "--save-json", str(json_output),
+                "--sections", "12"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0
+        assert json_output.exists()
+
+        # Check that worm_type is "globoid" in saved JSON
+        with open(json_output, 'r') as f:
+            data = json.load(f)
+
+        assert "manufacturing" in data
+        assert data["manufacturing"]["worm_type"] == "globoid"
+        assert data["manufacturing"]["worm_length"] == 12.0
+
+    def test_cli_globoid_with_7mm_example(self, examples_dir, tmp_path):
+        """Test globoid generation with 7mm.json example."""
+        example_file = examples_dir / "7mm.json"
+        if not example_file.exists():
+            pytest.skip("Example file not found")
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wormgear_geometry.cli",
+                str(example_file),
+                "-o", str(output_dir),
+                "--globoid",
+                "--worm-length", "12",
+                "--sections", "12"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0
+        step_files = list(output_dir.glob("*.step"))
+        assert len(step_files) == 2
