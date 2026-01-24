@@ -232,9 +232,14 @@ class WormGeometry:
             local_tip_radius = pitch_radius + local_addendum
             local_root_radius = pitch_radius - local_dedendum
 
+            # IMPORTANT: Ensure thread root never goes above core radius
+            # The core is constant at root_radius, but tapered thread root approaches pitch_radius
+            # Clamp the thread root to stay at or below the core radius
+            local_root_radius = min(local_root_radius, root_radius)
+
             # Profile coordinates relative to pitch radius
-            inner_r = local_root_radius - pitch_radius  # = -local_dedendum
-            outer_r = local_tip_radius - pitch_radius   # = local_addendum
+            inner_r = local_root_radius - pitch_radius
+            outer_r = local_tip_radius - pitch_radius
 
             # Apply taper to thread width
             local_thread_half_width_root = thread_half_width_root * taper_factor
