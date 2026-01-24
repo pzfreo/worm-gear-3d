@@ -72,6 +72,7 @@ class WormGeometry:
         """
         root_radius = self.params.root_diameter_mm / 2
         tip_radius = self.params.tip_diameter_mm / 2
+        lead = self.params.lead_mm
 
         # Create thread(s) first to determine helix extent
         print(f"    Creating {self.params.num_starts} thread(s)...")
@@ -81,12 +82,13 @@ class WormGeometry:
         else:
             print(f"    ✓ Threads created")
 
-        # Build worm to exact length - no trimming needed
-        # The core cylinder defines the final worm length
-        print(f"    Creating core cylinder (radius={root_radius:.2f}mm, height={self.length:.2f}mm)...")
+        # Create core slightly longer than final worm to match extended threads
+        # We'll trim to exact length after union
+        extended_length = self.length + 2 * lead  # Add lead on each end
+        print(f"    Creating core cylinder (radius={root_radius:.2f}mm, height={extended_length:.2f}mm)...")
         core = Cylinder(
             radius=root_radius,
-            height=self.length,
+            height=extended_length,
             align=(Align.CENTER, Align.CENTER, Align.CENTER)
         )
 
@@ -97,6 +99,17 @@ class WormGeometry:
         else:
             print(f"    No threads to union - using core only")
             worm = core
+
+        # Trim to exact length - removes fragile tapered thread ends
+        print(f"    Trimming to final length ({self.length:.2f}mm)...")
+        trim_box = Box(
+            length=self.length * 2,  # Large in XY
+            width=self.length * 2,
+            height=self.length,
+            align=(Align.CENTER, Align.CENTER, Align.CENTER)
+        )
+        worm = worm & trim_box
+        print(f"    ✓ Worm trimmed to length")
 
         # Ensure we have a single Solid for proper display in ocp_vscode
         if hasattr(worm, 'solids'):
@@ -187,13 +200,17 @@ class WormGeometry:
         addendum = self.params.addendum_mm
         dedendum = self.params.dedendum_mm
 
+        # Extend thread length beyond worm length so we can trim to exact length
+        # This removes the fragile tapered ends
+        extended_length = self.length + 2 * lead  # Add lead on each end
+
         # Create profiles along the helix for lofting
-        # Use exact length for sections calculation
-        num_sections = int((self.length / lead) * self.sections_per_turn) + 1
+        # Use extended length for sections calculation
+        num_sections = int((extended_length / lead) * self.sections_per_turn) + 1
         sections = []
 
         # Thread end taper: ramp down thread depth over ~1 lead at each end
-        # This prevents threads from extending abruptly beyond the shaft ends
+        # These tapered ends will be trimmed off, but they ensure smooth geometry
         taper_length = lead  # Taper zone length at each end
 
         for i in range(num_sections):
@@ -203,7 +220,8 @@ class WormGeometry:
 
             # Calculate taper factor for smooth thread ends
             # Ramps from 0 to 1 over taper_length at each end
-            half_width = self.length / 2.0
+            # Use extended length for taper calculation
+            half_width = extended_length / 2.0
             z_position = point.Z
             dist_from_start = z_position + half_width
             dist_from_end = half_width - z_position
