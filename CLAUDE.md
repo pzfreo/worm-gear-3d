@@ -190,9 +190,24 @@ wormgear-geometry design.json --no-keyway
 # Custom dimensions
 wormgear-geometry design.json --worm-length 50 --wheel-width 12
 
+# For 3D printing: use ZK profile (slightly convex flanks)
+wormgear-geometry design.json --profile ZK
+
+# For CNC machining: use ZA profile (straight flanks, default)
+wormgear-geometry design.json --profile ZA
+
 # View in OCP viewer
 wormgear-geometry design.json --view --no-save --mesh-aligned
 ```
+
+### Tooth Profile Types (DIN 3975)
+
+Two profile types are supported via the `--profile` flag:
+
+| Profile | Flanks | Best For | Description |
+|---------|--------|----------|-------------|
+| `ZA` (default) | Straight trapezoidal | CNC machining | Standard DIN 3975 Type A, simple and accurate |
+| `ZK` | Slightly convex | 3D printing | Reduces stress concentrations, better layer adhesion |
 
 ## Geometry Construction Approaches
 
