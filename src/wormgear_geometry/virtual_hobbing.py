@@ -387,6 +387,12 @@ class VirtualHobbingWheelGeometry:
         3. Subtract the envelope from the wheel blank once
 
         This produces proper conjugate tooth profiles.
+
+        PERFORMANCE WARNING:
+        - Complex hob geometry (e.g., globoid worms) can make this VERY slow
+        - Phase 2 (envelope subtraction) complexity grows exponentially with hobbing_steps
+        - For globoid worms, consider using 18-36 steps instead of 72+
+        - Cylindrical worms are much faster to process
         """
         centre_distance = self.assembly_params.centre_distance_mm
         wheel_teeth = self.params.num_teeth
@@ -403,6 +409,13 @@ class VirtualHobbingWheelGeometry:
             f"    Hobbing simulation: {self.hobbing_steps} steps, ratio 1:{ratio:.1f}",
             0.0
         )
+
+        # Warn about performance if using many steps (likely globoid worm)
+        if self.hobbing_steps > 36 and self.worm_geometry is not None:
+            print(f"    ⚠️  WARNING: Using {self.hobbing_steps} steps with provided worm geometry (likely globoid).")
+            print(f"    ⚠️  Phase 2 may take 30+ minutes or fail. Consider using 18-36 steps for globoid worms.")
+            sys.stdout.flush()
+
         self._report_progress(
             f"    Phase 1: Building hob envelope (union of all positions)...",
             1.0
