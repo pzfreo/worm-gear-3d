@@ -571,31 +571,14 @@ class VirtualHobbingWheelGeometry:
             hob_angle = step * hob_increment
 
             # Rotate hob around its own axis first, then position and rotate around wheel
-            hob_rotated_raw = Rot(Z=wheel_angle) * Pos(centre_distance, 0, 0) * Rot(X=90) * Rot(Z=hob_angle) * hob
-
-            # Ensure hob_rotated is a proper Part (transformations can return ShapeList)
-            if isinstance(hob_rotated_raw, Part):
-                hob_rotated = hob_rotated_raw
-            elif isinstance(hob_rotated_raw, (list, tuple)):
-                # If it's a list, union all elements
-                hob_rotated = hob_rotated_raw[0]
-                for item in hob_rotated_raw[1:]:
-                    hob_rotated = hob_rotated + item
-            else:
-                # Wrap it as a Part
-                hob_rotated = Part(hob_rotated_raw.wrapped)
+            hob_rotated = Rot(Z=wheel_angle) * Pos(centre_distance, 0, 0) * Rot(X=90) * Rot(Z=hob_angle) * hob
 
             # Union into envelope
             try:
                 if envelope is None:
                     envelope = hob_rotated
                 else:
-                    # Perform union
                     envelope = envelope + hob_rotated
-                    # Ensure result is a Part
-                    if not isinstance(envelope, Part):
-                        # Compound - convert to Part
-                        envelope = Part(envelope.wrapped)
             except Exception as e:
                 self._report_progress(f"    WARNING: Step {step} union failed: {e}", -1)
 
@@ -624,6 +607,19 @@ class VirtualHobbingWheelGeometry:
             self._report_progress(f"    ERROR: Failed to build envelope", -1)
             return blank
 
+        # Ensure envelope is a proper Part (unions can sometimes create Compound/ShapeList)
+        if not isinstance(envelope, Part):
+            print(f"    Converting envelope from {type(envelope).__name__} to Part...")
+            try:
+                if hasattr(envelope, 'wrapped'):
+                    envelope = Part(envelope.wrapped)
+                else:
+                    print(f"    ⚠️  ERROR: Envelope has no .wrapped attribute!")
+                    return blank
+            except Exception as e:
+                print(f"    ⚠️  ERROR: Failed to convert envelope to Part: {e}")
+                return blank
+
         # Report Phase 1 completion time
         phase1_time = time.time() - phase1_start
         self._report_progress(
@@ -632,15 +628,11 @@ class VirtualHobbingWheelGeometry:
         )
 
         # DEBUG: Check envelope validity before optimizations
-        if envelope is None:
-            print("    ⚠️  ERROR: Envelope is None after Phase 1!")
-            return blank
-
         try:
             env_volume = envelope.volume
             print(f"    Envelope volume before optimizations: {env_volume:.2f} mm³")
-        except:
-            print(f"    ⚠️  WARNING: Cannot compute envelope volume (may be invalid)")
+        except Exception as e:
+            print(f"    ⚠️  WARNING: Cannot compute envelope volume: {e}")
 
         # Optimization #1: Trim envelope to wheel boundaries
         # This removes excess hob geometry that doesn't cut anything
