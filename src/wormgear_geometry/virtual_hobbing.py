@@ -610,18 +610,35 @@ class VirtualHobbingWheelGeometry:
         # Ensure envelope is a proper Part (unions can sometimes create Compound/ShapeList)
         if not isinstance(envelope, Part):
             print(f"    Converting envelope from {type(envelope).__name__} to Part...")
+            convert_start = time.time()
             try:
-                # If it's a ShapeList (list of shapes), union them all
+                # If it's a ShapeList (list of shapes), we need to fuse them at OCP level
                 if isinstance(envelope, (list, tuple)):
                     if len(envelope) == 0:
                         print(f"    ⚠️  ERROR: Envelope is empty list!")
                         return blank
-                    # Start with first element
-                    result = envelope[0]
-                    # Union the rest
-                    for shape in envelope[1:]:
-                        result = result + shape
-                    envelope = result
+
+                    print(f"    Fusing {len(envelope)} shapes from ShapeList...")
+
+                    # Use OCP BRepAlgoAPI_Fuse to fuse all shapes
+                    from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+
+                    # Start with first shape
+                    current_shape = envelope[0].wrapped if hasattr(envelope[0], 'wrapped') else envelope[0]
+
+                    # Fuse with each subsequent shape
+                    for i, shape in enumerate(envelope[1:], 1):
+                        shape_ocp = shape.wrapped if hasattr(shape, 'wrapped') else shape
+                        fuser = BRepAlgoAPI_Fuse(current_shape, shape_ocp)
+                        fuser.Build()
+                        if not fuser.IsDone():
+                            print(f"    ⚠️  WARNING: Fuse failed at shape {i}")
+                            continue
+                        current_shape = fuser.Shape()
+
+                    # Wrap result as Part
+                    envelope = Part(current_shape)
+
                 elif hasattr(envelope, 'wrapped'):
                     # Has .wrapped - direct conversion
                     envelope = Part(envelope.wrapped)
@@ -634,9 +651,13 @@ class VirtualHobbingWheelGeometry:
                     print(f"    ⚠️  ERROR: After conversion, still not a Part (is {type(envelope)})!")
                     return blank
 
-                print(f"    ✓ Conversion successful")
+                convert_time = time.time() - convert_start
+                print(f"    ✓ Conversion successful in {convert_time:.1f}s")
             except Exception as e:
-                print(f"    ⚠️  ERROR: Failed to convert envelope to Part: {e}")
+                convert_time = time.time() - convert_start
+                print(f"    ⚠️  ERROR: Failed to convert envelope to Part after {convert_time:.1f}s: {e}")
+                import traceback
+                traceback.print_exc()
                 return blank
 
         # Report Phase 1 completion time
