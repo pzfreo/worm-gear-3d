@@ -5,10 +5,15 @@ Creates CNC-ready worm geometry with helical threads.
 """
 
 import math
-from typing import Optional
+from typing import Optional, Literal
 from build123d import *
 from .io import WormParams, AssemblyParams
 from .features import BoreFeature, KeywayFeature, SetScrewFeature, add_bore_and_keyway
+
+# Profile types per DIN 3975
+# ZA: Straight flanks in axial section (Archimedean) - best for CNC machining
+# ZK: Slightly convex flanks - better for 3D printing (reduces stress concentrations)
+ProfileType = Literal["ZA", "ZK"]
 
 
 class WormGeometry:
@@ -27,7 +32,8 @@ class WormGeometry:
         sections_per_turn: int = 36,
         bore: Optional[BoreFeature] = None,
         keyway: Optional[KeywayFeature] = None,
-        set_screw: Optional[SetScrewFeature] = None
+        set_screw: Optional[SetScrewFeature] = None,
+        profile: ProfileType = "ZA"
     ):
         """
         Initialize worm geometry generator.
@@ -40,6 +46,9 @@ class WormGeometry:
             bore: Optional bore feature specification
             keyway: Optional keyway feature specification (requires bore)
             set_screw: Optional set screw feature specification (requires bore)
+            profile: Tooth profile type per DIN 3975:
+                     "ZA" - Straight flanks (trapezoidal) - best for CNC (default)
+                     "ZK" - Slightly convex flanks - better for 3D printing
         """
         self.params = params
         self.assembly_params = assembly_params
@@ -48,6 +57,7 @@ class WormGeometry:
         self.bore = bore
         self.keyway = keyway
         self.set_screw = set_screw
+        self.profile = profile.upper() if isinstance(profile, str) else profile
 
         # Set keyway as shaft type if specified
         if self.keyway is not None:
@@ -196,33 +206,45 @@ class WormGeometry:
 
             with BuildSketch(profile_plane) as sk:
                 with BuildLine():
-                    # Create involute-like curved flanks for better wear
-                    # Use spline through points that approximate involute curve
-                    num_flank_points = 5
-                    left_flank = []
-                    right_flank = []
+                    if self.profile == "ZA":
+                        # ZA profile: Straight flanks (trapezoidal) per DIN 3975
+                        # Best for CNC machining - simple, accurate, standard
+                        root_left = (inner_r, -thread_half_width_root)
+                        root_right = (inner_r, thread_half_width_root)
+                        tip_left = (outer_r, -thread_half_width_tip)
+                        tip_right = (outer_r, thread_half_width_tip)
 
-                    for j in range(num_flank_points):
-                        # Parameter along the flank (0 = root, 1 = tip)
-                        t_flank = j / (num_flank_points - 1)
-                        r_pos = inner_r + t_flank * (outer_r - inner_r)
+                        Line(root_left, tip_left)      # Left flank (straight)
+                        Line(tip_left, tip_right)      # Tip
+                        Line(tip_right, root_right)    # Right flank (straight)
+                        Line(root_right, root_left)    # Root (closes)
+                    else:
+                        # ZK profile: Slightly convex flanks per DIN 3975
+                        # Better for 3D printing - reduces stress concentrations
+                        num_flank_points = 5
+                        left_flank = []
+                        right_flank = []
 
-                        # Interpolate width with slight curve (involute approximation)
-                        # True involute has slight bulge in the middle
-                        linear_width = thread_half_width_root + t_flank * (thread_half_width_tip - thread_half_width_root)
-                        # Add subtle curve - max bulge at middle of flank
-                        curve_factor = 4 * t_flank * (1 - t_flank)  # Parabolic, peaks at 0.5
-                        bulge = curve_factor * 0.05 * (thread_half_width_root - thread_half_width_tip)
-                        width = linear_width + bulge
+                        for j in range(num_flank_points):
+                            # Parameter along the flank (0 = root, 1 = tip)
+                            t_flank = j / (num_flank_points - 1)
+                            r_pos = inner_r + t_flank * (outer_r - inner_r)
 
-                        left_flank.append((r_pos, -width))
-                        right_flank.append((r_pos, width))
+                            # Interpolate width with slight convex curve
+                            linear_width = thread_half_width_root + t_flank * (thread_half_width_tip - thread_half_width_root)
+                            # Add subtle convex bulge - max at middle of flank
+                            curve_factor = 4 * t_flank * (1 - t_flank)  # Parabolic, peaks at 0.5
+                            bulge = curve_factor * 0.05 * (thread_half_width_root - thread_half_width_tip)
+                            width = linear_width + bulge
 
-                    # Build profile: left flank up, across tip, right flank down, across root
-                    Spline(left_flank)
-                    Line(left_flank[-1], right_flank[-1])  # Tip
-                    Spline(list(reversed(right_flank)))
-                    Line(right_flank[0], left_flank[0])  # Root (closes the profile)
+                            left_flank.append((r_pos, -width))
+                            right_flank.append((r_pos, width))
+
+                        # Build profile with curved flanks
+                        Spline(left_flank)
+                        Line(left_flank[-1], right_flank[-1])  # Tip
+                        Spline(list(reversed(right_flank)))
+                        Line(right_flank[0], left_flank[0])    # Root (closes)
                 make_face()
 
             sections.append(sk.sketch.faces()[0])

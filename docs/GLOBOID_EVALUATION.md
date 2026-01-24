@@ -128,12 +128,9 @@ throat_cut_radius = worm_tip_radius / math.cos(wrap_angle_rad / 2)
 
 ### Short-term Improvements
 
-1. **Fix throat radius calculation**:
+1. **Fix throat radius calculation**: ✅ **IMPLEMENTED**
 ```python
-# Instead of:
-self.throat_pitch_radius = pitch_radius * 0.90
-
-# Use:
+# Now uses geometry-based calculation:
 center_distance = assembly_params.centre_distance_mm
 self.throat_pitch_radius = center_distance - wheel_pitch_radius
 self.throat_curvature_radius = wheel_pitch_radius

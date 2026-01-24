@@ -6,10 +6,15 @@ This is a simplified prototype implementation.
 """
 
 import math
-from typing import Optional
+from typing import Optional, Literal
 from build123d import *
 from .io import WormParams, AssemblyParams
 from .features import BoreFeature, KeywayFeature, SetScrewFeature, add_bore_and_keyway
+
+# Profile types per DIN 3975
+# ZA: Straight flanks in axial section (Archimedean) - best for CNC machining
+# ZK: Slightly convex flanks - better for 3D printing (reduces stress concentrations)
+ProfileType = Literal["ZA", "ZK"]
 
 
 class GloboidWormGeometry:
@@ -32,7 +37,8 @@ class GloboidWormGeometry:
         sections_per_turn: int = 36,
         bore: Optional[BoreFeature] = None,
         keyway: Optional[KeywayFeature] = None,
-        set_screw: Optional[SetScrewFeature] = None
+        set_screw: Optional[SetScrewFeature] = None,
+        profile: ProfileType = "ZA"
     ):
         """
         Initialize globoid worm geometry generator.
@@ -48,6 +54,9 @@ class GloboidWormGeometry:
             bore: Optional bore feature specification
             keyway: Optional keyway feature specification (requires bore)
             set_screw: Optional set screw feature specification (requires bore)
+            profile: Tooth profile type per DIN 3975:
+                     "ZA" - Straight flanks (trapezoidal) - best for CNC (default)
+                     "ZK" - Slightly convex flanks - better for 3D printing
         """
         self.params = params
         self.assembly_params = assembly_params
@@ -56,6 +65,7 @@ class GloboidWormGeometry:
         self.bore = bore
         self.keyway = keyway
         self.set_screw = set_screw
+        self.profile = profile.upper() if isinstance(profile, str) else profile
 
         # Store basic parameters
         pitch_radius = params.pitch_diameter_mm / 2.0
@@ -64,12 +74,33 @@ class GloboidWormGeometry:
         self.wheel_pitch_radius = wheel_pitch_radius
         num_teeth_wheel = int(wheel_pitch_diameter / params.module_mm)
 
-        # Globoid worm throat: SUBTLE hourglass, not dramatic
-        # The pitch radius varies slightly along the axis
-        # At center (throat): ~90% of nominal pitch radius
-        # At ends: ~100% of nominal pitch radius (or slightly more)
-        self.throat_pitch_radius = pitch_radius * 0.90  # Minimum pitch radius at center
-        self.nominal_pitch_radius = pitch_radius        # Nominal pitch radius
+        # Globoid worm throat calculation - GEOMETRY-BASED per DIN 3975
+        # The throat pitch radius is derived from center distance and wheel geometry
+        # to ensure proper conjugate action where worm surface envelopes wheel pitch cylinder
+        #
+        # For a true globoid, at the throat (center):
+        #   throat_pitch_radius = center_distance - wheel_pitch_radius
+        #
+        # This ensures the worm wraps around the wheel's pitch cylinder.
+        # The nominal pitch radius is used at the ends where the worm transitions
+        # back to cylindrical form.
+        center_distance = assembly_params.centre_distance_mm
+        self.throat_pitch_radius = center_distance - wheel_pitch_radius
+        self.nominal_pitch_radius = pitch_radius  # Standard pitch radius at ends
+
+        # Validate throat geometry makes sense
+        if self.throat_pitch_radius <= 0:
+            raise ValueError(
+                f"Invalid globoid geometry: throat_pitch_radius={self.throat_pitch_radius:.2f}mm "
+                f"(center_distance={center_distance:.2f}mm - wheel_pitch_radius={wheel_pitch_radius:.2f}mm). "
+                f"Center distance must be greater than wheel pitch radius."
+            )
+
+        # Warn if throat is too aggressive (more than 20% reduction from nominal)
+        throat_reduction = (self.nominal_pitch_radius - self.throat_pitch_radius) / self.nominal_pitch_radius
+        if throat_reduction > 0.20:
+            print(f"  Note: Aggressive throat reduction ({throat_reduction*100:.1f}%). "
+                  f"Throat radius={self.throat_pitch_radius:.2f}mm vs nominal={self.nominal_pitch_radius:.2f}mm")
 
         # The curvature radius (how much the hourglass curves) matches wheel pitch
         self.throat_curvature_radius = wheel_pitch_radius
@@ -391,32 +422,46 @@ class GloboidWormGeometry:
             local_thread_half_width_root = thread_half_width_root * taper_factor
             local_thread_half_width_tip = thread_half_width_tip * taper_factor
 
-            # Create filled trapezoidal profile
+            # Create filled profile based on profile type
             with BuildSketch(profile_plane) as sk:
                 with BuildLine():
-                    # Create involute-like curved flanks
-                    num_flank_points = 5
-                    left_flank = []
-                    right_flank = []
+                    if self.profile == "ZA":
+                        # ZA profile: Straight flanks (trapezoidal) per DIN 3975
+                        # Best for CNC machining - simple, accurate, standard
+                        root_left = (inner_r, -local_thread_half_width_root)
+                        root_right = (inner_r, local_thread_half_width_root)
+                        tip_left = (outer_r, -local_thread_half_width_tip)
+                        tip_right = (outer_r, local_thread_half_width_tip)
 
-                    for j in range(num_flank_points):
-                        t_flank = j / (num_flank_points - 1)
-                        r_pos = inner_r + t_flank * (outer_r - inner_r)
+                        Line(root_left, tip_left)      # Left flank (straight)
+                        Line(tip_left, tip_right)      # Tip
+                        Line(tip_right, root_right)    # Right flank (straight)
+                        Line(root_right, root_left)    # Root (closes)
+                    else:
+                        # ZK profile: Slightly convex flanks per DIN 3975
+                        # Better for 3D printing - reduces stress concentrations
+                        num_flank_points = 5
+                        left_flank = []
+                        right_flank = []
 
-                        # Interpolate width with involute curve
-                        linear_width = local_thread_half_width_root + t_flank * (local_thread_half_width_tip - local_thread_half_width_root)
-                        curve_factor = 4 * t_flank * (1 - t_flank)  # Parabolic bulge
-                        bulge = curve_factor * 0.05 * (local_thread_half_width_root - local_thread_half_width_tip)
-                        width = linear_width + bulge
+                        for j in range(num_flank_points):
+                            t_flank = j / (num_flank_points - 1)
+                            r_pos = inner_r + t_flank * (outer_r - inner_r)
 
-                        left_flank.append((r_pos, -width))
-                        right_flank.append((r_pos, width))
+                            # Interpolate width with convex curve
+                            linear_width = local_thread_half_width_root + t_flank * (local_thread_half_width_tip - local_thread_half_width_root)
+                            curve_factor = 4 * t_flank * (1 - t_flank)  # Parabolic bulge
+                            bulge = curve_factor * 0.05 * (local_thread_half_width_root - local_thread_half_width_tip)
+                            width = linear_width + bulge
 
-                    # Build closed profile: left flank up, across tip, right flank down, across root
-                    Spline(left_flank)
-                    Line(left_flank[-1], right_flank[-1])  # Tip
-                    Spline(list(reversed(right_flank)))
-                    Line(right_flank[0], left_flank[0])  # Root (closes)
+                            left_flank.append((r_pos, -width))
+                            right_flank.append((r_pos, width))
+
+                        # Build closed profile with curved flanks
+                        Spline(left_flank)
+                        Line(left_flank[-1], right_flank[-1])  # Tip
+                        Spline(list(reversed(right_flank)))
+                        Line(right_flank[0], left_flank[0])    # Root (closes)
                 make_face()  # CRITICAL: Creates filled face with area
 
             sections.append(sk.sketch.faces()[0])

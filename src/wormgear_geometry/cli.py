@@ -69,6 +69,12 @@ Examples:
 
   # Generate globoid (hourglass) worm for 30-50% higher load capacity
   wormgear-geometry design.json --globoid
+
+  # For 3D printing: use ZK profile (slightly convex flanks)
+  wormgear-geometry design.json --profile ZK
+
+  # For CNC machining: use ZA profile (straight flanks, default)
+  wormgear-geometry design.json --profile ZA
         """
     )
 
@@ -153,6 +159,14 @@ Examples:
         '--globoid',
         action='store_true',
         help='Generate globoid (double-enveloping) worm with hourglass shape for 30-50%% higher load capacity'
+    )
+
+    parser.add_argument(
+        '--profile',
+        type=str,
+        choices=['ZA', 'ZK', 'za', 'zk'],
+        default='ZA',
+        help='Tooth profile type per DIN 3975: ZA=straight flanks for CNC (default), ZK=convex for 3D printing'
     )
 
     # Bore and keyway options (defaults: auto-calculated bore with keyway)
@@ -332,8 +346,10 @@ Examples:
                 features_desc += f" + set screw ({screw_desc})"
 
         worm_type_desc = "globoid (hourglass)" if args.globoid else "cylindrical"
-        print(f"\nGenerating worm ({worm_type_desc}, {design.worm.num_starts}-start, module {design.worm.module_mm}mm{features_desc})...")
+        profile_desc = "ZK/3D-print" if args.profile.upper() == "ZK" else "ZA/CNC"
+        print(f"\nGenerating worm ({worm_type_desc}, {design.worm.num_starts}-start, module {design.worm.module_mm}mm, {profile_desc}{features_desc})...")
 
+        profile = args.profile.upper()
         if args.globoid:
             worm_geo = GloboidWormGeometry(
                 params=design.worm,
@@ -343,7 +359,8 @@ Examples:
                 sections_per_turn=args.sections,
                 bore=worm_bore,
                 keyway=worm_keyway,
-                set_screw=worm_set_screw
+                set_screw=worm_set_screw,
+                profile=profile
             )
         else:
             worm_geo = WormGeometry(
@@ -353,7 +370,8 @@ Examples:
                 sections_per_turn=args.sections,
                 bore=worm_bore,
                 keyway=worm_keyway,
-                set_screw=worm_set_screw
+                set_screw=worm_set_screw,
+                profile=profile
             )
 
         worm = worm_geo.build()
@@ -449,7 +467,9 @@ Examples:
             hub_desc += ")"
             features_desc += f", {hub_desc}"
 
-        print(f"\nGenerating wheel ({design.wheel.num_teeth} teeth, module {design.wheel.module_mm}mm, {wheel_type_desc}{features_desc})...")
+        profile = args.profile.upper()
+        profile_desc = "ZK/3D-print" if profile == "ZK" else "ZA/CNC"
+        print(f"\nGenerating wheel ({design.wheel.num_teeth} teeth, module {design.wheel.module_mm}mm, {wheel_type_desc}, {profile_desc}{features_desc})...")
         wheel_geo = WheelGeometry(
             params=design.wheel,
             worm_params=design.worm,
@@ -459,7 +479,8 @@ Examples:
             bore=wheel_bore,
             keyway=wheel_keyway,
             set_screw=wheel_set_screw,
-            hub=wheel_hub
+            hub=wheel_hub,
+            profile=profile
         )
         wheel = wheel_geo.build()
         print(f"  Volume: {wheel.volume:.2f} mm³")
@@ -514,10 +535,12 @@ Examples:
             print("Install with: pip install ocp_vscode", file=sys.stderr)
 
     # Summary
+    profile_name = "ZK (convex, 3D printing)" if args.profile.upper() == "ZK" else "ZA (straight, CNC)"
     print(f"\nDesign summary:")
     print(f"  Ratio: {design.assembly.ratio}:1")
     print(f"  Centre distance: {design.assembly.centre_distance_mm:.2f} mm")
     print(f"  Pressure angle: {design.assembly.pressure_angle_deg}°")
+    print(f"  Tooth profile: {profile_name} (DIN 3975)")
 
     # Bore/keyway summary with override hints
     if not args.no_bore:

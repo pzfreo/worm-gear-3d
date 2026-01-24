@@ -60,6 +60,18 @@ Tool 2 accepts JSON output from Tool 1:
 
 ## Geometry Construction
 
+### Tooth Profile Types (DIN 3975)
+
+Two profile types are supported:
+
+| Profile | Flanks | Best For | CLI Flag |
+|---------|--------|----------|----------|
+| `ZA` (default) | Straight trapezoidal | CNC machining | `--profile ZA` |
+| `ZK` | Slightly convex | 3D printing | `--profile ZK` |
+
+- **ZA (Archimedean)**: Standard straight-sided profile per DIN 3975. Ideal for CNC machining where straight tool paths are preferred.
+- **ZK (Convolute)**: Slightly convex flanks that reduce stress concentrations. Better for 3D printing where layer adhesion benefits from curved surfaces.
+
 ### Worm
 
 Relatively straightforward - helical sweep of trapezoidal profile.
@@ -67,12 +79,13 @@ Relatively straightforward - helical sweep of trapezoidal profile.
 ```python
 # Pseudocode
 def build_worm(params):
-    # 1. Create tooth profile in axial plane (trapezoidal)
-    profile = trapezoidal_profile(
+    # 1. Create tooth profile in axial plane (trapezoidal for ZA, convex for ZK)
+    profile = tooth_profile(
         pitch_half_thickness=params.axial_pitch / 4,
         addendum=params.addendum,
         dedendum=params.dedendum,
-        pressure_angle=params.pressure_angle
+        pressure_angle=params.pressure_angle,
+        profile_type="ZA"  # or "ZK"
     )
     
     # 2. Create helix path at pitch radius
