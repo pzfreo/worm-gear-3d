@@ -502,6 +502,54 @@ import json
 
 design = ${func}(${args})
 
+# Check if we should round to standard module
+use_standard = ${useStandardModule ? 'True' : 'False'}
+mode = "${mode}"
+
+if use_standard and mode != "from-module":
+    # Get calculated module and find nearest standard
+    calculated_module = design.worm.module
+    standard_module = nearest_standard_module(calculated_module)
+
+    # If different, recalculate using standard module
+    if abs(calculated_module - standard_module) > 0.001:
+        # For envelope mode, preserve worm pitch diameter (adjusted for addendum change)
+        if mode == "envelope":
+            worm_pitch_diameter = design.worm.pitch_diameter
+            # Adjust for module change to maintain similar OD
+            addendum_change = standard_module - calculated_module
+            worm_pitch_diameter = worm_pitch_diameter - 2 * addendum_change
+
+            design = design_from_module(
+                module=standard_module,
+                ratio=${inputs.calculator.ratio || 30},
+                worm_pitch_diameter=worm_pitch_diameter,
+                pressure_angle=${inputs.calculator.pressure_angle || 20},
+                backlash=${inputs.calculator.backlash || 0},
+                num_starts=${inputs.calculator.num_starts || 1},
+                hand=Hand.${inputs.calculator.hand || 'RIGHT'},
+                profile_shift=${inputs.calculator.profile_shift || 0},
+                profile=WormProfile.${inputs.calculator.profile || 'ZA'},
+                worm_type=WormType.${(inputs.calculator.worm_type || 'cylindrical').toUpperCase()},
+                throat_reduction=${inputs.calculator.throat_reduction || 0.0},
+                wheel_throated=${inputs.calculator.wheel_throated ? 'True' : 'False'}
+            )
+        else:
+            # For non-envelope modes, use standard module directly
+            design = design_from_module(
+                module=standard_module,
+                ratio=${inputs.calculator.ratio || 30},
+                pressure_angle=${inputs.calculator.pressure_angle || 20},
+                backlash=${inputs.calculator.backlash || 0},
+                num_starts=${inputs.calculator.num_starts || 1},
+                hand=Hand.${inputs.calculator.hand || 'RIGHT'},
+                profile_shift=${inputs.calculator.profile_shift || 0},
+                profile=WormProfile.${inputs.calculator.profile || 'ZA'},
+                worm_type=WormType.${(inputs.calculator.worm_type || 'cylindrical').toUpperCase()},
+                throat_reduction=${inputs.calculator.throat_reduction || 0.0},
+                wheel_throated=${inputs.calculator.wheel_throated ? 'True' : 'False'}
+            )
+
 # Get settings from JavaScript BEFORE validation
 bore_settings = bore_settings_dict.to_py() if 'bore_settings_dict' in dir() else None
 mfg_settings = manufacturing_settings_dict.to_py() if 'manufacturing_settings_dict' in dir() else None
