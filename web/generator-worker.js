@@ -302,8 +302,10 @@ if 'worm' in features:
                     print(f"Worm keyway: skipped (bore {worm_bore_diameter}mm < 6mm minimum for DIN 6885)")
 
             elif anti_rot == 'DD-cut':
-                print(f"Worm DD-cut: double-D flat anti-rotation")
-                worm_ddcut = DDCutFeature()
+                # Calculate depth as ~10% of bore diameter (standard practice for small shafts)
+                dd_depth = round(worm_bore_diameter * 0.1, 1)
+                print(f"Worm DD-cut: double-D flat anti-rotation (depth={dd_depth}mm)")
+                worm_ddcut = DDCutFeature(depth=dd_depth)
 
             elif anti_rot not in ['none', '']:
                 print(f"Worm anti-rotation: unknown type '{anti_rot}', skipping")
@@ -346,8 +348,10 @@ if 'wheel' in features:
                     print(f"Wheel keyway: skipped (bore {wheel_bore_diameter}mm < 6mm minimum for DIN 6885)")
 
             elif anti_rot == 'DD-cut':
-                print(f"Wheel DD-cut: double-D flat anti-rotation")
-                wheel_ddcut = DDCutFeature()
+                # Calculate depth as ~10% of bore diameter (standard practice for small shafts)
+                dd_depth = round(wheel_bore_diameter * 0.1, 1)
+                print(f"Wheel DD-cut: double-D flat anti-rotation (depth={dd_depth}mm)")
+                wheel_ddcut = DDCutFeature(depth=dd_depth)
 
             elif anti_rot not in ['none', '']:
                 print(f"Wheel anti-rotation: unknown type '{anti_rot}', skipping")
