@@ -63,18 +63,14 @@ export async function initCalculator(onComplete) {
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/"
         });
 
-        // Load unified wormgear package from build artifact (created by build.sh)
+        // Load unified wormgear.calculator package from build artifact (created by build.sh)
         // Create directory structure for package
         calculatorPyodide.FS.mkdir('/home/pyodide/wormgear');
         calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/calculator');
 
-        // Load wormgear package root __init__.py
-        const pkgInit = await fetch('wormgear/__init__.py');
-        if (!pkgInit.ok) {
-            throw new Error(`Failed to load wormgear/__init__.py: ${pkgInit.status}`);
-        }
-        const pkgInitContent = await pkgInit.text();
-        calculatorPyodide.FS.writeFile('/home/pyodide/wormgear/__init__.py', pkgInitContent);
+        // Create minimal wormgear/__init__.py (don't import geometry modules for web)
+        calculatorPyodide.FS.writeFile('/home/pyodide/wormgear/__init__.py',
+            '"""Wormgear calculator for web (minimal init - no geometry modules)."""\n__version__ = "1.0.0-alpha"\n');
 
         // Load calculator module files
         const calcFiles = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
