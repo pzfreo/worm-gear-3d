@@ -205,10 +205,20 @@ def test_index_html_loads_pyodide():
 def test_pyodide_version_consistency():
     """Pyodide version should be consistent between HTML and JavaScript."""
     index_html = WEB_DIR / "index.html"
-    app_lazy = WEB_DIR / "app-lazy.js"
+    # After refactoring, Pyodide init is in modules/pyodide-init.js
+    pyodide_init = WEB_DIR / "modules" / "pyodide-init.js"
 
     html_content = index_html.read_text()
-    js_content = app_lazy.read_text()
+
+    # Check if pyodide-init.js exists (after refactoring) or fall back to app-lazy.js
+    if pyodide_init.exists():
+        js_content = pyodide_init.read_text()
+        js_file = "modules/pyodide-init.js"
+    else:
+        # Fallback for non-refactored version
+        app_lazy = WEB_DIR / "app-lazy.js"
+        js_content = app_lazy.read_text()
+        js_file = "app-lazy.js"
 
     # Extract version from HTML (e.g., v0.29.0)
     import re
@@ -216,7 +226,7 @@ def test_pyodide_version_consistency():
     js_matches = re.findall(r'pyodide/v([0-9.]+)/', js_content)
 
     assert html_match, "Pyodide version not found in index.html"
-    assert js_matches, "Pyodide version not found in app-lazy.js"
+    assert js_matches, f"Pyodide version not found in {js_file}"
 
     html_version = html_match.group(1)
 
@@ -224,7 +234,7 @@ def test_pyodide_version_consistency():
     for js_version in js_matches:
         assert js_version == html_version, (
             f"Pyodide version mismatch: HTML has {html_version}, "
-            f"but app-lazy.js has {js_version}"
+            f"but {js_file} has {js_version}"
         )
 
 
