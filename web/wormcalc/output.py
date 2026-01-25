@@ -13,6 +13,7 @@ from .core import (
     WormGearDesign, WormParameters, WheelParameters, Hand,
     WormProfile, WormType, ManufacturingParams
 )
+from .js_bridge import validate_manufacturing_settings, validate_bore_settings
 from .validation import ValidationResult, ValidationMessage, Severity
 
 
@@ -27,6 +28,10 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
         bore_settings: Optional dict with bore configuration from UI
         manufacturing_settings: Optional dict with manufacturing/dimension settings from UI
     """
+    # Validate inputs at JS→Python boundary (handles JavaScript null/undefined/JsNull)
+    validated_mfg = validate_manufacturing_settings(manufacturing_settings) if manufacturing_settings else {}
+    validated_bore = validate_bore_settings(bore_settings) if bore_settings else {}
+
     # Build worm section
     worm_dict = {
         "module_mm": round(design.worm.module, 4),
@@ -62,14 +67,9 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
         # Note: throat_tip_radius and throat_root_radius are not in WormParams schema v1.0
 
     # Add custom worm length if specified
-    if manufacturing_settings:
-        worm_length = manufacturing_settings.get('worm_length')
-        # Check for valid numeric value (handles None, null, undefined, JsNull from Pyodide)
-        if worm_length is not None and worm_length not in (None, '', False):
-            try:
-                worm_dict["length_mm"] = float(worm_length)
-            except (TypeError, ValueError):
-                pass  # Skip invalid values
+    worm_length = validated_mfg.get('worm_length')
+    if worm_length is not None:
+        worm_dict["length_mm"] = worm_length
 
     # Build wheel section
     wheel_dict = {
@@ -86,14 +86,9 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
     }
 
     # Add custom wheel width if specified
-    if manufacturing_settings:
-        wheel_width = manufacturing_settings.get('wheel_width')
-        # Check for valid numeric value (handles None, null, undefined, JsNull from Pyodide)
-        if wheel_width is not None and wheel_width not in (None, '', False):
-            try:
-                wheel_dict["width_mm"] = float(wheel_width)
-            except (TypeError, ValueError):
-                pass  # Skip invalid values
+    wheel_width = validated_mfg.get('wheel_width')
+    if wheel_width is not None:
+        wheel_dict["width_mm"] = wheel_width
 
     # Build assembly section (includes efficiency and self-locking)
     assembly_dict = {
@@ -134,47 +129,43 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
         "manufacturing": manufacturing_dict,
     }
 
-    # Add features section if bore settings provided
-    if bore_settings:
+    # Add features section if bore settings provided (already validated at boundary)
+    if validated_bore:
         features = {}
 
         # Worm features
-        worm_bore_type = bore_settings.get('worm_bore_type', 'none')
-        if worm_bore_type != 'none':
+        worm_bore_type = validated_bore.get('worm_bore_type')
+        if worm_bore_type:
             worm_features = {}
             if worm_bore_type == 'custom':
-                bore_diam = bore_settings.get('worm_bore_diameter')
+                bore_diam = validated_bore.get('worm_bore_diameter')
                 if bore_diam is not None:
-                    worm_features['bore_diameter_mm'] = float(bore_diam)
+                    worm_features['bore_diameter_mm'] = bore_diam
             elif worm_bore_type == 'auto':
-                # Use empty dict to signal "auto-calculate bore" to generator
-                # Generator will determine appropriate size
                 worm_features['auto_bore'] = True
 
-            # Add anti-rotation if bore present
-            worm_keyway = bore_settings.get('worm_keyway', 'none')
-            if worm_keyway != 'none':
+            # Add anti-rotation if specified
+            worm_keyway = validated_bore.get('worm_keyway')
+            if worm_keyway:
                 worm_features['anti_rotation'] = worm_keyway
 
             if worm_features:
                 features['worm'] = worm_features
 
         # Wheel features
-        wheel_bore_type = bore_settings.get('wheel_bore_type', 'none')
-        if wheel_bore_type != 'none':
+        wheel_bore_type = validated_bore.get('wheel_bore_type')
+        if wheel_bore_type:
             wheel_features = {}
             if wheel_bore_type == 'custom':
-                bore_diam = bore_settings.get('wheel_bore_diameter')
+                bore_diam = validated_bore.get('wheel_bore_diameter')
                 if bore_diam is not None:
-                    wheel_features['bore_diameter_mm'] = float(bore_diam)
+                    wheel_features['bore_diameter_mm'] = bore_diam
             elif wheel_bore_type == 'auto':
-                # Use empty dict to signal "auto-calculate bore" to generator
-                # Generator will determine appropriate size
                 wheel_features['auto_bore'] = True
 
-            # Add anti-rotation if bore present
-            wheel_keyway = bore_settings.get('wheel_keyway', 'none')
-            if wheel_keyway != 'none':
+            # Add anti-rotation if specified
+            wheel_keyway = validated_bore.get('wheel_keyway')
+            if wheel_keyway:
                 wheel_features['anti_rotation'] = wheel_keyway
 
             if wheel_features:

@@ -157,6 +157,7 @@ if '/home/pyodide' not in sys.path:
         { path: 'wormgear/calculator/__init__.py', pyPath: '/home/pyodide/wormgear/calculator/__init__.py' },
         { path: 'wormgear/calculator/core.py', pyPath: '/home/pyodide/wormgear/calculator/core.py' },
         { path: 'wormgear/calculator/validation.py', pyPath: '/home/pyodide/wormgear/calculator/validation.py' },
+        { path: 'wormgear/calculator/js_bridge.py', pyPath: '/home/pyodide/wormgear/calculator/js_bridge.py' },
     ];
 
     // Load all files
