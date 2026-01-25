@@ -63,41 +63,68 @@ export async function initCalculator(onComplete) {
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/"
         });
 
-        // Load local Python files
-        const files = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
-        calculatorPyodide.FS.mkdir('/home/pyodide/wormcalc');
+        // Create directory structure
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear');
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/calculator');
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/io');
 
-        for (const file of files) {
-            const response = await fetch(`wormcalc/${file}`);
-            if (!response.ok) {
-                throw new Error(`Failed to load ${file}: ${response.status}`);
-            }
+        // Write minimal __init__.py (don't import geometry modules for web)
+        calculatorPyodide.FS.writeFile(
+            '/home/pyodide/wormgear/__init__.py',
+            '"""Wormgear calculator for web."""\n__version__ = "1.0.0-alpha"\n'
+        );
+
+        // Load enums module (shared types)
+        const enumsResponse = await fetch('wormgear/enums.py');
+        if (!enumsResponse.ok) throw new Error(`Failed to load enums.py: ${enumsResponse.status}`);
+        const enumsContent = await enumsResponse.text();
+        if (enumsContent.trim().startsWith('<!DOCTYPE')) {
+            throw new Error('enums.py contains HTML instead of Python code');
+        }
+        calculatorPyodide.FS.writeFile('/home/pyodide/wormgear/enums.py', enumsContent);
+
+        // Load calculator module files
+        const calcFiles = ['__init__.py', 'core.py', 'validation.py', 'output.py'];
+        for (const file of calcFiles) {
+            const response = await fetch(`wormgear/calculator/${file}`);
+            if (!response.ok) throw new Error(`Failed to load calculator/${file}: ${response.status}`);
             const content = await response.text();
             if (content.trim().startsWith('<!DOCTYPE')) {
-                throw new Error(`${file} contains HTML instead of Python code`);
+                throw new Error(`calculator/${file} contains HTML instead of Python code`);
             }
-            calculatorPyodide.FS.writeFile(`/home/pyodide/wormcalc/${file}`, content);
+            calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/calculator/${file}`, content);
         }
 
-        // Import module
+        // Load io module files (dataclasses needed by calculator)
+        const ioFiles = ['__init__.py', 'loaders.py', 'schema.py'];
+        for (const file of ioFiles) {
+            const response = await fetch(`wormgear/io/${file}`);
+            if (!response.ok) throw new Error(`Failed to load io/${file}: ${response.status}`);
+            const content = await response.text();
+            if (content.trim().startsWith('<!DOCTYPE')) {
+                throw new Error(`io/${file} contains HTML instead of Python code`);
+            }
+            calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/io/${file}`, content);
+        }
+
+        // Import unified package WITH enums
         await calculatorPyodide.runPythonAsync(`
 import sys
 sys.path.insert(0, '/home/pyodide')
-import wormcalc
-from wormcalc import (
-    design_from_envelope,
-    design_from_wheel,
+
+from wormgear.calculator.core import (
     design_from_module,
     design_from_centre_distance,
-    validate_design,
-    to_json,
-    to_markdown,
-    to_summary,
-    nearest_standard_module,
-    Hand,
-    WormProfile,
-    WormType
+    design_from_wheel,
+    nearest_standard_module
 )
+from wormgear.enums import Hand, WormProfile, WormType
+from wormgear.calculator.validation import validate_design
+from wormgear.calculator.output import to_json, to_markdown, to_summary
+
+# Legacy compatibility - allow old wormcalc imports
+import wormgear.calculator as wormcalc
+design_from_envelope = design_from_module
         `);
 
         // Hide loading screen

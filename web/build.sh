@@ -1,6 +1,6 @@
 #!/bin/bash
 # Vercel build script for wormgear web interface
-# Copies Python package files to web/src for WASM access
+# Copies Python package to web/wormgear for WASM access (build artifact, gitignored)
 
 set -e  # Exit on error
 
@@ -9,63 +9,46 @@ echo "🔧 Building wormgear web interface..."
 # Ensure we're in the web directory
 cd "$(dirname "$0")"
 
-# Create src directory if it doesn't exist
-mkdir -p src
+# Remove old build artifact
+rm -rf wormgear
 
-# Copy wormgear package from parent src/ to web/src/
+# Copy unified package from src/
 echo "📦 Copying wormgear package..."
 if [ -d "../src/wormgear" ]; then
-    # Remove old copy if exists
-    rm -rf src/wormgear
+    cp -r ../src/wormgear .
 
-    # Copy package
-    cp -r ../src/wormgear src/
+    # Clean Python cache files (not needed in browser)
+    find wormgear -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find wormgear -name "*.pyc" -delete 2>/dev/null || true
 
-    # Remove Python cache files (not needed in browser)
-    find src/wormgear -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-    find src/wormgear -name "*.pyc" -delete 2>/dev/null || true
-
-    echo "✓ Copied wormgear package to web/src/"
+    echo "✓ Copied wormgear package to web/wormgear/"
 else
     echo "❌ Error: ../src/wormgear not found"
     exit 1
 fi
 
-# Verify critical files exist
-echo "🔍 Verifying package structure..."
+# Verify required files for web calculator
+echo "🔍 Verifying calculator files..."
 REQUIRED_FILES=(
-    "src/wormgear/__init__.py"
-    "src/wormgear/core/__init__.py"
-    "src/wormgear/core/worm.py"
-    "src/wormgear/core/wheel.py"
-    "src/wormgear/core/features.py"
-    "src/wormgear/core/globoid_worm.py"
-    "src/wormgear/core/virtual_hobbing.py"
-    "src/wormgear/io/__init__.py"
-    "src/wormgear/io/loaders.py"
-    "src/wormgear/io/schema.py"
-    "src/wormgear/calculator/__init__.py"
-    "src/wormgear/calculator/core.py"
-    "src/wormgear/calculator/validation.py"
-    "src/wormgear/calculator/js_bridge.py"
-    "src/wormgear/calculator/json_schema.py"
+    "wormgear/__init__.py"
+    "wormgear/enums.py"
+    "wormgear/calculator/__init__.py"
+    "wormgear/calculator/core.py"
+    "wormgear/calculator/validation.py"
+    "wormgear/calculator/output.py"
+    "wormgear/io/__init__.py"
+    "wormgear/io/loaders.py"
+    "wormgear/io/schema.py"
 )
 
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$file" ]; then
-        echo "❌ Missing required file: $file"
+        echo "❌ Missing: $file"
         exit 1
     fi
 done
 
-echo "✓ All required files present"
-
-# List what was copied
-echo ""
-echo "📋 Package contents:"
-ls -lh src/wormgear/
-echo ""
-ls -lh src/wormgear/core/
+echo "✓ All calculator files present"
 
 echo ""
 echo "✅ Build complete!"
