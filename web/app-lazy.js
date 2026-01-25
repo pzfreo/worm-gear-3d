@@ -536,7 +536,8 @@ json.dumps({
         `);
 
         const data = JSON.parse(result);
-        currentDesign = data.json_output;
+        // json_output is a JSON string, need to parse it
+        currentDesign = typeof data.json_output === 'string' ? JSON.parse(data.json_output) : data.json_output;
         currentValidation = data.valid;
 
         // Update bore displays and defaults
