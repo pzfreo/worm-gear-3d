@@ -9,6 +9,8 @@ import { getCalculatorPyodide } from './pyodide-init.js';
 // Track hobbing progress for time estimation
 let hobbingStartTime = null;
 let hobbingTimeEstimate = null;
+let lastHobbingPercent = 0;
+let lastHobbingTime = null;
 
 /**
  * Append message to console output
@@ -104,17 +106,30 @@ function updateSubProgress(percent, message = null) {
         // Track start time when actual work begins (percent > 0, not at 0%)
         if (hobbingStartTime === null && percent > 0) {
             hobbingStartTime = Date.now();
+            lastHobbingTime = Date.now();
+            lastHobbingPercent = percent;
             console.log('[Time Tracking] Started at', new Date(hobbingStartTime).toISOString(), 'percent=', percent);
         }
 
-        // Calculate time estimate after 5% completion
-        if (percent >= 5 && hobbingStartTime !== null) {
-            const elapsed = (Date.now() - hobbingStartTime) / 1000; // seconds
-            // percent is 0-100, so estimatedTotal = elapsed / (percent/100) = (elapsed * 100) / percent
-            const estimatedTotal = (elapsed * 100) / percent;
-            const remaining = Math.max(0, estimatedTotal - elapsed);
-            hobbingTimeEstimate = remaining;
-            console.log(`[Time Estimate] ${percent.toFixed(1)}% in ${elapsed.toFixed(1)}s, estimated total ${estimatedTotal.toFixed(1)}s, ${remaining.toFixed(1)}s remaining`);
+        // Calculate time estimate based on recent rate (after 5% completion)
+        if (percent >= 5 && hobbingStartTime !== null && lastHobbingTime !== null) {
+            const now = Date.now();
+            const recentElapsed = (now - lastHobbingTime) / 1000; // seconds since last update
+            const percentDelta = percent - lastHobbingPercent; // percent progress since last update
+
+            if (percentDelta > 0 && recentElapsed > 0) {
+                // Calculate rate: seconds per percent point
+                const ratePerPercent = recentElapsed / percentDelta;
+                const percentRemaining = 100 - percent;
+                const remaining = Math.max(0, percentRemaining * ratePerPercent);
+                hobbingTimeEstimate = remaining;
+
+                console.log(`[Time Estimate] ${percent.toFixed(1)}% (Δ${percentDelta.toFixed(1)}% in ${recentElapsed.toFixed(1)}s) → ${ratePerPercent.toFixed(1)}s/%, ${remaining.toFixed(1)}s remaining`);
+
+                // Update last tracking values
+                lastHobbingTime = now;
+                lastHobbingPercent = percent;
+            }
         }
 
         if (progressBar) {
@@ -148,6 +163,8 @@ function updateSubProgress(percent, message = null) {
 export function resetHobbingTimer() {
     hobbingStartTime = null;
     hobbingTimeEstimate = null;
+    lastHobbingPercent = 0;
+    lastHobbingTime = null;
     console.log('[Time Tracking] Timer reset');
 }
 
