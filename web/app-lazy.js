@@ -346,13 +346,15 @@ async function generateGeometry(type) {
         // Send generation request to worker
         generatorWorker.postMessage({
             type: 'GENERATE',
-            designData,
-            partType: type,
-            virtualHobbing,
-            hobbingSteps,
-            profile,
-            wormLength,
-            wheelWidth
+            data: {
+                designData,
+                generateType: type,
+                virtualHobbing,
+                hobbingSteps,
+                profile,
+                wormLength,
+                wheelWidth
+            }
         });
 
     } catch (error) {
