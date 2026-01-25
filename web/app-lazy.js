@@ -314,10 +314,10 @@ function getInputs(mode) {
     const boreParams = {
         worm_bore_type: document.getElementById('worm-bore-type').value,
         worm_bore_diameter: safeParseFloat(document.getElementById('worm-bore-diameter').value),
-        worm_keyway: document.getElementById('worm-keyway').value,
+        worm_keyway: document.getElementById('worm-anti-rotation').value,
         wheel_bore_type: document.getElementById('wheel-bore-type').value,
         wheel_bore_diameter: safeParseFloat(document.getElementById('wheel-bore-diameter').value),
-        wheel_keyway: document.getElementById('wheel-keyway').value
+        wheel_keyway: document.getElementById('wheel-anti-rotation').value
     };
 
     return {
@@ -345,58 +345,129 @@ function formatArgs(calculatorParams) {
         .join(', ');
 }
 
-function updateAutoBoreDisplays() {
-    // Update displays showing what auto-calculated bore sizes will be
+// Store calculated bore values globally for reference
+let calculatedWormBore = null;
+let calculatedWheelBore = null;
+
+function calculateBoreSize(pitchDiameter, rootDiameter) {
+    // Calculate bore: ~25% of pitch diameter, constrained by root
+    const target = pitchDiameter * 0.25;
+    const max = rootDiameter - 2.0; // Leave at least 1mm rim
+    let bore = Math.min(target, max);
+    bore = Math.max(2.0, bore); // Min 2mm
+    // Round to 0.5mm or 1mm
+    return bore >= 12 ? Math.round(bore) : Math.round(bore * 2) / 2;
+}
+
+function updateBoreDisplaysAndDefaults() {
+    // Calculate and store recommended bore sizes
     if (!currentDesign || !currentDesign.worm || !currentDesign.wheel) {
-        document.getElementById('worm-bore-auto-info').style.display = 'none';
-        document.getElementById('wheel-bore-auto-info').style.display = 'none';
+        document.getElementById('worm-bore-info').style.display = 'none';
+        document.getElementById('wheel-bore-info').style.display = 'none';
         return;
     }
 
-    // Calculate auto bore for worm (25% of pitch diameter, constrained by root)
     const wormPitch = currentDesign.worm.pitch_diameter_mm;
     const wormRoot = currentDesign.worm.root_diameter_mm;
-
-    // Safety check for undefined values
-    if (!wormPitch || !wormRoot) {
-        document.getElementById('worm-bore-auto-info').style.display = 'none';
-        document.getElementById('wheel-bore-auto-info').style.display = 'none';
-        return;
-    }
-    const wormBoreTarget = wormPitch * 0.25;
-    const wormBoreMax = wormRoot - 2.0; // Leave at least 1mm rim
-    let wormBore = Math.min(wormBoreTarget, wormBoreMax);
-    wormBore = Math.max(2.0, wormBore); // Min 2mm
-    // Round to 0.5mm or 1mm
-    wormBore = wormBore >= 12 ? Math.round(wormBore) : Math.round(wormBore * 2) / 2;
-
-    // Calculate auto bore for wheel
     const wheelPitch = currentDesign.wheel.pitch_diameter_mm;
     const wheelRoot = currentDesign.wheel.root_diameter_mm;
-    const wheelBoreTarget = wheelPitch * 0.25;
-    const wheelBoreMax = wheelRoot - 2.0;
-    let wheelBore = Math.min(wheelBoreTarget, wheelBoreMax);
-    wheelBore = Math.max(2.0, wheelBore);
-    wheelBore = wheelBore >= 12 ? Math.round(wheelBore) : Math.round(wheelBore * 2) / 2;
 
-    // Update displays
-    document.getElementById('worm-bore-auto-value').textContent = wormBore.toFixed(1);
-    document.getElementById('wheel-bore-auto-value').textContent = wheelBore.toFixed(1);
-
-    // Show/hide based on bore type selection
-    const wormBoreType = document.getElementById('worm-bore-type').value;
-    const wheelBoreType = document.getElementById('wheel-bore-type').value;
-    document.getElementById('worm-bore-auto-info').style.display = wormBoreType === 'auto' ? 'block' : 'none';
-    document.getElementById('wheel-bore-auto-info').style.display = wheelBoreType === 'auto' ? 'block' : 'none';
-
-    // Add note about DIN 6885 keyway availability
-    if (wormBore < 6.0) {
-        document.getElementById('worm-bore-auto-info').innerHTML =
-            `Auto: ${wormBore.toFixed(1)} mm <span style="color: #c75; font-style: italic;">(too small for DIN 6885, use DD-cut)</span>`;
+    if (!wormPitch || !wormRoot || !wheelPitch || !wheelRoot) {
+        document.getElementById('worm-bore-info').style.display = 'none';
+        document.getElementById('wheel-bore-info').style.display = 'none';
+        return;
     }
-    if (wheelBore < 6.0) {
-        document.getElementById('wheel-bore-auto-info').innerHTML =
-            `Auto: ${wheelBore.toFixed(1)} mm <span style="color: #c75; font-style: italic;">(too small for DIN 6885, use DD-cut)</span>`;
+
+    // Calculate and store
+    calculatedWormBore = calculateBoreSize(wormPitch, wormRoot);
+    calculatedWheelBore = calculateBoreSize(wheelPitch, wheelRoot);
+
+    // Always show recommended values (as reference)
+    document.getElementById('worm-bore-info').style.display = 'block';
+    document.getElementById('wheel-bore-info').style.display = 'block';
+    document.getElementById('worm-bore-recommended').textContent = calculatedWormBore.toFixed(1);
+    document.getElementById('wheel-bore-recommended').textContent = calculatedWheelBore.toFixed(1);
+
+    // Add warning if too small for DIN 6885
+    if (calculatedWormBore < 6.0) {
+        document.getElementById('worm-bore-recommended').innerHTML =
+            `${calculatedWormBore.toFixed(1)} <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
+    }
+    if (calculatedWheelBore < 6.0) {
+        document.getElementById('wheel-bore-recommended').innerHTML =
+            `${calculatedWheelBore.toFixed(1)} <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
+    }
+
+    // Update anti-rotation options based on current bore settings
+    updateAntiRotationOptions();
+}
+
+function updateAntiRotationOptions() {
+    // Update worm anti-rotation options
+    const wormBoreType = document.getElementById('worm-bore-type').value;
+    const wormAntiRotSelect = document.getElementById('worm-anti-rotation');
+
+    if (wormBoreType === 'none') {
+        // No bore = no anti-rotation options needed
+        document.getElementById('worm-anti-rotation-group').style.display = 'none';
+    } else {
+        document.getElementById('worm-anti-rotation-group').style.display = 'block';
+
+        // Get effective bore size
+        let effectiveBore = calculatedWormBore;
+        if (wormBoreType === 'custom') {
+            effectiveBore = parseFloat(document.getElementById('worm-bore-diameter').value) || calculatedWormBore;
+        }
+
+        // Enable/disable DIN 6885 based on bore size
+        const din6885Option = Array.from(wormAntiRotSelect.options).find(opt => opt.value === 'DIN6885');
+        if (din6885Option) {
+            din6885Option.disabled = effectiveBore < 6.0;
+            if (effectiveBore < 6.0) {
+                din6885Option.text = 'DIN 6885 Keyway (requires bore ≥ 6mm)';
+            } else {
+                din6885Option.text = 'DIN 6885 Keyway';
+            }
+        }
+
+        // Auto-select sensible default
+        if (wormAntiRotSelect.value === 'DIN6885' && effectiveBore < 6.0) {
+            wormAntiRotSelect.value = 'ddcut'; // Switch to DD-cut for small bores
+        } else if (wormAntiRotSelect.value === '' || wormAntiRotSelect.value === 'none') {
+            // Set initial default based on bore size
+            wormAntiRotSelect.value = effectiveBore < 6.0 ? 'ddcut' : 'DIN6885';
+        }
+    }
+
+    // Same for wheel
+    const wheelBoreType = document.getElementById('wheel-bore-type').value;
+    const wheelAntiRotSelect = document.getElementById('wheel-anti-rotation');
+
+    if (wheelBoreType === 'none') {
+        document.getElementById('wheel-anti-rotation-group').style.display = 'none';
+    } else {
+        document.getElementById('wheel-anti-rotation-group').style.display = 'block';
+
+        let effectiveBore = calculatedWheelBore;
+        if (wheelBoreType === 'custom') {
+            effectiveBore = parseFloat(document.getElementById('wheel-bore-diameter').value) || calculatedWheelBore;
+        }
+
+        const din6885Option = Array.from(wheelAntiRotSelect.options).find(opt => opt.value === 'DIN6885');
+        if (din6885Option) {
+            din6885Option.disabled = effectiveBore < 6.0;
+            if (effectiveBore < 6.0) {
+                din6885Option.text = 'DIN 6885 Keyway (requires bore ≥ 6mm)';
+            } else {
+                din6885Option.text = 'DIN 6885 Keyway';
+            }
+        }
+
+        if (wheelAntiRotSelect.value === 'DIN6885' && effectiveBore < 6.0) {
+            wheelAntiRotSelect.value = 'ddcut';
+        } else if (wheelAntiRotSelect.value === '' || wheelAntiRotSelect.value === 'none') {
+            wheelAntiRotSelect.value = effectiveBore < 6.0 ? 'ddcut' : 'DIN6885';
+        }
     }
 }
 
@@ -468,8 +539,8 @@ json.dumps({
         currentDesign = data.json_output;
         currentValidation = data.valid;
 
-        // Update auto bore displays
-        updateAutoBoreDisplays();
+        // Update bore displays and defaults
+        updateBoreDisplaysAndDefaults();
 
         // Update UI
         document.getElementById('results-text').textContent = data.summary;
@@ -858,28 +929,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // Worm bore type switching
     document.getElementById('worm-bore-type').addEventListener('change', (e) => {
         const customGroup = document.getElementById('worm-bore-custom');
-        const keywayGroup = document.getElementById('worm-keyway-group');
-        const hasBore = e.target.value !== 'none';
+        const boreType = e.target.value;
 
-        customGroup.style.display = e.target.value === 'custom' ? 'block' : 'none';
-        keywayGroup.style.display = hasBore ? 'block' : 'none';
+        // Show/hide custom bore input
+        customGroup.style.display = boreType === 'custom' ? 'block' : 'none';
 
-        // Update auto bore display visibility
-        updateAutoBoreDisplays();
+        // When switching to custom, populate with calculated value
+        if (boreType === 'custom' && calculatedWormBore) {
+            document.getElementById('worm-bore-diameter').value = calculatedWormBore.toFixed(1);
+        }
+
+        // Update anti-rotation options based on new bore type
+        updateAntiRotationOptions();
     });
 
     // Wheel bore type switching
     document.getElementById('wheel-bore-type').addEventListener('change', (e) => {
         const customGroup = document.getElementById('wheel-bore-custom');
-        const keywayGroup = document.getElementById('wheel-keyway-group');
-        const hasBore = e.target.value !== 'none';
+        const boreType = e.target.value;
 
-        customGroup.style.display = e.target.value === 'custom' ? 'block' : 'none';
-        keywayGroup.style.display = hasBore ? 'block' : 'none';
+        // Show/hide custom bore input
+        customGroup.style.display = boreType === 'custom' ? 'block' : 'none';
 
-        // Update auto bore display visibility
-        updateAutoBoreDisplays();
+        // When switching to custom, populate with calculated value
+        if (boreType === 'custom' && calculatedWheelBore) {
+            document.getElementById('wheel-bore-diameter').value = calculatedWheelBore.toFixed(1);
+        }
+
+        // Update anti-rotation options based on new bore type
+        updateAntiRotationOptions();
     });
+
+    // Custom bore diameter changes should update anti-rotation options
+    document.getElementById('worm-bore-diameter').addEventListener('change', updateAntiRotationOptions);
+    document.getElementById('wheel-bore-diameter').addEventListener('change', updateAntiRotationOptions);
 
     // Input changes trigger recalculation
     const inputs = document.querySelectorAll('input, select');
