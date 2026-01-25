@@ -39,27 +39,27 @@ jobs:
 
     - name: Verify build output exists
       run: |
-        if [ ! -d "web/src/wormgear" ]; then
-          echo "ERROR: web/src/wormgear directory not created by build"
+        if [ ! -d "web/wormgear" ]; then
+          echo "ERROR: web/wormgear directory not created by build"
           exit 1
         fi
 
         echo "✅ Build output verified"
-        ls -la web/src/wormgear/
+        ls -la web/wormgear/
 
     - name: Check for missing files
       run: |
-        cd web/src
+        cd web
 
-        # List of critical files that MUST exist
+        # List of critical calculator files that MUST exist (new unified architecture)
         CRITICAL_FILES=(
           "wormgear/__init__.py"
-          "wormgear/core/__init__.py"
-          "wormgear/core/worm.py"
-          "wormgear/core/wheel.py"
-          "wormgear/io/__init__.py"
-          "wormgear/io/loaders.py"
           "wormgear/calculator/__init__.py"
+          "wormgear/calculator/core.py"
+          "wormgear/calculator/validation.py"
+          "wormgear/calculator/output.py"
+          "wormgear/calculator/js_bridge.py"
+          "wormgear/calculator/json_schema.py"
         )
 
         ALL_OK=true
@@ -79,4 +79,4 @@ jobs:
         fi
 
         echo ""
-        echo "✅ All critical files present"
+        echo "✅ All critical calculator files present"
