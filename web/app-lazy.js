@@ -1,9 +1,13 @@
 // Wormgear Complete Design System - Browser Application
-// Two-tab interface with lazy loading
+// Refactored with modular architecture
 
-let calculatorPyodide = null;
-let generatorPyodide = null;  // Deprecated - kept for compatibility
-let generatorWorker = null;  // Web Worker for geometry generation
+import { calculateBoreSize, getCalculatedBores, updateBoreDisplaysAndDefaults, updateAntiRotationOptions, setupBoreEventListeners } from './modules/bore-calculator.js';
+import { updateValidationUI } from './modules/validation-ui.js';
+import { getDesignFunction, getInputs, formatArgs } from './modules/parameter-handler.js';
+import { getCalculatorPyodide, getGeneratorWorker, initCalculator, initGenerator } from './modules/pyodide-init.js';
+import { appendToConsole, updateDesignSummary, handleProgress, hideProgressIndicator, handleGenerateComplete } from './modules/generator-ui.js';
+
+// Global state
 let currentDesign = null;
 let currentValidation = null;
 
@@ -24,479 +28,51 @@ function initTabs() {
             tab.classList.add('active');
 
             // Update active content
-            tabContents.forEach(content => {
-                content.classList.remove('active');
-            });
+            tabContents.forEach(content => content.classList.remove('active'));
             document.getElementById(`${targetTab}-tab`).classList.add('active');
 
             // Lazy load calculator if needed
-            if (targetTab === 'calculator' && !calculatorPyodide) {
-                initCalculator();
+            if (targetTab === 'calculator' && !getCalculatorPyodide()) {
+                initCalculatorTab();
             }
         });
     });
 }
 
 // ============================================================================
-// CALCULATOR - LAZY LOADING
+// CALCULATOR TAB
 // ============================================================================
 
-async function initCalculator() {
-    if (calculatorPyodide) return; // Already loaded
-
-    try {
-        // Show loading screen
-        document.getElementById('loading-calculator').style.display = 'flex';
-
-        // Load Pyodide
-        calculatorPyodide = await loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/"
-        });
-
-        // Load local Python files
-        const files = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
-        calculatorPyodide.FS.mkdir('/home/pyodide/wormcalc');
-
-        for (const file of files) {
-            const response = await fetch(`wormcalc/${file}`);
-            if (!response.ok) {
-                throw new Error(`Failed to load ${file}: ${response.status}`);
-            }
-            const content = await response.text();
-            if (content.trim().startsWith('<!DOCTYPE')) {
-                throw new Error(`${file} contains HTML instead of Python code`);
-            }
-            calculatorPyodide.FS.writeFile(`/home/pyodide/wormcalc/${file}`, content);
-        }
-
-        // Import module
-        await calculatorPyodide.runPythonAsync(`
-import sys
-sys.path.insert(0, '/home/pyodide')
-import wormcalc
-from wormcalc import (
-    design_from_envelope,
-    design_from_wheel,
-    design_from_module,
-    design_from_centre_distance,
-    validate_design,
-    to_json,
-    to_markdown,
-    to_summary,
-    nearest_standard_module,
-    Hand,
-    WormProfile,
-    WormType
-)
-        `);
-
-        // Hide loading screen
-        document.getElementById('loading-calculator').style.display = 'none';
-
-        // Enable export buttons
-        document.getElementById('copy-json').disabled = false;
-        document.getElementById('download-json').disabled = false;
-        document.getElementById('download-md').disabled = false;
-        document.getElementById('copy-link').disabled = false;
-
-        // Load from URL parameters if present
+async function initCalculatorTab() {
+    await initCalculator(() => {
         loadFromUrl();
-
-        // Initial calculation
         calculate();
-
-    } catch (error) {
-        console.error('Failed to initialize calculator:', error);
-        document.querySelector('#loading-calculator .loading-detail').textContent =
-            `Error loading calculator: ${error.message}`;
-        document.querySelector('#loading-calculator .spinner').style.display = 'none';
-    }
+    });
 }
 
-// ============================================================================
-// GENERATOR - LAZY LOADING
-// ============================================================================
-
-async function initGenerator(showModal = true) {
-    if (generatorWorker) {
-        // Already initialized, just show content
-        document.getElementById('generator-lazy-load').style.display = 'none';
-        document.getElementById('generator-content').style.display = 'block';
-        return;
-    }
-
-    try {
-        // Show loading screen (only if not background loading)
-        if (showModal) {
-            document.getElementById('loading-generator').style.display = 'flex';
-        }
-
-        // Create Web Worker
-        appendToConsole('🚀 Initializing generator in background thread...');
-        appendToConsole('   UI will stay responsive during loading');
-        generatorWorker = new Worker('generator-worker.js');
-
-        // Set up worker message handler
-        setupWorkerMessageHandler();
-
-        // Send initialization message
-        generatorWorker.postMessage({ type: 'INIT' });
-
-        // Wait for initialization to complete
-        await new Promise((resolve, reject) => {
-            const handleInit = (e) => {
-                if (e.data.type === 'INIT_COMPLETE') {
-                    generatorWorker.removeEventListener('message', handleInit);
-                    resolve();
-                } else if (e.data.type === 'INIT_ERROR') {
-                    generatorWorker.removeEventListener('message', handleInit);
-                    reject(new Error(e.data.error));
-                }
-            };
-            generatorWorker.addEventListener('message', handleInit);
-        });
-
-        // Hide loading, show generator UI (only if modal was shown)
-        if (showModal) {
-            document.getElementById('loading-generator').style.display = 'none';
-            document.getElementById('generator-lazy-load').style.display = 'none';
-            document.getElementById('generator-content').style.display = 'block';
-        }
-
-    } catch (error) {
-        console.error('Failed to initialize generator:', error);
-        appendToConsole(`✗ Initialization failed: ${error.message}`);
-
-        // Check for common WASM errors
-        if (error.message.includes('WebAssembly') || error.message.includes('sentinel')) {
-            appendToConsole('');
-            appendToConsole('❌ WebAssembly instantiation failed');
-            appendToConsole('This usually means:');
-            appendToConsole('1. Browser lacks SharedArrayBuffer support (try Chrome/Firefox)');
-            appendToConsole('2. CORS headers not configured (Cross-Origin-Embedder-Policy missing)');
-            appendToConsole('3. HTTP (not HTTPS) - some features require secure context');
-            appendToConsole('');
-            appendToConsole('💡 Workaround: Use the Python CLI for geometry generation:');
-            appendToConsole('   pip install build123d');
-            appendToConsole('   pip install -e .');
-            appendToConsole('   wormgear-geometry design.json');
-        }
-
-        document.querySelector('#loading-generator .loading-detail').textContent =
-            `Error loading generator: ${error.message}`;
-        document.querySelector('#loading-generator .spinner').style.display = 'none';
-    }
-}
-
-function setupWorkerMessageHandler() {
-    generatorWorker.onmessage = (e) => {
-        const { type, message, percent, error, stack } = e.data;
-
-        switch (type) {
-            case 'LOG':
-                appendToConsole(message);
-                break;
-
-            case 'PROGRESS':
-                handleProgress(message, percent);
-                break;
-
-            case 'GENERATE_COMPLETE':
-                handleGenerateComplete(e.data);
-                break;
-
-            case 'GENERATE_ERROR':
-                appendToConsole(`✗ Generation error: ${error}`);
-                if (stack) {
-                    console.error('Worker error stack:', stack);
-                }
-                hideProgressIndicator();
-                break;
-
-            case 'INIT_ERROR':
-                // Handled in initGenerator promise
-                break;
-        }
-    };
-
-    generatorWorker.onerror = (error) => {
-        console.error('Worker error:', error);
-        appendToConsole(`✗ Worker error: ${error.message}`);
-    };
-}
-
-function appendToConsole(message) {
-    const console = document.getElementById('console-output');
-    const line = document.createElement('div');
-    line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    console.appendChild(line);
-    console.scrollTop = console.scrollHeight;
-}
-
-// ============================================================================
-// CALCULATOR LOGIC (from original app.js)
-// ============================================================================
-
-function getDesignFunction(mode) {
-    const functions = {
-        'envelope': 'design_from_envelope',
-        'from-wheel': 'design_from_wheel',
-        'from-module': 'design_from_module',
-        'from-centre-distance': 'design_from_centre_distance',
-    };
-    return functions[mode];
-}
-
-function getInputs(mode) {
-    // Helper to safely parse numbers, returning null if invalid
-    const safeParseFloat = (value) => {
-        const parsed = parseFloat(value);
-        return isNaN(parsed) ? null : parsed;
-    };
-    const safeParseInt = (value) => {
-        const parsed = parseInt(value);
-        return isNaN(parsed) ? null : parsed;
-    };
-
-    // Calculator parameters only (passed to Python calculation functions)
-    const calculatorParams = {
-        pressure_angle: safeParseFloat(document.getElementById('pressure-angle').value),
-        backlash: safeParseFloat(document.getElementById('backlash').value),
-        num_starts: safeParseInt(document.getElementById('num-starts').value),
-        hand: document.getElementById('hand').value,
-        profile_shift: safeParseFloat(document.getElementById('profile-shift').value),
-        profile: document.getElementById('profile').value,
-        worm_type: document.getElementById('worm-type').value,
-        throat_reduction: safeParseFloat(document.getElementById('throat-reduction').value) || 0.0,
-        wheel_throated: document.getElementById('wheel-throated').checked
-    };
-
-    // Add mode-specific calculator parameters
-    switch (mode) {
-        case 'envelope':
-            calculatorParams.worm_od = safeParseFloat(document.getElementById('worm-od').value);
-            calculatorParams.wheel_od = safeParseFloat(document.getElementById('wheel-od').value);
-            calculatorParams.ratio = safeParseInt(document.getElementById('ratio').value);
-            break;
-        case 'from-wheel':
-            calculatorParams.wheel_od = safeParseFloat(document.getElementById('wheel-od-fw').value);
-            calculatorParams.ratio = safeParseInt(document.getElementById('ratio-fw').value);
-            calculatorParams.target_lead_angle = safeParseFloat(document.getElementById('target-lead-angle').value);
-            break;
-        case 'from-module':
-            calculatorParams.module = safeParseFloat(document.getElementById('module').value);
-            calculatorParams.ratio = safeParseInt(document.getElementById('ratio-fm').value);
-            break;
-        case 'from-centre-distance':
-            calculatorParams.centre_distance = safeParseFloat(document.getElementById('centre-distance').value);
-            calculatorParams.ratio = safeParseInt(document.getElementById('ratio-fcd').value);
-            break;
-    }
-
-    // Manufacturing parameters (for JSON export, not calculation)
-    const wheelGeneration = document.getElementById('wheel-generation').value;
-    const hobbingPrecision = document.getElementById('hobbing-precision').value;
-    const hobbingStepsMap = {
-        'preview': 36,
-        'balanced': 72,
-        'high': 144
-    };
-
-    const manufacturingParams = {
-        virtual_hobbing: wheelGeneration === 'virtual-hobbing',
-        hobbing_steps: hobbingStepsMap[hobbingPrecision] || 72,
-        use_recommended_dims: document.getElementById('use-recommended-dims').checked,
-        worm_length: safeParseFloat(document.getElementById('worm-length').value),
-        wheel_width: safeParseFloat(document.getElementById('wheel-width').value)
-    };
-
-    // Bore/keyway parameters (for JSON export, not calculation)
-    const boreParams = {
-        worm_bore_type: document.getElementById('worm-bore-type').value,
-        worm_bore_diameter: safeParseFloat(document.getElementById('worm-bore-diameter').value),
-        worm_keyway: document.getElementById('worm-anti-rotation').value,
-        wheel_bore_type: document.getElementById('wheel-bore-type').value,
-        wheel_bore_diameter: safeParseFloat(document.getElementById('wheel-bore-diameter').value),
-        wheel_keyway: document.getElementById('wheel-anti-rotation').value
-    };
-
-    return {
-        calculator: calculatorParams,
-        manufacturing: manufacturingParams,
-        bore: boreParams
-    };
-}
-
-function formatArgs(calculatorParams) {
-    // Convert calculator parameters to Python function call arguments
-    // Receives only calculator params - no filtering needed (clean boundary!)
-    return Object.entries(calculatorParams)
-        .filter(([key, value]) => value !== null && value !== undefined)
-        .map(([key, value]) => {
-            // Enum conversions
-            if (key === 'hand') return `hand=Hand.${value}`;
-            if (key === 'profile') return `profile=WormProfile.${value}`;
-            if (key === 'worm_type') return `worm_type=WormType.${value.toUpperCase()}`;
-            // Boolean conversion
-            if (typeof value === 'boolean') return `${key}=${value ? 'True' : 'False'}`;
-            // Numeric/string values
-            return `${key}=${value}`;
-        })
-        .join(', ');
-}
-
-// Store calculated bore values globally for reference
-let calculatedWormBore = null;
-let calculatedWheelBore = null;
-
-function calculateBoreSize(pitchDiameter, rootDiameter) {
-    // Calculate bore: ~25% of pitch diameter, constrained by root
-    const target = pitchDiameter * 0.25;
-    const max = rootDiameter - 2.0; // Leave at least 1mm rim
-    let bore = Math.min(target, max);
-    bore = Math.max(2.0, bore); // Min 2mm
-    // Round to 0.5mm or 1mm
-    return bore >= 12 ? Math.round(bore) : Math.round(bore * 2) / 2;
-}
-
-function updateBoreDisplaysAndDefaults() {
-    // Calculate and store recommended bore sizes
-    if (!currentDesign || !currentDesign.worm || !currentDesign.wheel) {
-        document.getElementById('worm-bore-info').style.display = 'none';
-        document.getElementById('wheel-bore-info').style.display = 'none';
-        return;
-    }
-
-    const wormPitch = currentDesign.worm.pitch_diameter_mm;
-    const wormRoot = currentDesign.worm.root_diameter_mm;
-    const wheelPitch = currentDesign.wheel.pitch_diameter_mm;
-    const wheelRoot = currentDesign.wheel.root_diameter_mm;
-
-    if (!wormPitch || !wormRoot || !wheelPitch || !wheelRoot) {
-        document.getElementById('worm-bore-info').style.display = 'none';
-        document.getElementById('wheel-bore-info').style.display = 'none';
-        return;
-    }
-
-    // Calculate and store
-    calculatedWormBore = calculateBoreSize(wormPitch, wormRoot);
-    calculatedWheelBore = calculateBoreSize(wheelPitch, wheelRoot);
-
-    // Always show recommended values (as reference)
-    document.getElementById('worm-bore-info').style.display = 'block';
-    document.getElementById('wheel-bore-info').style.display = 'block';
-    document.getElementById('worm-bore-recommended').textContent = calculatedWormBore.toFixed(1);
-    document.getElementById('wheel-bore-recommended').textContent = calculatedWheelBore.toFixed(1);
-
-    // Add warning if too small for DIN 6885
-    if (calculatedWormBore < 6.0) {
-        document.getElementById('worm-bore-recommended').innerHTML =
-            `${calculatedWormBore.toFixed(1)} <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
-    }
-    if (calculatedWheelBore < 6.0) {
-        document.getElementById('wheel-bore-recommended').innerHTML =
-            `${calculatedWheelBore.toFixed(1)} <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
-    }
-
-    // Update anti-rotation options based on current bore settings
-    updateAntiRotationOptions();
-}
-
-function updateAntiRotationOptions() {
-    // Update worm anti-rotation options
-    const wormBoreType = document.getElementById('worm-bore-type').value;
-    const wormAntiRotSelect = document.getElementById('worm-anti-rotation');
-
-    if (wormBoreType === 'none') {
-        // No bore = no anti-rotation options needed
-        document.getElementById('worm-anti-rotation-group').style.display = 'none';
-    } else {
-        document.getElementById('worm-anti-rotation-group').style.display = 'block';
-
-        // Get effective bore size
-        let effectiveBore = calculatedWormBore;
-        if (wormBoreType === 'custom') {
-            effectiveBore = parseFloat(document.getElementById('worm-bore-diameter').value) || calculatedWormBore;
-        }
-
-        // Enable/disable DIN 6885 based on bore size
-        const din6885Option = Array.from(wormAntiRotSelect.options).find(opt => opt.value === 'DIN6885');
-        if (din6885Option) {
-            din6885Option.disabled = effectiveBore < 6.0;
-            if (effectiveBore < 6.0) {
-                din6885Option.text = 'DIN 6885 Keyway (requires bore ≥ 6mm)';
-            } else {
-                din6885Option.text = 'DIN 6885 Keyway';
-            }
-        }
-
-        // Auto-select sensible default
-        if (wormAntiRotSelect.value === 'DIN6885' && effectiveBore < 6.0) {
-            wormAntiRotSelect.value = 'ddcut'; // Switch to DD-cut for small bores
-        } else if (wormAntiRotSelect.value === '' || wormAntiRotSelect.value === 'none') {
-            // Set initial default based on bore size
-            wormAntiRotSelect.value = effectiveBore < 6.0 ? 'ddcut' : 'DIN6885';
-        }
-    }
-
-    // Same for wheel
-    const wheelBoreType = document.getElementById('wheel-bore-type').value;
-    const wheelAntiRotSelect = document.getElementById('wheel-anti-rotation');
-
-    if (wheelBoreType === 'none') {
-        document.getElementById('wheel-anti-rotation-group').style.display = 'none';
-    } else {
-        document.getElementById('wheel-anti-rotation-group').style.display = 'block';
-
-        let effectiveBore = calculatedWheelBore;
-        if (wheelBoreType === 'custom') {
-            effectiveBore = parseFloat(document.getElementById('wheel-bore-diameter').value) || calculatedWheelBore;
-        }
-
-        const din6885Option = Array.from(wheelAntiRotSelect.options).find(opt => opt.value === 'DIN6885');
-        if (din6885Option) {
-            din6885Option.disabled = effectiveBore < 6.0;
-            if (effectiveBore < 6.0) {
-                din6885Option.text = 'DIN 6885 Keyway (requires bore ≥ 6mm)';
-            } else {
-                din6885Option.text = 'DIN 6885 Keyway';
-            }
-        }
-
-        if (wheelAntiRotSelect.value === 'DIN6885' && effectiveBore < 6.0) {
-            wheelAntiRotSelect.value = 'ddcut';
-        } else if (wheelAntiRotSelect.value === '' || wheelAntiRotSelect.value === 'none') {
-            wheelAntiRotSelect.value = effectiveBore < 6.0 ? 'ddcut' : 'DIN6885';
-        }
-    }
-}
-
-function calculate() {
-    if (!calculatorPyodide) {
-        // Not ready yet, trigger lazy load
-        initCalculator();
-        return;
-    }
+async function calculate() {
+    const calculatorPyodide = getCalculatorPyodide();
+    if (!calculatorPyodide) return;
 
     try {
         const mode = document.getElementById('mode').value;
-        const inputs = getInputs(mode);  // Returns {calculator, manufacturing, bore}
+        const inputs = getInputs(mode);
         const func = getDesignFunction(mode);
-        const args = formatArgs(inputs.calculator);  // Only calculator params
+        const args = formatArgs(inputs.calculator);
         const useStandardModule = document.getElementById('use-standard-module').checked;
 
-        // Handle recommended dimensions in manufacturing settings
+        // Handle recommended dimensions
         const manufacturingSettings = {
             ...inputs.manufacturing,
             worm_length: inputs.manufacturing.use_recommended_dims ? null : inputs.manufacturing.worm_length,
             wheel_width: inputs.manufacturing.use_recommended_dims ? null : inputs.manufacturing.wheel_width
         };
 
-        // Set as globals so Python can access them (will be validated at boundary)
+        // Set globals for Python
         calculatorPyodide.globals.set('bore_settings_dict', inputs.bore);
         calculatorPyodide.globals.set('manufacturing_settings_dict', manufacturingSettings);
 
-        // Run calculation (simplified from original)
+        // Run calculation with module rounding
         const result = calculatorPyodide.runPython(`
 import json
 
@@ -584,14 +160,11 @@ json.dumps({
         `);
 
         const data = JSON.parse(result);
-        // json_output is a JSON string, need to parse it
         currentDesign = typeof data.json_output === 'string' ? JSON.parse(data.json_output) : data.json_output;
         currentValidation = data.valid;
 
-        // Update bore displays and defaults
-        updateBoreDisplaysAndDefaults();
-
         // Update UI
+        updateBoreDisplaysAndDefaults(currentDesign);
         document.getElementById('results-text').textContent = data.summary;
         updateValidationUI(data.valid, data.messages);
 
@@ -601,28 +174,8 @@ json.dumps({
     }
 }
 
-function updateValidationUI(valid, messages) {
-    const statusDiv = document.getElementById('validation-status');
-    const messagesList = document.getElementById('validation-messages');
-
-    statusDiv.className = valid ? 'status-valid' : 'status-error';
-    statusDiv.textContent = valid ? '✓ Design valid' : '✗ Design has errors';
-
-    messagesList.innerHTML = '';
-    messages.forEach(msg => {
-        const li = document.createElement('li');
-        li.className = `validation-${msg.severity}`;
-        li.innerHTML = `<strong>${msg.code}</strong>: ${msg.message}`;
-        if (msg.suggestion) {
-            li.innerHTML += `<br><em>Suggestion: ${msg.suggestion}</em>`;
-        }
-        messagesList.appendChild(li);
-    });
-}
-
 function loadFromUrl() {
-    // URL parameter loading logic (from original app.js)
-    // Simplified for now
+    // URL parameter loading (simplified for now)
 }
 
 // ============================================================================
@@ -631,13 +184,13 @@ function loadFromUrl() {
 
 function copyJSON() {
     if (!currentDesign) return;
-    navigator.clipboard.writeText(currentDesign);
+    navigator.clipboard.writeText(JSON.stringify(currentDesign, null, 2));
     alert('JSON copied to clipboard!');
 }
 
 function downloadJSON() {
     if (!currentDesign) return;
-    const blob = new Blob([currentDesign], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(currentDesign, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -647,10 +200,9 @@ function downloadJSON() {
 }
 
 function downloadMarkdown() {
+    const calculatorPyodide = getCalculatorPyodide();
     if (!calculatorPyodide) return;
-    const markdown = calculatorPyodide.runPython(`
-to_markdown(current_design, current_validation)
-    `);
+    const markdown = calculatorPyodide.runPython(`to_markdown(current_design, current_validation)`);
     const blob = new Blob([markdown], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -661,46 +213,53 @@ to_markdown(current_design, current_validation)
 }
 
 function copyLink() {
-    // Generate shareable URL (from original app.js)
     alert('Share link feature not yet implemented');
 }
 
 // ============================================================================
-// GENERATOR FUNCTIONS
+// GENERATOR TAB
 // ============================================================================
+
+async function initGeneratorTab(showModal = true) {
+    await initGenerator(showModal, setupWorkerMessageHandler);
+}
+
+function setupWorkerMessageHandler(worker) {
+    worker.onmessage = (e) => {
+        const { type, message, percent, error, stack } = e.data;
+
+        switch (type) {
+            case 'LOG':
+                appendToConsole(message);
+                break;
+            case 'PROGRESS':
+                handleProgress(message, percent);
+                break;
+            case 'GENERATE_COMPLETE':
+                handleGenerateComplete(e.data);
+                break;
+            case 'GENERATE_ERROR':
+                appendToConsole(`✗ Generation error: ${error}`);
+                if (stack) console.error('Worker error stack:', stack);
+                hideProgressIndicator();
+                break;
+        }
+    };
+
+    worker.onerror = (error) => {
+        console.error('Worker error:', error);
+        appendToConsole(`✗ Worker error: ${error.message}`);
+    };
+}
 
 function loadFromCalculator() {
     if (!currentDesign) {
         alert('No design in calculator. Calculate a design first.');
         return;
     }
-    // currentDesign is now an object, need to stringify for display
     document.getElementById('json-input').value = JSON.stringify(currentDesign, null, 2);
     updateDesignSummary(currentDesign);
     appendToConsole('Loaded design from calculator');
-}
-
-function updateDesignSummary(design) {
-    const summary = document.getElementById('gen-design-summary');
-    if (!design || !design.worm || !design.wheel) {
-        summary.innerHTML = '<p>No design loaded. Use Calculator tab or upload JSON.</p>';
-        return;
-    }
-
-    const manufacturing = design.manufacturing || {};
-    summary.innerHTML = `
-        <table style="width: 100%; font-size: 0.9em;">
-            <tr><td><strong>Module:</strong></td><td>${design.worm.module_mm} mm</td></tr>
-            <tr><td><strong>Ratio:</strong></td><td>${design.assembly.ratio}:1</td></tr>
-            <tr><td><strong>Profile:</strong></td><td>${manufacturing.profile || 'ZA'} (${manufacturing.profile === 'ZK' ? '3D printing' : 'CNC machining'})</td></tr>
-            <tr><td><strong>Worm Type:</strong></td><td>${design.worm.throat_curvature_radius_mm ? 'Globoid (hourglass)' : 'Cylindrical'}</td></tr>
-            <tr><td><strong>Wheel Type:</strong></td><td>${manufacturing.throated_wheel ? 'Throated (hobbed)' : 'Helical'}</td></tr>
-            <tr><td><strong>Hand:</strong></td><td>${design.assembly.hand}</td></tr>
-        </table>
-        <p style="margin-top: 0.5rem; font-size: 0.85em; color: #666;">
-            These settings from your design will be used for generation.
-        </p>
-    `;
 }
 
 function loadJSONFile() {
@@ -726,6 +285,7 @@ function handleFileUpload(event) {
 }
 
 async function generateGeometry(type) {
+    const generatorWorker = getGeneratorWorker();
     if (!generatorWorker) {
         alert('Generator not loaded. Click "Load Generator" first.');
         return;
@@ -738,310 +298,98 @@ async function generateGeometry(type) {
     }
 
     try {
-        // Parse JSON
         const designData = JSON.parse(jsonInput);
 
-        // Validate structure
         if (!designData.worm || !designData.wheel || !designData.assembly) {
             appendToConsole('Invalid JSON structure');
             appendToConsole('Expected format: { "worm": {...}, "wheel": {...}, "assembly": {...} }');
             return;
         }
 
-        // Get settings from design JSON
+        // Extract generation parameters from design
         const manufacturing = designData.manufacturing || {};
-        const isGloboid = designData.worm.throat_curvature_radius_mm !== undefined;
         const virtualHobbing = manufacturing.virtual_hobbing || false;
         const hobbingSteps = manufacturing.hobbing_steps || 72;
         const profile = manufacturing.profile || 'ZA';
 
-        // Get dimensions from calculator settings (or use defaults)
-        let wormLength = designData.worm.length_mm;
-        if (!wormLength && manufacturing.worm_length) {
-            wormLength = manufacturing.worm_length;
-        }
-        if (!wormLength) {
-            wormLength = 40; // Fallback default
-        }
-
-        // Wheel width - prefer design value, then manufacturing recommendation, then null (auto)
-        let wheelWidth = designData.wheel.width_mm;
-        if (!wheelWidth && manufacturing.wheel_width) {
-            wheelWidth = manufacturing.wheel_width;
-        }
+        let wormLength = designData.worm.length_mm || manufacturing.worm_length || 40;
+        let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width;
 
         appendToConsole('Starting geometry generation...');
-        appendToConsole('Parameters:');
-        appendToConsole('  Module: ' + designData.worm.module_mm + ' mm');
-        appendToConsole('  Ratio: ' + designData.assembly.ratio + ':1');
-        appendToConsole('  Worm length: ' + wormLength + ' mm');
-        appendToConsole('  Wheel width: ' + (wheelWidth || 'auto') + ' mm');
-        appendToConsole('  Profile: ' + profile);
-        appendToConsole('  Worm: ' + (isGloboid ? 'Globoid' : 'Cylindrical'));
-        appendToConsole('  Wheel: ' + (virtualHobbing ? 'Virtual Hobbing (' + hobbingSteps + ' steps)' : 'Helical'));
-        appendToConsole('');
-
-        appendToConsole('Generating 3D geometry in background thread...');
-        appendToConsole('UI will remain responsive during generation');
-
-        // Show progress indicator
-        showProgressIndicator();
+        appendToConsole(`Parameters: ${type}, Virtual Hobbing: ${virtualHobbing}, Profile: ${profile}`);
 
         // Send generation request to worker
         generatorWorker.postMessage({
             type: 'GENERATE',
-            data: {
-                designData,
-                wormLength,
-                wheelWidth,
-                virtualHobbing,
-                hobbingSteps,
-                generateType: type
-            }
+            designData,
+            partType: type,
+            virtualHobbing,
+            hobbingSteps,
+            profile,
+            wormLength,
+            wheelWidth
         });
 
     } catch (error) {
-        appendToConsole('Error: ' + error.message);
-        console.error('Generation error:', error);
-        hideProgressIndicator();
-    }
-}
-
-function handleProgress(message, percent) {
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-
-    // Update progress bar
-    if (percent >= 0 && percent <= 100) {
-        progressBar.style.width = percent + '%';
-        progressBar.textContent = percent.toFixed(0) + '%';
-    }
-    progressText.textContent = message;
-
-    // Update console (throttled for performance)
-    if (!handleProgress.lastUpdate) handleProgress.lastUpdate = 0;
-    const now = Date.now();
-    if (now - handleProgress.lastUpdate > 500 || percent >= 100 || percent < 0) {
-        appendToConsole('  [' + percent.toFixed(0) + '%] ' + message);
-        handleProgress.lastUpdate = now;
-    }
-}
-
-function handleGenerateComplete(data) {
-    const { success, worm, wheel } = data;
-
-    appendToConsole('');
-    appendToConsole('Generation complete!');
-
-    if (success) {
-        const generateType = worm && wheel ? 'both' : (worm ? 'worm' : 'wheel');
-
-        if (worm) {
-            downloadSTEP('worm.step', worm);
-        }
-        if (wheel) {
-            downloadSTEP('wheel.step', wheel);
-        }
-
-        appendToConsole('');
-        appendToConsole(generateType + ' generated successfully!');
-    } else {
-        appendToConsole('Generation completed with errors - see console above');
-    }
-
-    hideProgressIndicator();
-}
-
-function showProgressIndicator() {
-    const progressContainer = document.getElementById('generation-progress');
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-    progressContainer.style.display = 'block';
-    progressBar.style.width = '0%';
-    progressBar.textContent = '0%';
-    progressText.textContent = 'Initializing...';
-}
-
-function hideProgressIndicator() {
-    const progressContainer = document.getElementById('generation-progress');
-    progressContainer.style.display = 'none';
-}
-
-
-// Download STEP file from base64
-function downloadSTEP(filename, base64Data) {
-    try {
-        appendToConsole(`  Decoding ${filename}...`);
-        // Decode base64 to binary
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        const sizeKB = (bytes.length / 1024).toFixed(1);
-        appendToConsole(`  File size: ${sizeKB} KB (${bytes.length} bytes)`);
-
-        // Create blob and download
-        appendToConsole(`  Creating download blob...`);
-        const blob = new Blob([bytes], { type: 'application/step' });
-        const url = URL.createObjectURL(blob);
-
-        appendToConsole(`  Triggering browser download for ${filename}...`);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-
-        // Click to trigger download
-        a.click();
-
-        // Cleanup
-        setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            appendToConsole(`  Download complete: ${filename}`);
-        }, 100);
-
-    } catch (error) {
-        appendToConsole(`❌ Download failed for ${filename}: ${error.message}`);
-        console.error('Download error:', error);
+        appendToConsole(`Error: ${error.message}`);
     }
 }
 
 // ============================================================================
-// EVENT LISTENERS
+// INITIALIZATION
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize tabs
     initTabs();
+    setupBoreEventListeners();
 
-    // Start loading generator in background (don't await - let it load asynchronously)
-    // This means the generator will be ready faster when user switches to generator tab
-    // Pass false to skip showing the modal during background loading
-    initGenerator(false).catch(err => {
-        console.log('Generator background loading failed (non-fatal):', err);
-    });
+    // Setup event listeners for calculator
+    document.getElementById('calculate').addEventListener('click', calculate);
+    document.getElementById('copy-json').addEventListener('click', copyJSON);
+    document.getElementById('download-json').addEventListener('click', downloadJSON);
+    document.getElementById('download-md').addEventListener('click', downloadMarkdown);
+    document.getElementById('copy-link').addEventListener('click', copyLink);
+
+    // Setup event listeners for generator
+    document.getElementById('load-from-calc').addEventListener('click', loadFromCalculator);
+    document.getElementById('load-json-file').addEventListener('click', loadJSONFile);
+    document.getElementById('json-file-input').addEventListener('change', handleFileUpload);
+    document.getElementById('gen-worm').addEventListener('click', () => generateGeometry('worm'));
+    document.getElementById('gen-wheel').addEventListener('click', () => generateGeometry('wheel'));
+    document.getElementById('gen-both').addEventListener('click', () => generateGeometry('both'));
 
     // Mode switching
     document.getElementById('mode').addEventListener('change', (e) => {
         document.querySelectorAll('.input-group').forEach(group => {
             group.style.display = group.dataset.mode === e.target.value ? 'block' : 'none';
         });
-        if (calculatorPyodide) calculate();
     });
 
-    // Worm type switching
-    document.getElementById('worm-type').addEventListener('change', (e) => {
-        const throatGroup = document.getElementById('throat-reduction-group');
-        throatGroup.style.display = e.target.value === 'globoid' ? 'block' : 'none';
-    });
-
-    // Wheel generation switching
-    document.getElementById('wheel-generation').addEventListener('change', (e) => {
-        const isVirtualHobbing = e.target.value === 'virtual-hobbing';
-        const precisionGroup = document.getElementById('hobbing-precision-group');
-        const throatOptionGroup = document.getElementById('throat-option-group');
-
-        precisionGroup.style.display = isVirtualHobbing ? 'block' : 'none';
-
-        // Hide throat option when virtual hobbing (it's automatic)
-        if (isVirtualHobbing) {
-            throatOptionGroup.style.display = 'none';
-            document.getElementById('wheel-throated').checked = false; // Virtual hobbing handles this
-        } else {
-            throatOptionGroup.style.display = 'block';
-        }
-    });
-
-    // Use recommended dimensions switching
+    // Use recommended dimensions toggle
     document.getElementById('use-recommended-dims').addEventListener('change', (e) => {
-        const customDimsGroup = document.getElementById('custom-dims-group');
-        customDimsGroup.style.display = e.target.checked ? 'none' : 'block';
+        const customDims = document.getElementById('custom-dimensions');
+        customDims.style.display = e.target.checked ? 'none' : 'block';
 
-        // When unchecking, populate inputs with current recommended values from design
+        // Populate with recommended values when toggling to custom
         if (!e.target.checked && currentDesign && currentDesign.manufacturing) {
-            // Recommended values are stored in manufacturing section
-            const wormLength = currentDesign.manufacturing.worm_length;
-            const wheelWidth = currentDesign.manufacturing.wheel_width;
-
-            if (wormLength) {
-                document.getElementById('worm-length').value = wormLength.toFixed(2);
-            }
-            if (wheelWidth) {
-                document.getElementById('wheel-width').value = wheelWidth.toFixed(2);
-            }
+            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length || 40;
+            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width || 10;
         }
     });
 
-    // Worm bore type switching
-    document.getElementById('worm-bore-type').addEventListener('change', (e) => {
-        const customGroup = document.getElementById('worm-bore-custom');
-        const boreType = e.target.value;
-
-        // Show/hide custom bore input
-        customGroup.style.display = boreType === 'custom' ? 'block' : 'none';
-
-        // When switching to custom, populate with calculated value
-        if (boreType === 'custom' && calculatedWormBore) {
-            document.getElementById('worm-bore-diameter').value = calculatedWormBore.toFixed(1);
-        }
-
-        // Update anti-rotation options based on new bore type
-        updateAntiRotationOptions();
+    // Start loading generator in background (non-blocking)
+    initGeneratorTab(false).catch(err => {
+        console.log('Generator background loading failed (non-fatal):', err);
     });
-
-    // Wheel bore type switching
-    document.getElementById('wheel-bore-type').addEventListener('change', (e) => {
-        const customGroup = document.getElementById('wheel-bore-custom');
-        const boreType = e.target.value;
-
-        // Show/hide custom bore input
-        customGroup.style.display = boreType === 'custom' ? 'block' : 'none';
-
-        // When switching to custom, populate with calculated value
-        if (boreType === 'custom' && calculatedWheelBore) {
-            document.getElementById('wheel-bore-diameter').value = calculatedWheelBore.toFixed(1);
-        }
-
-        // Update anti-rotation options based on new bore type
-        updateAntiRotationOptions();
-    });
-
-    // Custom bore diameter changes should update anti-rotation options
-    document.getElementById('worm-bore-diameter').addEventListener('change', updateAntiRotationOptions);
-    document.getElementById('wheel-bore-diameter').addEventListener('change', updateAntiRotationOptions);
-
-    // Input changes trigger recalculation
-    const inputs = document.querySelectorAll('input, select');
-    inputs.forEach(input => {
-        input.addEventListener('change', () => {
-            if (calculatorPyodide) calculate();
-        });
-    });
-
-    // Export buttons
-    document.getElementById('copy-json').addEventListener('click', copyJSON);
-    document.getElementById('download-json').addEventListener('click', downloadJSON);
-    document.getElementById('download-md').addEventListener('click', downloadMarkdown);
-    document.getElementById('copy-link').addEventListener('click', copyLink);
-
-    // Generator buttons
-    document.getElementById('load-generator-btn').addEventListener('click', initGenerator);
-    document.getElementById('load-from-calculator').addEventListener('click', loadFromCalculator);
-    document.getElementById('load-json-file').addEventListener('click', loadJSONFile);
-    document.getElementById('json-file-input').addEventListener('change', handleFileUpload);
-    document.getElementById('generate-worm-btn').addEventListener('click', () => generateGeometry('worm'));
-    document.getElementById('generate-wheel-btn').addEventListener('click', () => generateGeometry('wheel'));
-    document.getElementById('generate-both-btn').addEventListener('click', () => generateGeometry('both'));
-
-    // Trigger initial UI state updates
-    document.getElementById('worm-bore-type').dispatchEvent(new Event('change'));
-    document.getElementById('wheel-bore-type').dispatchEvent(new Event('change'));
-
-    // Lazy load calculator on first interaction with calculator tab
-    // (Tab is active by default, so trigger init)
-    initCalculator();
 });
+
+// Expose functions globally for HTML onclick handlers
+window.calculate = calculate;
+window.copyJSON = copyJSON;
+window.downloadJSON = downloadJSON;
+window.downloadMarkdown = downloadMarkdown;
+window.copyLink = copyLink;
+window.loadFromCalculator = loadFromCalculator;
+window.loadJSONFile = loadJSONFile;
+window.generateGeometry = generateGeometry;
+window.initGeneratorTab = initGeneratorTab;
