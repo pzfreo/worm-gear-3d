@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Check - Worm Gear Calculator</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        pre {
+            background: #f5f5f5;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Worm Gear Calculator - File Diagnostics</h1>
+    <p>This page checks if the Python files are accessible from the web server.</p>
+    <div id="results"></div>
+
+    <script>
+        async function checkFiles() {
+            const files = ['__init__.py', 'core.py', 'validation.py', 'output.py'];
+            const resultsDiv = document.getElementById('results');
+
+            for (const file of files) {
+                const fileDiv = document.createElement('div');
+                fileDiv.innerHTML = `<h3>Checking wormcalc/${file}...</h3>`;
+                resultsDiv.appendChild(fileDiv);
+
+                try {
+                    const response = await fetch(`wormcalc/${file}`);
+                    const status = document.createElement('p');
+
+                    if (response.ok) {
+                        const content = await response.text();
+                        const contentType = response.headers.get('content-type');
+
+                        // Check if it looks like Python
+                        const looksLikePython = content.includes('import') || content.includes('def ') || content.includes('class ');
+                        const isHTML = content.trim().startsWith('<!DOCTYPE') || content.trim().startsWith('<html');
+
+                        if (isHTML) {
+                            status.className = 'error';
+                            status.innerHTML = `❌ ERROR: Got HTML instead of Python<br>Content-Type: ${contentType}<br>First 200 chars:<br><pre>${content.substring(0, 200)}</pre>`;
+                        } else if (looksLikePython) {
+                            status.className = 'success';
+                            status.innerHTML = `✓ OK: ${content.length} bytes, Content-Type: ${contentType}`;
+                        } else {
+                            status.className = 'error';
+                            status.innerHTML = `⚠ WARNING: Doesn't look like Python<br>Content-Type: ${contentType}<br>First 200 chars:<br><pre>${content.substring(0, 200)}</pre>`;
+                        }
+                    } else {
+                        status.className = 'error';
+                        status.innerHTML = `❌ HTTP ${response.status} ${response.statusText}`;
+                    }
+
+                    fileDiv.appendChild(status);
+
+                } catch (error) {
+                    const errorP = document.createElement('p');
+                    errorP.className = 'error';
+                    errorP.textContent = `❌ ${error.message}`;
+                    fileDiv.appendChild(errorP);
+                }
+            }
+
+            const summary = document.createElement('div');
+            summary.innerHTML = '<hr><h2>Next Steps</h2>';
+
+            const successCount = document.querySelectorAll('.success').length;
+            if (successCount === files.length) {
+                summary.innerHTML += '<p class="success">✓ All files OK! You can use <a href="index.html">index.html</a></p>';
+            } else {
+                summary.innerHTML += `
+                    <p class="error">Some files failed to load. Common causes:</p>
+                    <ul>
+                        <li>Not using a web server (opened file:// directly). Use: <code>python3 -m http.server 8000</code></li>
+                        <li>Web server not configured to serve .py files</li>
+                        <li>Wrong working directory (must be in the /web folder)</li>
+                    </ul>
+                `;
+            }
+            resultsDiv.appendChild(summary);
+        }
+
+        checkFiles();
+    </script>
+</body>
+</html>
