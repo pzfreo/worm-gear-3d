@@ -276,6 +276,50 @@
                                 <input type="number" id="wheel-width" value="" placeholder="Auto" step="1" min="5">
                                 <small class="hint">Recommended value will be shown after calculation</small>
                             </div>
+
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1rem;">Bores & Keyways</h3>
+
+                            <label for="worm-bore-type">Worm Bore:</label>
+                            <select id="worm-bore-type">
+                                <option value="none">Solid (no bore)</option>
+                                <option value="auto" selected>Auto-calculated</option>
+                                <option value="custom">Custom diameter</option>
+                            </select>
+
+                            <div id="worm-bore-custom" style="display: none;">
+                                <label for="worm-bore-diameter">Worm Bore Diameter (mm):</label>
+                                <input type="number" id="worm-bore-diameter" value="8" step="0.5" min="2">
+                            </div>
+
+                            <div id="worm-keyway-group" style="display: none;">
+                                <label for="worm-keyway">Worm Anti-Rotation:</label>
+                                <select id="worm-keyway">
+                                    <option value="none">None</option>
+                                    <option value="DIN6885" selected>DIN 6885 Keyway</option>
+                                    <option value="ddcut">DD-Cut (flat sides)</option>
+                                </select>
+                            </div>
+
+                            <label for="wheel-bore-type">Wheel Bore:</label>
+                            <select id="wheel-bore-type">
+                                <option value="none">Solid (no bore)</option>
+                                <option value="auto" selected>Auto-calculated</option>
+                                <option value="custom">Custom diameter</option>
+                            </select>
+
+                            <div id="wheel-bore-custom" style="display: none;">
+                                <label for="wheel-bore-diameter">Wheel Bore Diameter (mm):</label>
+                                <input type="number" id="wheel-bore-diameter" value="12" step="0.5" min="2">
+                            </div>
+
+                            <div id="wheel-keyway-group" style="display: none;">
+                                <label for="wheel-keyway">Wheel Anti-Rotation:</label>
+                                <select id="wheel-keyway">
+                                    <option value="none">None</option>
+                                    <option value="DIN6885" selected>DIN 6885 Keyway</option>
+                                    <option value="ddcut">DD-Cut (flat sides)</option>
+                                </select>
+                            </div>
                         </div>
                     </details>
                 </section>

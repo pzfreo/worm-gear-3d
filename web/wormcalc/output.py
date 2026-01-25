@@ -16,11 +16,15 @@ from .core import (
 from .validation import ValidationResult, ValidationMessage, Severity
 
 
-def design_to_dict(design: WormGearDesign) -> dict:
+def design_to_dict(design: WormGearDesign, bore_settings: dict = None) -> dict:
     """
     Convert design to a plain dictionary suitable for JSON serialization.
 
     Outputs wormgear JSON Schema v1.0 format for use with geometry generator.
+
+    Args:
+        design: The worm gear design
+        bore_settings: Optional dict with bore configuration from UI
     """
     # Build worm section
     worm_dict = {
@@ -109,6 +113,55 @@ def design_to_dict(design: WormGearDesign) -> dict:
         "manufacturing": manufacturing_dict,
     }
 
+    # Add features section if bore settings provided
+    if bore_settings:
+        features = {}
+
+        # Worm features
+        worm_bore_type = bore_settings.get('worm_bore_type', 'none')
+        if worm_bore_type != 'none':
+            worm_features = {}
+            if worm_bore_type == 'custom':
+                bore_diam = bore_settings.get('worm_bore_diameter')
+                if bore_diam is not None:
+                    worm_features['bore_diameter_mm'] = float(bore_diam)
+            elif worm_bore_type == 'auto':
+                # Use empty dict to signal "auto-calculate bore" to generator
+                # Generator will determine appropriate size
+                worm_features['auto_bore'] = True
+
+            # Add anti-rotation if bore present
+            worm_keyway = bore_settings.get('worm_keyway', 'none')
+            if worm_keyway != 'none':
+                worm_features['anti_rotation'] = worm_keyway
+
+            if worm_features:
+                features['worm'] = worm_features
+
+        # Wheel features
+        wheel_bore_type = bore_settings.get('wheel_bore_type', 'none')
+        if wheel_bore_type != 'none':
+            wheel_features = {}
+            if wheel_bore_type == 'custom':
+                bore_diam = bore_settings.get('wheel_bore_diameter')
+                if bore_diam is not None:
+                    wheel_features['bore_diameter_mm'] = float(bore_diam)
+            elif wheel_bore_type == 'auto':
+                # Use empty dict to signal "auto-calculate bore" to generator
+                # Generator will determine appropriate size
+                wheel_features['auto_bore'] = True
+
+            # Add anti-rotation if bore present
+            wheel_keyway = bore_settings.get('wheel_keyway', 'none')
+            if wheel_keyway != 'none':
+                wheel_features['anti_rotation'] = wheel_keyway
+
+            if wheel_features:
+                features['wheel'] = wheel_features
+
+        if features:
+            result['features'] = features
+
     return result
 
 
@@ -131,7 +184,8 @@ def validation_to_dict(validation: ValidationResult) -> dict:
 def to_json(
     design: WormGearDesign,
     validation: Optional[ValidationResult] = None,
-    indent: int = 2
+    indent: int = 2,
+    bore_settings: Optional[dict] = None
 ) -> str:
     """
     Export design to JSON string (wormgear schema v1.0).
@@ -140,11 +194,12 @@ def to_json(
         design: The worm gear design
         validation: Optional validation result to include
         indent: JSON indentation (default 2)
+        bore_settings: Optional bore configuration from UI
 
     Returns:
         JSON string compatible with wormgear package
     """
-    data = design_to_dict(design)
+    data = design_to_dict(design, bore_settings=bore_settings)
 
     if validation:
         data["validation"] = validation_to_dict(validation)

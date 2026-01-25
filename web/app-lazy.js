@@ -302,6 +302,14 @@ function getInputs(mode) {
     const wormLength = safeParseFloat(document.getElementById('worm-length').value);
     const wheelWidth = safeParseFloat(document.getElementById('wheel-width').value);
 
+    // Bore settings
+    const wormBoreType = document.getElementById('worm-bore-type').value;
+    const wormBoreDiameter = safeParseFloat(document.getElementById('worm-bore-diameter').value);
+    const wormKeyway = document.getElementById('worm-keyway').value;
+    const wheelBoreType = document.getElementById('wheel-bore-type').value;
+    const wheelBoreDiameter = safeParseFloat(document.getElementById('wheel-bore-diameter').value);
+    const wheelKeyway = document.getElementById('wheel-keyway').value;
+
     // Map hobbing precision to steps
     const hobbingStepsMap = {
         'preview': 36,
@@ -324,7 +332,13 @@ function getInputs(mode) {
         wheel_throated: wheelThroated,
         use_recommended_dims: useRecommendedDims,
         worm_length: wormLength,
-        wheel_width: wheelWidth
+        wheel_width: wheelWidth,
+        worm_bore_type: wormBoreType,
+        worm_bore_diameter: wormBoreDiameter,
+        worm_keyway: wormKeyway,
+        wheel_bore_type: wheelBoreType,
+        wheel_bore_diameter: wheelBoreDiameter,
+        wheel_keyway: wheelKeyway
     };
 
     switch (mode) {
@@ -366,9 +380,13 @@ function formatArgs(inputs) {
             if (key === 'hand') return `hand=Hand.${value}`;
             if (key === 'profile') return `profile=WormProfile.${value}`;
             if (key === 'worm_type') return `worm_type=WormType.${value.toUpperCase()}`;
-            if (key === 'wheel_throated') return `wheel_throated=${value ? 'True' : 'False'}`;
+            // Convert JavaScript booleans to Python booleans
+            if (typeof value === 'boolean') return `${key}=${value ? 'True' : 'False'}`;
+            // Skip bore/keyway settings - they go in features section
+            if (key.includes('bore_type') || key.includes('bore_diameter') || key.includes('keyway')) return null;
             return `${key}=${value}`;
         })
+        .filter(arg => arg !== null)  // Remove skipped args
         .join(', ');
 }
 
@@ -386,6 +404,19 @@ function calculate() {
         const args = formatArgs(inputs);
         const useStandardModule = document.getElementById('use-standard-module').checked;
 
+        // Prepare bore settings for features section
+        const boreSettings = {
+            worm_bore_type: inputs.worm_bore_type,
+            worm_bore_diameter: inputs.worm_bore_diameter,
+            worm_keyway: inputs.worm_keyway,
+            wheel_bore_type: inputs.wheel_bore_type,
+            wheel_bore_diameter: inputs.wheel_bore_diameter,
+            wheel_keyway: inputs.wheel_keyway
+        };
+
+        // Set bore settings as a global so Python can access it
+        calculatorPyodide.globals.set('bore_settings_dict', boreSettings);
+
         // Run calculation (simplified from original)
         const result = calculatorPyodide.runPython(`
 import json
@@ -396,9 +427,12 @@ validation = validate_design(design)
 globals()['current_design'] = design
 globals()['current_validation'] = validation
 
+# Get bore settings from JavaScript
+bore_settings = bore_settings_dict.to_py() if 'bore_settings_dict' in dir() else None
+
 json.dumps({
     'summary': to_summary(design),
-    'json_output': to_json(design, validation),
+    'json_output': to_json(design, validation, bore_settings=bore_settings),
     'markdown': to_markdown(design, validation),
     'valid': validation.valid,
     'messages': [
@@ -748,7 +782,7 @@ import json
 import base64
 import tempfile
 import os
-from wormgear.core import WormGeometry, WheelGeometry, VirtualHobbingWheelGeometry
+from wormgear.core import WormGeometry, WheelGeometry, VirtualHobbingWheelGeometry, BoreFeature, KeywayFeature
 from wormgear.io import WormParams, WheelParams, AssemblyParams
 
 print("📋 Parsing parameters...")
@@ -768,6 +802,43 @@ except (TypeError, ValueError):
 print(f"Wheel width: {wheel_width if wheel_width else 'auto-calculated'}")
 print(f"Worm length (from JS): {worm_length}")
 
+# Parse features section for bores and keyways
+features = design_data.get('features', {})
+
+# Worm features
+worm_bore = None
+worm_keyway = None
+if 'worm' in features:
+    worm_feat = features['worm']
+    if 'bore_diameter_mm' in worm_feat:
+        bore_diameter = worm_feat['bore_diameter_mm']
+        print(f"Worm bore: {bore_diameter} mm (custom)")
+        worm_bore = BoreFeature(diameter=bore_diameter)
+    elif 'auto_bore' in worm_feat and worm_feat['auto_bore']:
+        print(f"Worm bore: auto-calculated")
+        worm_bore = BoreFeature()  # No diameter = auto-calculate
+
+    if 'anti_rotation' in worm_feat and worm_feat['anti_rotation'] == 'DIN6885':
+        print(f"Worm keyway: DIN 6885")
+        worm_keyway = KeywayFeature()
+
+# Wheel features
+wheel_bore = None
+wheel_keyway = None
+if 'wheel' in features:
+    wheel_feat = features['wheel']
+    if 'bore_diameter_mm' in wheel_feat:
+        bore_diameter = wheel_feat['bore_diameter_mm']
+        print(f"Wheel bore: {bore_diameter} mm (custom)")
+        wheel_bore = BoreFeature(diameter=bore_diameter)
+    elif 'auto_bore' in wheel_feat and wheel_feat['auto_bore']:
+        print(f"Wheel bore: auto-calculated")
+        wheel_bore = BoreFeature()  # No diameter = auto-calculate
+
+    if 'anti_rotation' in wheel_feat and wheel_feat['anti_rotation'] == 'DIN6885':
+        print(f"Wheel keyway: DIN 6885")
+        wheel_keyway = KeywayFeature()
+
 print("✓ Parameters parsed")
 print("")
 
@@ -783,7 +854,9 @@ if generate_type in ['worm', 'both']:
             params=worm_params,
             assembly_params=assembly_params,
             length=worm_length,
-            sections_per_turn=36
+            sections_per_turn=36,
+            bore=worm_bore,
+            keyway=worm_keyway
         )
         print("  Building 3D model...")
         worm = worm_geo.build()
@@ -830,7 +903,9 @@ if generate_type in ['wheel', 'both']:
                 assembly_params=assembly_params,
                 face_width=wheel_width,
                 hobbing_steps=hobbing_steps_val,
-                progress_callback=progress_callback_fn
+                progress_callback=progress_callback_fn,
+                bore=wheel_bore,
+                keyway=wheel_keyway
             )
         else:
             # Regular helical wheel (no progress callbacks needed - it's fast)
@@ -838,7 +913,9 @@ if generate_type in ['wheel', 'both']:
                 params=wheel_params,
                 worm_params=worm_params,
                 assembly_params=assembly_params,
-                face_width=wheel_width
+                face_width=wheel_width,
+                bore=wheel_bore,
+                keyway=wheel_keyway
             )
         print("  Building 3D model (this is the slowest step)...")
         wheel = wheel_geo.build()
@@ -1047,6 +1124,26 @@ document.addEventListener('DOMContentLoaded', () => {
         customDimsGroup.style.display = e.target.checked ? 'none' : 'block';
     });
 
+    // Worm bore type switching
+    document.getElementById('worm-bore-type').addEventListener('change', (e) => {
+        const customGroup = document.getElementById('worm-bore-custom');
+        const keywayGroup = document.getElementById('worm-keyway-group');
+        const hasBore = e.target.value !== 'none';
+
+        customGroup.style.display = e.target.value === 'custom' ? 'block' : 'none';
+        keywayGroup.style.display = hasBore ? 'block' : 'none';
+    });
+
+    // Wheel bore type switching
+    document.getElementById('wheel-bore-type').addEventListener('change', (e) => {
+        const customGroup = document.getElementById('wheel-bore-custom');
+        const keywayGroup = document.getElementById('wheel-keyway-group');
+        const hasBore = e.target.value !== 'none';
+
+        customGroup.style.display = e.target.value === 'custom' ? 'block' : 'none';
+        keywayGroup.style.display = hasBore ? 'block' : 'none';
+    });
+
     // Input changes trigger recalculation
     const inputs = document.querySelectorAll('input, select');
     inputs.forEach(input => {
@@ -1069,6 +1166,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generate-worm-btn').addEventListener('click', () => generateGeometry('worm'));
     document.getElementById('generate-wheel-btn').addEventListener('click', () => generateGeometry('wheel'));
     document.getElementById('generate-both-btn').addEventListener('click', () => generateGeometry('both'));
+
+    // Trigger initial UI state updates
+    document.getElementById('worm-bore-type').dispatchEvent(new Event('change'));
+    document.getElementById('wheel-bore-type').dispatchEvent(new Event('change'));
 
     // Lazy load calculator on first interaction with calculator tab
     // (Tab is active by default, so trigger init)
