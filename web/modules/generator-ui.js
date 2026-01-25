@@ -103,17 +103,18 @@ function updateSubProgress(percent, message = null) {
         // Show and update sub-progress
         subProgress.style.display = 'block';
 
-        // Track start time on first progress update
-        if (hobbingStartTime === null && percent > 0) {
+        // Track start time on first progress update (even at 0%)
+        if (hobbingStartTime === null) {
             hobbingStartTime = Date.now();
         }
 
         // Calculate time estimate after 5% completion
-        if (percent >= 5 && hobbingStartTime !== null) {
+        if (percent >= 5 && hobbingStartTime !== null && percent > 0) {
             const elapsed = (Date.now() - hobbingStartTime) / 1000; // seconds
             const estimatedTotal = (elapsed / percent) * 100;
             const remaining = estimatedTotal - elapsed;
             hobbingTimeEstimate = remaining;
+            console.log('[Time Estimate]', `${percent}% in ${elapsed.toFixed(1)}s, est. ${remaining.toFixed(1)}s remaining`);
         }
 
         if (progressBar) {
@@ -156,8 +157,22 @@ export function handleProgress(message, percent) {
     const msgLower = message.toLowerCase();
     console.log('[Progress]', message, 'percent:', percent);
 
+    // Check for hobbing progress FIRST (before generic wheel messages)
+    // Hobbing messages: "X% complete (Y/Z cuts)" or "Hobbing simulation"
+    const isHobbingProgress = (msgLower.includes('% complete') && msgLower.includes('cuts')) ||
+                              (msgLower.includes('hobbing') && percent !== null && percent !== undefined);
+
+    if (isHobbingProgress) {
+        console.log('[Hobbing Progress Detected]', message, 'percent:', percent);
+        // Make sure we're in wheel step
+        const wheelIndicator = document.querySelector('.step-indicator[data-step="wheel"]');
+        if (!wheelIndicator || !wheelIndicator.classList.contains('active')) {
+            setMainStep('wheel', 'Generating wheel gear...');
+        }
+        updateSubProgress(percent, message);
+    }
     // Parsing/setup step
-    if (msgLower.includes('parsing') || msgLower.includes('parameters') || msgLower.includes('📋') || msgLower.includes('starting geometry')) {
+    else if (msgLower.includes('parsing') || msgLower.includes('parameters') || msgLower.includes('📋') || msgLower.includes('starting geometry')) {
         setMainStep('parse', 'Parsing parameters...');
         updateSubProgress(null);
     }
@@ -171,17 +186,8 @@ export function handleProgress(message, percent) {
         setMainStep('wheel', 'Generating wheel gear...');
         updateSubProgress(null);
     }
-    // Hobbing progress (only during wheel generation)
-    else if (msgLower.includes('hobbing') || (msgLower.includes('step') && percent !== null && percent !== undefined)) {
-        // Make sure we're in wheel step first
-        const wheelIndicator = document.querySelector('.step-indicator[data-step="wheel"]');
-        if (!wheelIndicator || !wheelIndicator.classList.contains('active')) {
-            setMainStep('wheel', 'Generating wheel gear...');
-        }
-        updateSubProgress(percent, message);
-    }
-    // Export step (STEP or STL format)
-    else if (msgLower.includes('exporting to step') || msgLower.includes('exporting to stl')) {
+    // Export step (STEP or STL or 3MF format)
+    else if (msgLower.includes('exporting to step') || msgLower.includes('exporting to stl') || msgLower.includes('exporting to 3mf')) {
         setMainStep('export', 'Exporting files...');
         updateSubProgress(null);
     }
