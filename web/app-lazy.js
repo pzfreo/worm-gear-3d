@@ -365,6 +365,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Worm type switching (show throat reduction for globoid)
+    document.getElementById('worm-type').addEventListener('change', (e) => {
+        const isGloboid = e.target.value === 'globoid';
+        const throatReductionGroup = document.getElementById('throat-reduction-group');
+        throatReductionGroup.style.display = isGloboid ? 'block' : 'none';
+    });
+
+    // Wheel generation method switching (helical vs virtual hobbing)
+    document.getElementById('wheel-generation').addEventListener('change', (e) => {
+        const isVirtualHobbing = e.target.value === 'virtual-hobbing';
+        const precisionGroup = document.getElementById('hobbing-precision-group');
+        const throatOptionGroup = document.getElementById('throat-option-group');
+
+        // Show hobbing precision controls when virtual hobbing selected
+        precisionGroup.style.display = isVirtualHobbing ? 'block' : 'none';
+
+        // Hide throat option when virtual hobbing (it's automatic)
+        if (isVirtualHobbing) {
+            throatOptionGroup.style.display = 'none';
+            document.getElementById('wheel-throated').checked = false; // Virtual hobbing handles this
+        } else {
+            throatOptionGroup.style.display = 'block';
+        }
+    });
+
     // Use recommended dimensions toggle
     document.getElementById('use-recommended-dims').addEventListener('change', (e) => {
         const customDims = document.getElementById('custom-dimensions');
@@ -385,11 +410,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Trigger initial UI state updates for bore controls
+    // Trigger initial UI state updates for all dynamic controls
     const wormBoreType = document.getElementById('worm-bore-type');
     const wheelBoreType = document.getElementById('wheel-bore-type');
+    const wormType = document.getElementById('worm-type');
+    const wheelGeneration = document.getElementById('wheel-generation');
+
     if (wormBoreType) wormBoreType.dispatchEvent(new Event('change'));
     if (wheelBoreType) wheelBoreType.dispatchEvent(new Event('change'));
+    if (wormType) wormType.dispatchEvent(new Event('change'));
+    if (wheelGeneration) wheelGeneration.dispatchEvent(new Event('change'));
 
     // Calculator tab is active by default, so initialize it
     initCalculatorTab();
