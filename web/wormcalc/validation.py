@@ -396,12 +396,12 @@ def _validate_profile(design: WormGearDesign) -> List[ValidationMessage]:
     messages = []
 
     # Profile type validation - check it's a valid enum value
-    if design.profile not in (WormProfile.ZA, WormProfile.ZK):
+    if design.profile not in (WormProfile.ZA, WormProfile.ZK, WormProfile.ZI):
         messages.append(ValidationMessage(
             severity=Severity.ERROR,
             code="PROFILE_INVALID",
             message=f"Invalid profile type: {design.profile}",
-            suggestion="Use ZA (for CNC machining) or ZK (for 3D printing)"
+            suggestion="Use ZA (for CNC machining), ZK (for 3D printing), or ZI (for hobbing)"
         ))
 
     # Info about profile type
@@ -410,6 +410,13 @@ def _validate_profile(design: WormGearDesign) -> List[ValidationMessage]:
             severity=Severity.INFO,
             code="PROFILE_ZK",
             message="ZK profile selected - optimized for 3D printing (FDM)",
+            suggestion=None
+        ))
+    elif design.profile == WormProfile.ZI:
+        messages.append(ValidationMessage(
+            severity=Severity.INFO,
+            code="PROFILE_ZI",
+            message="ZI profile selected - involute helicoid for high precision hobbed gears",
             suggestion=None
         ))
 
@@ -521,14 +528,16 @@ def _validate_wheel_throated(design: WormGearDesign) -> List[ValidationMessage]:
 
     worm_type = design.manufacturing.worm_type
     wheel_throated = design.manufacturing.wheel_throated
+    virtual_hobbing = design.manufacturing.virtual_hobbing
 
-    # Warn if globoid worm with non-throated wheel
-    if worm_type == WormType.GLOBOID and not wheel_throated:
+    # Warn if globoid worm with non-throated wheel (unless using virtual hobbing)
+    # Virtual hobbing automatically creates proper throating regardless of wheel_throated flag
+    if worm_type == WormType.GLOBOID and not wheel_throated and not virtual_hobbing:
         messages.append(ValidationMessage(
             severity=Severity.WARNING,
             code="GLOBOID_NON_THROATED",
             message="Globoid worm typically requires throated wheel for proper contact",
-            suggestion="Consider enabling wheel_throated for better mesh"
+            suggestion="Consider enabling wheel_throated or using virtual hobbing for better mesh"
         ))
 
     # Info about throated wheel
