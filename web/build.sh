@@ -28,8 +28,8 @@ else
     exit 1
 fi
 
-# Verify critical calculator files exist (web uses calculator module only)
-echo "🔍 Verifying calculator files..."
+# Verify critical files exist (web uses calculator and io modules only)
+echo "🔍 Verifying required files..."
 REQUIRED_FILES=(
     "wormgear/__init__.py"
     "wormgear/calculator/__init__.py"
@@ -38,6 +38,9 @@ REQUIRED_FILES=(
     "wormgear/calculator/output.py"
     "wormgear/calculator/js_bridge.py"
     "wormgear/calculator/json_schema.py"
+    "wormgear/io/__init__.py"
+    "wormgear/io/loaders.py"
+    "wormgear/io/schema.py"
 )
 
 for file in "${REQUIRED_FILES[@]}"; do
@@ -47,12 +50,15 @@ for file in "${REQUIRED_FILES[@]}"; do
     fi
 done
 
-echo "✓ All required calculator files present"
+echo "✓ All required files present"
 
 # List what was copied
 echo ""
 echo "📋 Calculator package contents:"
 ls -lh wormgear/calculator/
+echo ""
+echo "📋 IO package contents:"
+ls -lh wormgear/io/
 
 echo ""
 echo "✅ Build complete!"

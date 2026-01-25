@@ -63,18 +63,20 @@ export async function initCalculator(onComplete) {
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/"
         });
 
-        // Load unified wormgear.calculator package from build artifact (created by build.sh)
-        // Create directory structure for package
+        // Load unified wormgear package from build artifact (created by build.sh)
+        // Web needs: calculator (calculations) + io (dataclasses, no geometry)
+
+        // Create directory structure
         calculatorPyodide.FS.mkdir('/home/pyodide/wormgear');
         calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/calculator');
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/io');
 
-        // Create minimal wormgear/__init__.py (don't import geometry modules for web)
+        // Create minimal wormgear/__init__.py (don't import core/geometry for web)
         calculatorPyodide.FS.writeFile('/home/pyodide/wormgear/__init__.py',
             '"""Wormgear calculator for web (minimal init - no geometry modules)."""\n__version__ = "1.0.0-alpha"\n');
 
         // Load calculator module files
         const calcFiles = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
-
         for (const file of calcFiles) {
             const response = await fetch(`wormgear/calculator/${file}`);
             if (!response.ok) {
@@ -85,6 +87,20 @@ export async function initCalculator(onComplete) {
                 throw new Error(`calculator/${file} contains HTML instead of Python code`);
             }
             calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/calculator/${file}`, content);
+        }
+
+        // Load io module files (dataclasses needed by calculator)
+        const ioFiles = ['__init__.py', 'loaders.py', 'schema.py'];
+        for (const file of ioFiles) {
+            const response = await fetch(`wormgear/io/${file}`);
+            if (!response.ok) {
+                throw new Error(`Failed to load io/${file}: ${response.status}`);
+            }
+            const content = await response.text();
+            if (content.trim().startsWith('<!DOCTYPE')) {
+                throw new Error(`io/${file} contains HTML instead of Python code`);
+            }
+            calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/io/${file}`, content);
         }
 
         // Import unified package
