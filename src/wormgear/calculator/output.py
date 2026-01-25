@@ -33,16 +33,16 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
 
     # Build worm section
     worm_dict = {
-        "module_mm": round(design.worm.module, 4),
+        "module_mm": round(design.worm.module_mm, 4),
         "num_starts": design.worm.num_starts,
-        "pitch_diameter_mm": round(design.worm.pitch_diameter, 3),
-        "tip_diameter_mm": round(design.worm.tip_diameter, 3),
-        "root_diameter_mm": round(design.worm.root_diameter, 3),
-        "lead_mm": round(design.worm.lead, 3),
-        "lead_angle_deg": round(design.worm.lead_angle, 2),
-        "addendum_mm": round(design.worm.addendum, 3),
-        "dedendum_mm": round(design.worm.dedendum, 3),
-        "thread_thickness_mm": round(design.worm.thread_thickness, 3),
+        "pitch_diameter_mm": round(design.worm.pitch_diameter_mm, 3),
+        "tip_diameter_mm": round(design.worm.tip_diameter_mm, 3),
+        "root_diameter_mm": round(design.worm.root_diameter_mm, 3),
+        "lead_mm": round(design.worm.lead_mm, 3),
+        "lead_angle_deg": round(design.worm.lead_angle_deg, 2),
+        "addendum_mm": round(design.worm.addendum_mm, 3),
+        "dedendum_mm": round(design.worm.dedendum_mm, 3),
+        "thread_thickness_mm": round(design.worm.thread_thickness_mm, 3),
         "hand": design.assembly.hand.lower() if design.assembly.hand else "right",  # "right" or "left"
         "profile_shift": 0.0,  # Worm doesn't use profile shift
     }
@@ -51,18 +51,17 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
     is_globoid = False
     if design.manufacturing and hasattr(design.manufacturing, 'worm_type'):
         is_globoid = design.manufacturing.worm_type == "globoid"
-    elif design.worm.throat_reduction is not None:
+    elif design.worm.throat_reduction_mm is not None:
         is_globoid = True
 
     worm_dict["type"] = "globoid" if is_globoid else "cylindrical"
 
     # Add globoid parameters if present (for information only)
-    if design.worm.throat_reduction is not None:
-        worm_dict["throat_reduction_mm"] = round(design.worm.throat_reduction, 3)
+    if design.worm.throat_reduction_mm is not None:
+        worm_dict["throat_reduction_mm"] = round(design.worm.throat_reduction_mm, 3)
 
-    if design.worm.throat_pitch_radius is not None:
-        # Use throat_curvature_radius_mm to match WormParams dataclass
-        worm_dict["throat_curvature_radius_mm"] = round(design.worm.throat_pitch_radius, 3)
+    if design.worm.throat_curvature_radius_mm is not None:
+        worm_dict["throat_curvature_radius_mm"] = round(design.worm.throat_curvature_radius_mm, 3)
         # Note: throat_tip_radius and throat_root_radius are not in WormParams schema v1.0
 
     # Add custom worm length if specified
@@ -72,15 +71,15 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
 
     # Build wheel section
     wheel_dict = {
-        "module_mm": round(design.wheel.module, 4),
+        "module_mm": round(design.wheel.module_mm, 4),
         "num_teeth": design.wheel.num_teeth,
-        "pitch_diameter_mm": round(design.wheel.pitch_diameter, 3),
-        "tip_diameter_mm": round(design.wheel.tip_diameter, 3),
-        "root_diameter_mm": round(design.wheel.root_diameter, 3),
-        "throat_diameter_mm": round(design.wheel.throat_diameter, 3),
-        "helix_angle_deg": round(design.wheel.helix_angle, 2),
-        "addendum_mm": round(design.wheel.addendum, 3),
-        "dedendum_mm": round(design.wheel.dedendum, 3),
+        "pitch_diameter_mm": round(design.wheel.pitch_diameter_mm, 3),
+        "tip_diameter_mm": round(design.wheel.tip_diameter_mm, 3),
+        "root_diameter_mm": round(design.wheel.root_diameter_mm, 3),
+        "throat_diameter_mm": round(design.wheel.throat_diameter_mm, 3),
+        "helix_angle_deg": round(design.wheel.helix_angle_deg, 2),
+        "addendum_mm": round(design.wheel.addendum_mm, 3),
+        "dedendum_mm": round(design.wheel.dedendum_mm, 3),
         "profile_shift": round(design.wheel.profile_shift, 4),
     }
 
