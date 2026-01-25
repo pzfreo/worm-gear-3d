@@ -335,6 +335,8 @@ print("")
 
 worm_b64 = None
 wheel_b64 = None
+worm_3mf_b64 = None
+wheel_3mf_b64 = None
 worm_stl_b64 = None
 wheel_stl_b64 = None
 
@@ -370,28 +372,45 @@ if generate_type in ['worm', 'both']:
 
         worm_b64 = base64.b64encode(worm_step).decode('utf-8')
 
-        # Export STL for 3D printing
+        # Export 3MF for 3D printing (preferred - has explicit units and better precision)
+        print("  Exporting to 3MF format...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
+            temp_3mf_path = tmp.name
+
+        # Use build123d Mesher for 3MF export
+        from build123d import Mesher, Unit
+        mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+        mesher.add_shape(worm)
+        mesher.write(temp_3mf_path)
+
+        # Read back as bytes
+        with open(temp_3mf_path, 'rb') as f:
+            worm_3mf = f.read()
+
+        # Clean up temp file
+        os.unlink(temp_3mf_path)
+
+        worm_3mf_b64 = base64.b64encode(worm_3mf).decode('utf-8')
+
+        # Also export STL for compatibility
         print("  Exporting to STL format...")
         with tempfile.NamedTemporaryFile(mode='w', suffix='.stl', delete=False) as tmp:
             temp_stl_path = tmp.name
 
-        # Use build123d export_stl
         from build123d import export_stl
         export_stl(worm, temp_stl_path)
 
-        # Read back as bytes
         with open(temp_stl_path, 'rb') as f:
             worm_stl = f.read()
 
-        # Clean up temp file
         os.unlink(temp_stl_path)
-
         worm_stl_b64 = base64.b64encode(worm_stl).decode('utf-8')
 
         size_kb = len(worm_step) / 1024
+        mf3_size_kb = len(worm_3mf) / 1024
         stl_size_kb = len(worm_stl) / 1024
         print(f"✓ Worm generated successfully!")
-        print(f"  STEP size: {size_kb:.1f} KB, STL size: {stl_size_kb:.1f} KB")
+        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_size_kb:.1f} KB, STL: {stl_size_kb:.1f} KB")
     except Exception as e:
         print(f"✗ Worm generation failed: {e}")
         import traceback
@@ -448,28 +467,45 @@ if generate_type in ['wheel', 'both']:
 
         wheel_b64 = base64.b64encode(wheel_step).decode('utf-8')
 
-        # Export STL for 3D printing
+        # Export 3MF for 3D printing (preferred - has explicit units and better precision)
+        print("  Exporting to 3MF format...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
+            temp_3mf_path = tmp.name
+
+        # Use build123d Mesher for 3MF export
+        from build123d import Mesher, Unit
+        mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+        mesher.add_shape(wheel)
+        mesher.write(temp_3mf_path)
+
+        # Read back as bytes
+        with open(temp_3mf_path, 'rb') as f:
+            wheel_3mf = f.read()
+
+        # Clean up temp file
+        os.unlink(temp_3mf_path)
+
+        wheel_3mf_b64 = base64.b64encode(wheel_3mf).decode('utf-8')
+
+        # Also export STL for compatibility
         print("  Exporting to STL format...")
         with tempfile.NamedTemporaryFile(mode='w', suffix='.stl', delete=False) as tmp:
             temp_stl_path = tmp.name
 
-        # Use build123d export_stl
         from build123d import export_stl
         export_stl(wheel, temp_stl_path)
 
-        # Read back as bytes
         with open(temp_stl_path, 'rb') as f:
             wheel_stl = f.read()
 
-        # Clean up temp file
         os.unlink(temp_stl_path)
-
         wheel_stl_b64 = base64.b64encode(wheel_stl).decode('utf-8')
 
         size_kb = len(wheel_step) / 1024
+        mf3_size_kb = len(wheel_3mf) / 1024
         stl_size_kb = len(wheel_stl) / 1024
         print(f"✓ Wheel generated successfully!")
-        print(f"  STEP size: {size_kb:.1f} KB, STL size: {stl_size_kb:.1f} KB")
+        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_size_kb:.1f} KB, STL: {stl_size_kb:.1f} KB")
     except Exception as e:
         print(f"✗ Wheel generation failed: {e}")
         import traceback
@@ -496,6 +532,8 @@ elif generate_type == 'both':
 {
     'worm': worm_b64,
     'wheel': wheel_b64,
+    'worm_3mf': worm_3mf_b64,
+    'wheel_3mf': wheel_3mf_b64,
     'worm_stl': worm_stl_b64,
     'wheel_stl': wheel_stl_b64,
     'success': (generate_type == 'worm' and worm_b64 is not None) or
@@ -508,6 +546,8 @@ elif generate_type == 'both':
         const success = result.get('success');
         const wormB64 = result.get('worm');
         const wheelB64 = result.get('wheel');
+        const worm3mfB64 = result.get('worm_3mf');
+        const wheel3mfB64 = result.get('wheel_3mf');
         const wormStlB64 = result.get('worm_stl');
         const wheelStlB64 = result.get('wheel_stl');
 
@@ -516,6 +556,8 @@ elif generate_type == 'both':
             success: success,
             worm: wormB64,
             wheel: wheelB64,
+            worm_3mf: worm3mfB64,
+            wheel_3mf: wheel3mfB64,
             worm_stl: wormStlB64,
             wheel_stl: wheelStlB64
         });

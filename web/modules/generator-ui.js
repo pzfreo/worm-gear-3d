@@ -215,12 +215,14 @@ export async function handleGenerateComplete(data) {
     console.log('[DEBUG] handleGenerateComplete received:', {
         hasWorm: !!data.worm,
         hasWheel: !!data.wheel,
+        hasWorm3mf: !!data.worm_3mf,
+        hasWheel3mf: !!data.wheel_3mf,
         hasWormStl: !!data.worm_stl,
         hasWheelStl: !!data.wheel_stl,
         success: data.success
     });
 
-    const { worm, wheel, worm_stl, wheel_stl, success } = data;
+    const { worm, wheel, worm_3mf, wheel_3mf, worm_stl, wheel_stl, success } = data;
 
     if (!success) {
         appendToConsole('⚠️ Generation completed with errors');
@@ -340,6 +342,8 @@ to_markdown(design, validation)
     window.generatedSTEP = {
         worm: worm,
         wheel: wheel,
+        worm_3mf: worm_3mf,
+        wheel_3mf: wheel_3mf,
         worm_stl: worm_stl,
         wheel_stl: wheel_stl,
         markdown: markdown
@@ -401,6 +405,8 @@ async function createAndDownloadZip() {
             hasDesign: !!design,
             hasWorm: !!stepData.worm,
             hasWheel: !!stepData.wheel,
+            hasWorm3mf: !!stepData.worm_3mf,
+            hasWheel3mf: !!stepData.wheel_3mf,
             hasWormStl: !!stepData.worm_stl,
             hasWheelStl: !!stepData.wheel_stl,
             hasMarkdown: !!stepData.markdown,
@@ -442,7 +448,28 @@ async function createAndDownloadZip() {
             appendToConsole(`  ✓ Added wheel.step (${(wheelBytes.length / 1024).toFixed(1)} KB)`);
         }
 
-        // Add STL files (decode from base64)
+        // Add 3MF files (preferred for 3D printing - explicit units and better precision)
+        if (stepData.worm_3mf) {
+            const worm3mfBinary = atob(stepData.worm_3mf);
+            const worm3mfBytes = new Uint8Array(worm3mfBinary.length);
+            for (let i = 0; i < worm3mfBinary.length; i++) {
+                worm3mfBytes[i] = worm3mfBinary.charCodeAt(i);
+            }
+            zip.file('worm.3mf', worm3mfBytes);
+            appendToConsole(`  ✓ Added worm.3mf (${(worm3mfBytes.length / 1024).toFixed(1)} KB)`);
+        }
+
+        if (stepData.wheel_3mf) {
+            const wheel3mfBinary = atob(stepData.wheel_3mf);
+            const wheel3mfBytes = new Uint8Array(wheel3mfBinary.length);
+            for (let i = 0; i < wheel3mfBinary.length; i++) {
+                wheel3mfBytes[i] = wheel3mfBinary.charCodeAt(i);
+            }
+            zip.file('wheel.3mf', wheel3mfBytes);
+            appendToConsole(`  ✓ Added wheel.3mf (${(wheel3mfBytes.length / 1024).toFixed(1)} KB)`);
+        }
+
+        // Add STL files (for compatibility)
         if (stepData.worm_stl) {
             const wormStlBinary = atob(stepData.worm_stl);
             const wormStlBytes = new Uint8Array(wormStlBinary.length);
