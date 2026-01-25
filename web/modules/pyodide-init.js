@@ -24,6 +24,21 @@ export function getGeneratorWorker() {
 }
 
 /**
+ * Enable generate buttons when generator is ready
+ */
+function enableGenerateButtons() {
+    const buttons = [
+        document.getElementById('generate-worm-btn'),
+        document.getElementById('generate-wheel-btn'),
+        document.getElementById('generate-both-btn')
+    ];
+
+    buttons.forEach(btn => {
+        if (btn) btn.disabled = false;
+    });
+}
+
+/**
  * Initialize calculator Pyodide instance
  * @param {Function} onComplete - Callback when initialization completes
  */
@@ -106,8 +121,9 @@ from wormcalc import (
 export async function initGenerator(showModal = true, setupMessageHandler) {
     if (generatorWorker) {
         // Already initialized, just show content
-        document.getElementById('generator-lazy-load').style.display = 'none';
+        document.getElementById('generator-loading').style.display = 'none';
         document.getElementById('generator-content').style.display = 'block';
+        enableGenerateButtons();
         return;
     }
 
@@ -142,12 +158,11 @@ export async function initGenerator(showModal = true, setupMessageHandler) {
             generatorWorker.addEventListener('message', handleInit);
         });
 
-        // Hide loading, show generator UI (only if modal was shown)
-        if (showModal) {
-            document.getElementById('loading-generator').style.display = 'none';
-            document.getElementById('generator-lazy-load').style.display = 'none';
-            document.getElementById('generator-content').style.display = 'block';
-        }
+        // Hide loading, show generator UI
+        document.getElementById('loading-generator').style.display = 'none';
+        document.getElementById('generator-loading').style.display = 'none';
+        document.getElementById('generator-content').style.display = 'block';
+        enableGenerateButtons();
 
     } catch (error) {
         console.error('Failed to initialize generator:', error);

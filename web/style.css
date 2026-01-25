@@ -669,3 +669,33 @@ footer a:hover {
     padding-right: 1rem;
     white-space: nowrap;
 }
+
+/* Generator two-column layout */
+.generator-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+    .generator-layout {
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .generator-console {
+        position: sticky;
+        top: 1rem;
+        align-self: start;
+    }
+
+    .generator-console .console {
+        max-height: 600px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .generator-console {
+        order: -1; /* Show console first on narrow screens */
+    }
+}

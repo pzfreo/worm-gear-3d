@@ -356,64 +356,71 @@
 
             <!-- Generator Tab -->
             <div id="generator-tab" class="tab-content">
-                <div id="generator-lazy-load" class="lazy-load-notice">
-                    <h3>3D Geometry Generator</h3>
-                    <p>Generate CNC-ready STEP files directly in your browser using WebAssembly.</p>
-                    <p><strong>Note:</strong> This will load ~50MB of dependencies (Pyodide, OCP, build123d). It may take 30-60 seconds on first load.</p>
-                    <button id="load-generator-btn">Load Generator</button>
+                <div id="generator-loading" style="text-align: center; padding: 2rem; color: #666;">
+                    <p>Loading 3D geometry generator...</p>
+                    <p style="font-size: 0.9em;">This will download ~50MB of dependencies (Pyodide, OCP, build123d)</p>
+                    <p style="font-size: 0.9em;">Please wait 30-60 seconds...</p>
                 </div>
 
                 <div id="generator-content" style="display: none;">
-                    <section class="generator-section">
-                        <h2>Design Summary</h2>
-                        <div id="gen-design-summary" class="design-summary">
-                            <p>No design loaded. Use Calculator tab or upload JSON.</p>
-                        </div>
-                    </section>
+                    <div class="generator-layout">
+                        <!-- Left column: Controls -->
+                        <div class="generator-controls">
+                            <section class="generator-section">
+                                <h2>Design Summary</h2>
+                                <div id="gen-design-summary" class="design-summary">
+                                    <p>No design loaded. Use Calculator tab or upload JSON.</p>
+                                </div>
+                            </section>
 
-                    <section class="generator-section">
-                        <h2>JSON Input</h2>
-                        <div class="json-input-area">
-                            <textarea id="json-input" placeholder="Paste JSON here or use Calculator tab..."></textarea>
-                            <div style="margin-top: 10px;">
-                                <button id="load-from-calculator">Load from Calculator</button>
-                                <input type="file" id="json-file-input" accept=".json" style="display: none;">
-                                <button id="load-json-file">Upload JSON File</button>
-                            </div>
-                        </div>
-                    </section>
+                            <section class="generator-section">
+                                <h2>JSON Input</h2>
+                                <div class="json-input-area">
+                                    <textarea id="json-input" placeholder="Paste JSON here or use Calculator tab..."></textarea>
+                                    <div style="margin-top: 10px;">
+                                        <button id="load-from-calculator">Load from Calculator</button>
+                                        <input type="file" id="json-file-input" accept=".json" style="display: none;">
+                                        <button id="load-json-file">Upload JSON File</button>
+                                    </div>
+                                </div>
+                            </section>
 
-                    <section class="generator-section">
-                        <h2>Generate</h2>
-                        <div class="button-group">
-                            <button id="generate-worm-btn">Generate Worm</button>
-                            <button id="generate-wheel-btn">Generate Wheel</button>
-                            <button id="generate-both-btn">Generate Both</button>
+                            <section class="generator-section">
+                                <h2>Generate</h2>
+                                <div class="button-group">
+                                    <button id="generate-worm-btn" disabled>Generate Worm</button>
+                                    <button id="generate-wheel-btn" disabled>Generate Wheel</button>
+                                    <button id="generate-both-btn" disabled>Generate Both</button>
+                                </div>
+
+                                <!-- Progress indicator -->
+                                <div id="generation-progress" style="display: none; margin-top: 1rem;">
+                                    <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 24px;">
+                                        <div id="progress-bar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.85em; font-weight: bold;"></div>
+                                    </div>
+                                    <div id="progress-text" style="margin-top: 0.5rem; font-size: 0.9em; color: #666;"></div>
+                                </div>
+                            </section>
+
+                            <section class="generator-section">
+                                <h2>Download STEP Files</h2>
+                                <div class="button-group">
+                                    <button id="download-worm" disabled>Download Worm</button>
+                                    <button id="download-wheel" disabled>Download Wheel</button>
+                                </div>
+                            </section>
                         </div>
 
-                        <!-- Progress indicator -->
-                        <div id="generation-progress" style="display: none; margin-top: 1rem;">
-                            <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 24px;">
-                                <div id="progress-bar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.85em; font-weight: bold;"></div>
-                            </div>
-                            <div id="progress-text" style="margin-top: 0.5rem; font-size: 0.9em; color: #666;"></div>
+                        <!-- Right column: Console -->
+                        <div class="generator-console">
+                            <section class="generator-section">
+                                <h2>Console Output</h2>
+                                <div id="console-output" class="console">
+                                    <div>Ready to generate geometry...</div>
+                                </div>
+                            </section>
                         </div>
-                    </section>
-
-                    <section class="generator-section">
-                        <h2>Console Output</h2>
-                        <div id="console-output" class="console">
-                            <div>Ready to generate geometry...</div>
-                        </div>
-                    </section>
-
-                    <section class="generator-section">
-                        <h2>Download STEP Files</h2>
-                        <div class="button-group">
-                            <button id="download-worm" disabled>Download Worm</button>
-                            <button id="download-wheel" disabled>Download Wheel</button>
-                        </div>
-                    </section>
+                    </div>
                 </div>
             </div>
         </main>

@@ -10,6 +10,7 @@ import { appendToConsole, updateDesignSummary, handleProgress, hideProgressIndic
 // Global state
 let currentDesign = null;
 let currentValidation = null;
+let generatorTabVisited = false;
 
 // ============================================================================
 // TAB SWITCHING
@@ -34,6 +35,14 @@ function initTabs() {
             // Lazy load calculator if needed
             if (targetTab === 'calculator' && !getCalculatorPyodide()) {
                 initCalculatorTab();
+            }
+
+            // Auto-load from calculator on first visit to generator tab
+            if (targetTab === 'generator' && !generatorTabVisited) {
+                generatorTabVisited = true;
+                if (currentDesign) {
+                    loadFromCalculator();
+                }
             }
         });
     });
@@ -377,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('copy-link').addEventListener('click', copyLink);
 
     // Setup event listeners for generator
-    document.getElementById('load-generator-btn').addEventListener('click', () => initGeneratorTab(true));
     document.getElementById('load-from-calculator').addEventListener('click', loadFromCalculator);
     document.getElementById('load-json-file').addEventListener('click', loadJSONFile);
     document.getElementById('json-file-input').addEventListener('change', handleFileUpload);
