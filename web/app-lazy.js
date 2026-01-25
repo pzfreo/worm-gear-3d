@@ -626,8 +626,9 @@ function loadFromCalculator() {
         alert('No design in calculator. Calculate a design first.');
         return;
     }
-    document.getElementById('json-input').value = currentDesign;
-    updateDesignSummary(JSON.parse(currentDesign));
+    // currentDesign is now an object, need to stringify for display
+    document.getElementById('json-input').value = JSON.stringify(currentDesign, null, 2);
+    updateDesignSummary(currentDesign);
     appendToConsole('Loaded design from calculator');
 }
 
