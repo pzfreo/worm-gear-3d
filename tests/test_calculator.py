@@ -71,8 +71,9 @@ class TestDesignFromModule:
             hand="left"
         )
 
-        assert design.assembly.hand == "left"
-        assert design.worm.hand == "left"
+        # hand is now Hand enum, compare value
+        assert design.assembly.hand.value == "left"
+        assert design.worm.hand.value == "left"
 
     def test_multi_start_worm(self):
         """Test multi-start worm."""
@@ -244,15 +245,17 @@ class TestManufacturingParams:
         design = calculate_design_from_module(module=2.0, ratio=30)
 
         assert design.manufacturing is not None
-        assert design.manufacturing.profile in ["ZA", "ZK"]
+        # profile is now WormProfile enum
+        assert design.manufacturing.profile.value in ["ZA", "ZK"]
 
     def test_profile_parameter(self):
         """Test profile parameter."""
         design_za = calculate_design_from_module(module=2.0, ratio=30, profile="ZA")
         design_zk = calculate_design_from_module(module=2.0, ratio=30, profile="ZK")
 
-        assert design_za.manufacturing.profile == "ZA"
-        assert design_zk.manufacturing.profile == "ZK"
+        # profile is now WormProfile enum, compare values
+        assert design_za.manufacturing.profile.value == "ZA"
+        assert design_zk.manufacturing.profile.value == "ZK"
 
     def test_wheel_throated_parameter(self):
         """Test wheel_throated parameter."""
