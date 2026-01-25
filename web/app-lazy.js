@@ -2,7 +2,8 @@
 // Two-tab interface with lazy loading
 
 let calculatorPyodide = null;
-let generatorPyodide = null;
+let generatorPyodide = null;  // Deprecated - kept for compatibility
+let generatorWorker = null;  // Web Worker for geometry generation
 let currentDesign = null;
 let currentValidation = null;
 
@@ -117,8 +118,8 @@ from wormcalc import (
 // ============================================================================
 
 async function initGenerator() {
-    if (generatorPyodide) {
-        // Already loaded, just show content
+    if (generatorWorker) {
+        // Already initialized, just show content
         document.getElementById('generator-lazy-load').style.display = 'none';
         document.getElementById('generator-content').style.display = 'block';
         return;
@@ -128,100 +129,39 @@ async function initGenerator() {
         // Show loading screen
         document.getElementById('loading-generator').style.display = 'flex';
 
-        // Load Pyodide with OCP
-        generatorPyodide = await loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/",
-            stdout: (text) => {
-                if (text.trim()) appendToConsole(`[py] ${text}`);
-            },
-            stderr: (text) => {
-                if (text.trim()) appendToConsole(`[py:err] ${text}`);
-            }
+        // Create Web Worker
+        appendToConsole('🚀 Initializing generator in background thread...');
+        appendToConsole('   UI will stay responsive during loading');
+        generatorWorker = new Worker('generator-worker.js');
+
+        // Set up worker message handler
+        setupWorkerMessageHandler();
+
+        // Send initialization message
+        generatorWorker.postMessage({ type: 'INIT' });
+
+        // Wait for initialization to complete
+        await new Promise((resolve, reject) => {
+            const handleInit = (e) => {
+                if (e.data.type === 'INIT_COMPLETE') {
+                    generatorWorker.removeEventListener('message', handleInit);
+                    resolve();
+                } else if (e.data.type === 'INIT_ERROR') {
+                    generatorWorker.removeEventListener('message', handleInit);
+                    reject(new Error(e.data.error));
+                }
+            };
+            generatorWorker.addEventListener('message', handleInit);
         });
 
-        appendToConsole('Pyodide loaded successfully');
-
-        // Update loading message
-        document.querySelector('#loading-generator .loading-detail').textContent =
-            'Installing micropip...';
-
-        // Install micropip
-        await generatorPyodide.loadPackage('micropip');
-        const micropip = generatorPyodide.pyimport('micropip');
-        appendToConsole('micropip ready');
-
-        // Update loading message
-        document.querySelector('#loading-generator .loading-detail').textContent =
-            'Installing build123d and OCP (this may take 1-2 minutes)...';
-
-        // Install build123d and OCP using Jojain's proven method
-        appendToConsole('📦 Using proven installation method from build123d-sandbox');
-        appendToConsole('⏳ Large download - please be patient (2-5 minutes)...');
-
-        const result = await generatorPyodide.runPythonAsync(`
-import micropip
-
-print("Starting package installation...")
-print("Setting index URLs...")
-micropip.set_index_urls(["https://yeicor.github.io/OCP.wasm", "https://pypi.org/simple"])
-print("Index URLs set")
-
-print("Installing lib3mf...")
-await micropip.install("lib3mf")
-print("✓ lib3mf installed")
-
-print("Installing ssl...")
-await micropip.install("ssl")
-print("✓ ssl installed")
-
-print("Installing ocp_vscode from Jojain's fork...")
-await micropip.install("https://raw.githubusercontent.com/Jojain/vscode-ocp-cad-viewer/no_pyperclip/ocp_vscode-2.9.0-py3-none-any.whl")
-print("✓ ocp_vscode installed")
-
-# Mock package for build123d<0.10.0 compatibility
-micropip.add_mock_package("py-lib3mf", "2.4.1", modules={"py_lib3mf": '''from lib3mf import *'''})
-print("✓ Mock package added")
-
-print("Installing build123d and sqlite3...")
-await micropip.install(["build123d", "sqlite3"])
-print("✓ Installation completed")
-
-# Test imports
-print("Testing imports...")
-try:
-    import build123d
-    print(f"✓ build123d imported (version: {getattr(build123d, '__version__', 'unknown')})")
-    success = True
-except ImportError as e:
-    print(f"✗ build123d import failed: {e}")
-    success = False
-
-"SUCCESS" if success else "FAILED"
-        `);
-
-        if (result === 'SUCCESS') {
-            appendToConsole('✓ All packages installed successfully!');
-            appendToConsole('✓ build123d is ready to use');
-
-            // Load wormgear package
-            await loadWormGearPackage();
-
-            // Hide loading, show generator UI
-            document.getElementById('loading-generator').style.display = 'none';
-            document.getElementById('generator-lazy-load').style.display = 'none';
-            document.getElementById('generator-content').style.display = 'block';
-
-            appendToConsole('Generator initialized successfully!');
-            appendToConsole('Ready to generate STEP files from JSON input.');
-
-        } else {
-            appendToConsole('⚠ Packages installed but import test failed');
-            throw new Error('build123d import failed');
-        }
+        // Hide loading, show generator UI
+        document.getElementById('loading-generator').style.display = 'none';
+        document.getElementById('generator-lazy-load').style.display = 'none';
+        document.getElementById('generator-content').style.display = 'block';
 
     } catch (error) {
         console.error('Failed to initialize generator:', error);
-        appendToConsole(`✗ Installation failed: ${error.message}`);
+        appendToConsole(`✗ Initialization failed: ${error.message}`);
 
         // Check for common WASM errors
         if (error.message.includes('WebAssembly') || error.message.includes('sentinel')) {
@@ -238,20 +178,47 @@ except ImportError as e:
             appendToConsole('   wormgear-geometry design.json');
         }
 
-        // Show traceback if available
-        if (generatorPyodide) {
-            try {
-                const tb = await generatorPyodide.runPythonAsync('import traceback; traceback.format_exc()');
-                appendToConsole('');
-                appendToConsole('Python traceback:');
-                tb.split('\n').forEach(line => line && appendToConsole(line));
-            } catch (e) {}
-        }
-
         document.querySelector('#loading-generator .loading-detail').textContent =
             `Error loading generator: ${error.message}`;
         document.querySelector('#loading-generator .spinner').style.display = 'none';
     }
+}
+
+function setupWorkerMessageHandler() {
+    generatorWorker.onmessage = (e) => {
+        const { type, message, percent, error, stack } = e.data;
+
+        switch (type) {
+            case 'LOG':
+                appendToConsole(message);
+                break;
+
+            case 'PROGRESS':
+                handleProgress(message, percent);
+                break;
+
+            case 'GENERATE_COMPLETE':
+                handleGenerateComplete(e.data);
+                break;
+
+            case 'GENERATE_ERROR':
+                appendToConsole(`✗ Generation error: ${error}`);
+                if (stack) {
+                    console.error('Worker error stack:', stack);
+                }
+                hideProgressIndicator();
+                break;
+
+            case 'INIT_ERROR':
+                // Handled in initGenerator promise
+                break;
+        }
+    };
+
+    generatorWorker.onerror = (error) => {
+        console.error('Worker error:', error);
+        appendToConsole(`✗ Worker error: ${error.message}`);
+    };
 }
 
 function appendToConsole(message) {
@@ -558,90 +525,6 @@ function copyLink() {
 // GENERATOR FUNCTIONS
 // ============================================================================
 
-async function loadWormGearPackage() {
-    try {
-        appendToConsole('Loading wormgear package...');
-
-        // Create package directory structure
-        await generatorPyodide.runPythonAsync(`
-import os
-import sys
-
-# Create directory structure
-os.makedirs('/home/pyodide/wormgear/core', exist_ok=True)
-os.makedirs('/home/pyodide/wormgear/io', exist_ok=True)
-os.makedirs('/home/pyodide/wormgear/calculator', exist_ok=True)
-os.makedirs('/home/pyodide/wormgear/cli', exist_ok=True)
-
-# Add to Python path
-if '/home/pyodide' not in sys.path:
-    sys.path.insert(0, '/home/pyodide')
-        `);
-
-        // Define files to load with their directory structure
-        const packageFiles = [
-            { path: 'wormgear/__init__.py', pyPath: '/home/pyodide/wormgear/__init__.py' },
-            { path: 'wormgear/core/__init__.py', pyPath: '/home/pyodide/wormgear/core/__init__.py' },
-            { path: 'wormgear/core/worm.py', pyPath: '/home/pyodide/wormgear/core/worm.py' },
-            { path: 'wormgear/core/wheel.py', pyPath: '/home/pyodide/wormgear/core/wheel.py' },
-            { path: 'wormgear/core/features.py', pyPath: '/home/pyodide/wormgear/core/features.py' },
-            { path: 'wormgear/core/globoid_worm.py', pyPath: '/home/pyodide/wormgear/core/globoid_worm.py' },
-            { path: 'wormgear/core/virtual_hobbing.py', pyPath: '/home/pyodide/wormgear/core/virtual_hobbing.py' },
-            { path: 'wormgear/io/__init__.py', pyPath: '/home/pyodide/wormgear/io/__init__.py' },
-            { path: 'wormgear/io/loaders.py', pyPath: '/home/pyodide/wormgear/io/loaders.py' },
-            { path: 'wormgear/io/schema.py', pyPath: '/home/pyodide/wormgear/io/schema.py' },
-            { path: 'wormgear/calculator/__init__.py', pyPath: '/home/pyodide/wormgear/calculator/__init__.py' },
-            { path: 'wormgear/calculator/core.py', pyPath: '/home/pyodide/wormgear/calculator/core.py' },
-            { path: 'wormgear/calculator/validation.py', pyPath: '/home/pyodide/wormgear/calculator/validation.py' },
-        ];
-
-        let loadedCount = 0;
-
-        for (const file of packageFiles) {
-            let content = null;
-
-            // Try to fetch from src/ (relative to web/index.html)
-            try {
-                const response = await fetch(`src/${file.path}`);
-                if (response.ok) {
-                    content = await response.text();
-                }
-            } catch (e) {
-                console.error(`Failed to fetch ${file.path}:`, e);
-            }
-
-            if (content) {
-                generatorPyodide.FS.writeFile(file.pyPath, content);
-                appendToConsole(`  ✓ Loaded ${file.path}`);
-                loadedCount++;
-            } else {
-                appendToConsole(`  ✗ Failed to load ${file.path}`);
-            }
-        }
-
-        appendToConsole(`Loaded ${loadedCount}/${packageFiles.length} files`);
-
-        if (loadedCount === 0) {
-            throw new Error('No package files loaded. Run build script: cd web && ./build.sh');
-        }
-
-        // Test import
-        await generatorPyodide.runPythonAsync(`
-import wormgear
-from wormgear.core import WormGeometry, WheelGeometry
-from wormgear.io import WormParams, WheelParams, AssemblyParams
-print(f"✓ wormgear package loaded (version {wormgear.__version__})")
-        `);
-
-        appendToConsole('✓ wormgear package ready');
-        return true;
-    } catch (error) {
-        appendToConsole(`✗ Failed to load wormgear: ${error.message}`);
-        console.error('Package loading error:', error);
-        return false;
-    }
-}
-
 function loadFromCalculator() {
     if (!currentDesign) {
         alert('No design in calculator. Calculate a design first.');
@@ -698,7 +581,7 @@ function handleFileUpload(event) {
 }
 
 async function generateGeometry(type) {
-    if (!generatorPyodide) {
+    if (!generatorWorker) {
         alert('Generator not loaded. Click "Load Generator" first.');
         return;
     }
@@ -709,15 +592,13 @@ async function generateGeometry(type) {
         return;
     }
 
-    const startTime = Date.now();
-
     try {
         // Parse JSON
         const designData = JSON.parse(jsonInput);
 
         // Validate structure
         if (!designData.worm || !designData.wheel || !designData.assembly) {
-            appendToConsole('✗ Invalid JSON structure');
+            appendToConsole('Invalid JSON structure');
             appendToConsole('Expected format: { "worm": {...}, "wheel": {...}, "assembly": {...} }');
             return;
         }
@@ -730,7 +611,6 @@ async function generateGeometry(type) {
         const profile = manufacturing.profile || 'ZA';
 
         // Get dimensions from calculator settings (or use defaults)
-        // If design has worm.length_mm from calculator, use it; otherwise use recommended
         let wormLength = designData.worm.length_mm;
         if (!wormLength && manufacturing.worm_length) {
             wormLength = manufacturing.worm_length;
@@ -744,339 +624,104 @@ async function generateGeometry(type) {
         if (!wheelWidth && manufacturing.wheel_width) {
             wheelWidth = manufacturing.wheel_width;
         }
-        // wheelWidth can be null/undefined for auto-calculation
 
         appendToConsole('Starting geometry generation...');
-        appendToConsole(`Parameters:`);
-        appendToConsole(`  Module: ${designData.worm.module_mm} mm`);
-        appendToConsole(`  Ratio: ${designData.assembly.ratio}:1`);
-        appendToConsole(`  Worm length: ${wormLength} mm`);
-        appendToConsole(`  Wheel width: ${wheelWidth || 'auto'} mm`);
-        appendToConsole(`  Profile: ${profile}`);
-        appendToConsole(`  Worm: ${isGloboid ? 'Globoid' : 'Cylindrical'}`);
-        appendToConsole(`  Wheel: ${virtualHobbing ? `Virtual Hobbing (${hobbingSteps} steps)` : 'Helical'}`);
+        appendToConsole('Parameters:');
+        appendToConsole('  Module: ' + designData.worm.module_mm + ' mm');
+        appendToConsole('  Ratio: ' + designData.assembly.ratio + ':1');
+        appendToConsole('  Worm length: ' + wormLength + ' mm');
+        appendToConsole('  Wheel width: ' + (wheelWidth || 'auto') + ' mm');
+        appendToConsole('  Profile: ' + profile);
+        appendToConsole('  Worm: ' + (isGloboid ? 'Globoid' : 'Cylindrical'));
+        appendToConsole('  Wheel: ' + (virtualHobbing ? 'Virtual Hobbing (' + hobbingSteps + ' steps)' : 'Helical'));
         appendToConsole('');
 
-        appendToConsole('⏳ Generating 3D geometry (please wait)...');
-        appendToConsole('  This may take 30-90 seconds on mobile devices');
+        appendToConsole('Generating 3D geometry in background thread...');
+        appendToConsole('UI will remain responsive during generation');
 
         // Show progress indicator
-        const progressContainer = document.getElementById('generation-progress');
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressBar.textContent = '0%';
-        progressText.textContent = 'Initializing...';
+        showProgressIndicator();
 
-        // Create progress callback that keeps UI responsive
-        let lastProgressUpdate = Date.now();
-        let lastConsoleUpdate = 0;
-
-        // JavaScript handler for progress updates
-        window.handleProgress = (message, percent) => {
-            const now = Date.now();
-
-            // Always update progress bar (it's cheap)
-            if (percent >= 0 && percent <= 100) {
-                progressBar.style.width = `${percent}%`;
-                progressBar.textContent = `${percent.toFixed(0)}%`;
+        // Send generation request to worker
+        generatorWorker.postMessage({
+            type: 'GENERATE',
+            data: {
+                designData,
+                wormLength,
+                wheelWidth,
+                virtualHobbing,
+                hobbingSteps,
+                generateType: type
             }
-            progressText.textContent = message;
-
-            // Only update console every 500ms to avoid excessive appends
-            if (now - lastConsoleUpdate > 500 || percent >= 100 || percent < 0) {
-                appendToConsole(`  [${percent.toFixed(0)}%] ${message}`);
-                lastConsoleUpdate = now;
-            }
-
-            lastProgressUpdate = now;
-        };
-
-        // Python progress callback - delegates to JavaScript which naturally yields to event loop
-        const progressCallback = generatorPyodide.runPython(`
-import js
-
-def progress_callback(message, percent):
-    """Progress callback - sends updates to JavaScript.
-
-    JavaScript event loop will handle between Python callbacks,
-    keeping browser responsive during long operations.
-    """
-    js.handleProgress(message, percent)
-
-progress_callback
-        `);
-
-        // Pass data to Python and generate
-        generatorPyodide.globals.set('design_json_str', JSON.stringify(designData));
-        generatorPyodide.globals.set('worm_length', wormLength);
-        generatorPyodide.globals.set('wheel_width_val', wheelWidth || null);
-        generatorPyodide.globals.set('virtual_hobbing_val', virtualHobbing);
-        generatorPyodide.globals.set('hobbing_steps_val', hobbingSteps);
-        generatorPyodide.globals.set('generate_type', type);
-        generatorPyodide.globals.set('progress_callback_fn', progressCallback);
-
-        const pythonStartTime = Date.now();
-        const result = await generatorPyodide.runPythonAsync(`
-import json
-import base64
-import tempfile
-import os
-from wormgear.core import WormGeometry, WheelGeometry, VirtualHobbingWheelGeometry, BoreFeature, KeywayFeature
-from wormgear.io import WormParams, WheelParams, AssemblyParams
-
-print("📋 Parsing parameters...")
-# Parse design JSON
-design_data = json.loads(design_json_str)
-
-# Create parameter objects
-worm_params = WormParams(**design_data['worm'])
-wheel_params = WheelParams(**design_data['wheel'])
-assembly_params = AssemblyParams(**design_data['assembly'])
-
-# Handle None wheel_width
-try:
-    wheel_width = float(wheel_width_val) if wheel_width_val else None
-except (TypeError, ValueError):
-    wheel_width = None
-print(f"Wheel width: {wheel_width if wheel_width else 'auto-calculated'}")
-print(f"Worm length (from JS): {worm_length}")
-
-# Parse features section for bores and keyways
-features = design_data.get('features', {})
-
-# Worm features
-worm_bore = None
-worm_keyway = None
-if 'worm' in features:
-    worm_feat = features['worm']
-    if 'bore_diameter_mm' in worm_feat:
-        bore_diameter = worm_feat['bore_diameter_mm']
-        print(f"Worm bore: {bore_diameter} mm (custom)")
-        worm_bore = BoreFeature(diameter=bore_diameter)
-    elif 'auto_bore' in worm_feat and worm_feat['auto_bore']:
-        print(f"Worm bore: auto-calculated")
-        worm_bore = BoreFeature()  # No diameter = auto-calculate
-
-    if 'anti_rotation' in worm_feat and worm_feat['anti_rotation'] == 'DIN6885':
-        print(f"Worm keyway: DIN 6885")
-        worm_keyway = KeywayFeature()
-
-# Wheel features
-wheel_bore = None
-wheel_keyway = None
-if 'wheel' in features:
-    wheel_feat = features['wheel']
-    if 'bore_diameter_mm' in wheel_feat:
-        bore_diameter = wheel_feat['bore_diameter_mm']
-        print(f"Wheel bore: {bore_diameter} mm (custom)")
-        wheel_bore = BoreFeature(diameter=bore_diameter)
-    elif 'auto_bore' in wheel_feat and wheel_feat['auto_bore']:
-        print(f"Wheel bore: auto-calculated")
-        wheel_bore = BoreFeature()  # No diameter = auto-calculate
-
-    if 'anti_rotation' in wheel_feat and wheel_feat['anti_rotation'] == 'DIN6885':
-        print(f"Wheel keyway: DIN 6885")
-        wheel_keyway = KeywayFeature()
-
-print("✓ Parameters parsed")
-print("")
-
-worm_b64 = None
-wheel_b64 = None
-
-# Generate worm if requested
-if generate_type in ['worm', 'both']:
-    print("🔩 Generating worm gear...")
-    try:
-        print("  Creating worm geometry object...")
-        worm_geo = WormGeometry(
-            params=worm_params,
-            assembly_params=assembly_params,
-            length=worm_length,
-            sections_per_turn=36,
-            bore=worm_bore,
-            keyway=worm_keyway
-        )
-        print("  Building 3D model...")
-        worm = worm_geo.build()
-        print("  Exporting to STEP format...")
-
-        # Export to temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.step', delete=False) as tmp:
-            temp_path = tmp.name
-
-        worm_geo.export_step(temp_path)
-
-        # Read back as bytes
-        with open(temp_path, 'rb') as f:
-            worm_step = f.read()
-
-        # Clean up temp file
-        os.unlink(temp_path)
-
-        worm_b64 = base64.b64encode(worm_step).decode('utf-8')
-
-        size_kb = len(worm_step) / 1024
-        print(f"✓ Worm generated successfully!")
-        print(f"  File size: {size_kb:.1f} KB ({len(worm_step)} bytes)")
-    except Exception as e:
-        print(f"✗ Worm generation failed: {e}")
-        import traceback
-        traceback.print_exc()
-
-    print("")
-
-# Generate wheel if requested
-if generate_type in ['wheel', 'both']:
-    print("⚙️  Generating wheel gear...")
-    try:
-        print("  Creating wheel geometry object...")
-        # Use VirtualHobbingWheelGeometry if virtual_hobbing enabled, otherwise regular WheelGeometry
-        if virtual_hobbing_val:
-            # Virtual hobbing supports progress callbacks
-            print(f"  Using virtual hobbing with {hobbing_steps_val} steps...")
-
-            wheel_geo = VirtualHobbingWheelGeometry(
-                params=wheel_params,
-                worm_params=worm_params,
-                assembly_params=assembly_params,
-                face_width=wheel_width,
-                hobbing_steps=hobbing_steps_val,
-                progress_callback=progress_callback_fn,
-                bore=wheel_bore,
-                keyway=wheel_keyway
-            )
-        else:
-            # Regular helical wheel (no progress callbacks needed - it's fast)
-            wheel_geo = WheelGeometry(
-                params=wheel_params,
-                worm_params=worm_params,
-                assembly_params=assembly_params,
-                face_width=wheel_width,
-                bore=wheel_bore,
-                keyway=wheel_keyway
-            )
-        print("  Building 3D model (this is the slowest step)...")
-        wheel = wheel_geo.build()
-        print("  Exporting to STEP format...")
-
-        # Export to temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.step', delete=False) as tmp:
-            temp_path = tmp.name
-
-        wheel_geo.export_step(temp_path)
-
-        # Read back as bytes
-        with open(temp_path, 'rb') as f:
-            wheel_step = f.read()
-
-        # Clean up temp file
-        os.unlink(temp_path)
-
-        wheel_b64 = base64.b64encode(wheel_step).decode('utf-8')
-
-        size_kb = len(wheel_step) / 1024
-        print(f"✓ Wheel generated successfully!")
-        print(f"  File size: {size_kb:.1f} KB ({len(wheel_step)} bytes)")
-    except Exception as e:
-        print(f"✗ Wheel generation failed: {e}")
-        import traceback
-        traceback.print_exc()
-
-    print("")
-
-# Report results
-if generate_type == 'worm' and worm_b64:
-    print("✅ Worm generated successfully!")
-elif generate_type == 'wheel' and wheel_b64:
-    print("✅ Wheel generated successfully!")
-elif generate_type == 'both':
-    if worm_b64 and wheel_b64:
-        print("✅ Both parts generated successfully!")
-    elif worm_b64:
-        print("⚠️  Only worm generated (wheel failed)")
-    elif wheel_b64:
-        print("⚠️  Only wheel generated (worm failed)")
-    else:
-        print("❌ Both parts failed to generate")
-
-# Return results
-{
-    'worm': worm_b64,
-    'wheel': wheel_b64,
-    'success': (generate_type == 'worm' and worm_b64 is not None) or
-               (generate_type == 'wheel' and wheel_b64 is not None) or
-               (generate_type == 'both' and worm_b64 is not None and wheel_b64 is not None)
-}
-        `);
-
-        const pythonElapsed = ((Date.now() - pythonStartTime) / 1000).toFixed(1);
-        appendToConsole(`✓ Python execution completed (${pythonElapsed}s)`);
-        appendToConsole('');
-
-        // Process results
-        appendToConsole('⏳ Processing results...');
-        const resultObj = result.toJs({ dict_converter: Object.fromEntries });
-
-        appendToConsole(`Result status: ${resultObj.success ? 'SUCCESS' : 'FAILED'}`);
-        appendToConsole(`Worm data: ${resultObj.worm ? 'Present' : 'Missing'}`);
-        appendToConsole(`Wheel data: ${resultObj.wheel ? 'Present' : 'Missing'}`);
-
-        if (resultObj.success) {
-            appendToConsole('');
-            appendToConsole('✓ Geometry generated successfully!');
-
-            // Download files
-            if (resultObj.worm && type !== 'wheel') {
-                appendToConsole('📥 Triggering worm.step download...');
-                downloadSTEP('worm.step', resultObj.worm);
-                appendToConsole('✓ Worm STEP file download triggered');
-            }
-
-            if (resultObj.wheel && type !== 'worm') {
-                appendToConsole('📥 Triggering wheel.step download...');
-                downloadSTEP('wheel.step', resultObj.wheel);
-                appendToConsole('✓ Wheel STEP file download triggered');
-            }
-
-            const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            appendToConsole('');
-            appendToConsole(`✅ Generation complete! Total time: ${totalElapsed}s`);
-            appendToConsole('📁 Check your downloads folder for STEP files');
-
-            // Hide progress indicator
-            progressContainer.style.display = 'none';
-
-        } else {
-            appendToConsole('');
-            appendToConsole('❌ Generation failed - check messages above for details');
-
-            // Hide progress indicator
-            progressContainer.style.display = 'none';
-        }
+        });
 
     } catch (error) {
-        appendToConsole('');
-        appendToConsole(`❌ Error: ${error.message}`);
+        appendToConsole('Error: ' + error.message);
         console.error('Generation error:', error);
-
-        // Show Python traceback if available
-        try {
-            const tb = await generatorPyodide.runPythonAsync('import traceback; traceback.format_exc()');
-            if (tb && tb !== 'NoneType: None\n') {
-                appendToConsole('Python traceback:');
-                tb.split('\n').forEach(line => line && appendToConsole(line));
-            }
-        } catch (e) {
-            console.error('Could not get Python traceback:', e);
-        }
-
-        // Hide progress indicator
-        progressContainer.style.display = 'none';
+        hideProgressIndicator();
     }
 }
+
+function handleProgress(message, percent) {
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+
+    // Update progress bar
+    if (percent >= 0 && percent <= 100) {
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent.toFixed(0) + '%';
+    }
+    progressText.textContent = message;
+
+    // Update console (throttled for performance)
+    if (!handleProgress.lastUpdate) handleProgress.lastUpdate = 0;
+    const now = Date.now();
+    if (now - handleProgress.lastUpdate > 500 || percent >= 100 || percent < 0) {
+        appendToConsole('  [' + percent.toFixed(0) + '%] ' + message);
+        handleProgress.lastUpdate = now;
+    }
+}
+
+function handleGenerateComplete(data) {
+    const { success, worm, wheel } = data;
+
+    appendToConsole('');
+    appendToConsole('Generation complete!');
+
+    if (success) {
+        const generateType = worm && wheel ? 'both' : (worm ? 'worm' : 'wheel');
+
+        if (worm) {
+            downloadSTEP('worm.step', worm);
+        }
+        if (wheel) {
+            downloadSTEP('wheel.step', wheel);
+        }
+
+        appendToConsole('');
+        appendToConsole(generateType + ' generated successfully!');
+    } else {
+        appendToConsole('Generation completed with errors - see console above');
+    }
+
+    hideProgressIndicator();
+}
+
+function showProgressIndicator() {
+    const progressContainer = document.getElementById('generation-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressText.textContent = 'Initializing...';
+}
+
+function hideProgressIndicator() {
+    const progressContainer = document.getElementById('generation-progress');
+    progressContainer.style.display = 'none';
+}
+
 
 // Download STEP file from base64
 function downloadSTEP(filename, base64Data) {

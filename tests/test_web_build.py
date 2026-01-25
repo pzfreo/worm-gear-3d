@@ -70,20 +70,20 @@ def test_all_required_files_copied():
 
 
 def test_app_lazy_js_has_all_files():
-    """app-lazy.js should list all required files in packageFiles array."""
-    app_lazy_path = WEB_DIR / "app-lazy.js"
-    assert app_lazy_path.exists(), "app-lazy.js not found"
+    """generator-worker.js should list all required files in packageFiles array."""
+    worker_path = WEB_DIR / "generator-worker.js"
+    assert worker_path.exists(), "generator-worker.js not found"
 
-    content = app_lazy_path.read_text()
+    content = worker_path.read_text()
 
     # Check that packageFiles array exists
-    assert "packageFiles = [" in content, "packageFiles array not found in app-lazy.js"
+    assert "packageFiles = [" in content, "packageFiles array not found in generator-worker.js"
 
     # Check each required file is listed
     for required_file in REQUIRED_WASM_FILES:
-        # Convert path to the format used in app-lazy.js
+        # Convert path to the format used in generator-worker.js
         assert required_file in content, (
-            f"Required file '{required_file}' not listed in app-lazy.js packageFiles array"
+            f"Required file '{required_file}' not listed in generator-worker.js packageFiles array"
         )
 
 
