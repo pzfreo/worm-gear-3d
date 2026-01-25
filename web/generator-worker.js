@@ -205,24 +205,26 @@ async function generateGeometry(data) {
 
         self.postMessage({ type: 'LOG', message: '⏳ Starting geometry generation...' });
 
-        // Create progress callback that posts messages to main thread
-        const progressCallback = pyodide.runPython(`
-def progress_callback(message, percent):
-    """Progress callback - sends updates to main thread via worker"""
-    import js
-    js.postProgressUpdate(message, percent)
-
-progress_callback
-        `);
-
         // Create JavaScript function accessible to Python
         self.postProgressUpdate = (message, percent) => {
+            console.log('[Worker] Progress update:', message, percent);
             self.postMessage({
                 type: 'PROGRESS',
                 message: message,
                 percent: percent
             });
         };
+
+        // Create progress callback that posts messages to main thread
+        const progressCallback = pyodide.runPython(`
+def progress_callback(message, percent):
+    """Progress callback - sends updates to main thread via worker"""
+    import js
+    print(f"[Python] Progress: {message} ({percent}%)")
+    js.postProgressUpdate(message, percent)
+
+progress_callback
+        `);
 
         // Set Python globals
         pyodide.globals.set('design_json_str', JSON.stringify(designData));

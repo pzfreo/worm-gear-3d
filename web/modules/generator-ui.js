@@ -49,14 +49,15 @@ export function updateDesignSummary(design) {
  * @param {number} percent - Progress percentage
  */
 export function handleProgress(message, percent) {
-    const progressBar = document.getElementById('generation-progress');
+    const progressContainer = document.getElementById('generation-progress');
     const progressText = document.getElementById('progress-text');
-    const progressPercent = document.getElementById('progress-percent');
+    const progressBar = document.getElementById('progress-bar');
 
-    if (progressBar) {
-        progressBar.style.display = 'block';
-        if (progressPercent) {
-            progressPercent.style.width = `${percent}%`;
+    if (progressContainer) {
+        progressContainer.style.display = 'block';
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = `${Math.round(percent)}%`;
         }
         if (progressText) {
             progressText.textContent = message;
