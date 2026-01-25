@@ -52,9 +52,9 @@ await micropip.install(["build123d", "sqlite3"])
 | Standard worm | <1 sec | 2-5 sec | ~3-5x |
 | Standard wheel | <1 sec | 2-5 sec | ~3-5x |
 | Globoid worm | 2-5 sec | 10-25 sec | ~5x |
-| Virtual hobbing (36 steps) | 15-30 sec | 1-3 min | ~5-6x |
-| Virtual hobbing (72 steps) | 30-60 sec | 3-6 min | ~5-6x |
-| Virtual hobbing (144 steps) | 1-2 min | 6-12 min | ~5-6x |
+| Virtual hobbing (36 steps) | 1-2 min | 8-15 min | ~6-10x |
+| Virtual hobbing (72 steps) | 3-5 min | 20-40 min | ~6-10x |
+| Virtual hobbing (144 steps) | 8-15 min | 1-2 hours | ~6-10x |
 
 ### Recommended Step Presets for Browser
 
@@ -105,7 +105,7 @@ Run the test to get accurate estimates for:
 ## Recommendations
 
 ### For Quick Previews
-Use the browser interface with "Preview" preset (36 steps). Acceptable quality with 1-3 minute generation time.
+Use the browser interface with "Preview" preset (36 steps). Acceptable quality with 8-15 minute generation time on typical hardware.
 
 ### For Production Quality
 Use the Python CLI for best results:
