@@ -119,14 +119,15 @@ export function handleProgress(message, percent) {
 
     // Detect which step we're on based on message content
     const msgLower = message.toLowerCase();
+    console.log('[Progress]', message, 'percent:', percent);
 
-    if (msgLower.includes('parsing') || msgLower.includes('parameters')) {
+    if (msgLower.includes('parsing') || msgLower.includes('parameters') || msgLower.includes('📋')) {
         setMainStep('parse', 'Parsing parameters...');
         updateSubProgress(null);
-    } else if (msgLower.includes('worm') && !msgLower.includes('wheel')) {
+    } else if (msgLower.includes('🔩') || (msgLower.includes('worm') && !msgLower.includes('wheel'))) {
         setMainStep('worm', 'Generating worm gear...');
         updateSubProgress(null);
-    } else if (msgLower.includes('wheel') || msgLower.includes('hobbing')) {
+    } else if (msgLower.includes('⚙️') || msgLower.includes('wheel') || msgLower.includes('hobbing')) {
         setMainStep('wheel', 'Generating wheel gear...');
         // Show sub-progress for hobbing
         if (msgLower.includes('hobbing') || msgLower.includes('step')) {
@@ -207,15 +208,15 @@ export async function handleGenerateComplete(data) {
             const result = calculatorPyodide.runPython(`
 import json
 from wormcalc import to_markdown, validate_design
-from wormcalc.core import WormGearDesign, WormParams, WheelParams, AssemblyParams, ManufacturingParams
+from wormcalc.core import WormGearDesign, WormParameters, WheelParameters, AssemblyParameters, ManufacturingParameters
 
 # Parse design
 design_data = json.loads(design_json_str)
 design = WormGearDesign(
-    worm=WormParams(**design_data['worm']),
-    wheel=WheelParams(**design_data['wheel']),
-    assembly=AssemblyParams(**design_data['assembly']),
-    manufacturing=ManufacturingParams(**design_data['manufacturing']) if 'manufacturing' in design_data else None
+    worm=WormParameters(**design_data['worm']),
+    wheel=WheelParameters(**design_data['wheel']),
+    assembly=AssemblyParameters(**design_data['assembly']),
+    manufacturing=ManufacturingParameters(**design_data['manufacturing']) if 'manufacturing' in design_data else None
 )
 
 # Validate and generate markdown (return the result)
