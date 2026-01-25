@@ -146,9 +146,9 @@ class VirtualHobbingWheelGeometry:
             hobbing_steps: Number of boolean operations per full wheel rotation
                           More steps = more accurate but slower
                           Use HOBBING_PRESETS for recommended values:
-                          - "preview": 36 steps (1-3 min WASM)
-                          - "balanced": 72 steps (3-6 min WASM)
-                          - "high": 144 steps (6-12 min WASM)
+                          - "preview": 36 steps (8-15 min WASM)
+                          - "balanced": 72 steps (20-40 min WASM)
+                          - "high": 144 steps (1-2 hours WASM)
                           - "ultra": 360 steps (not recommended for WASM)
             bore: Optional bore feature specification
             keyway: Optional keyway feature specification (requires bore)

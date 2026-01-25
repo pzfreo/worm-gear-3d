@@ -148,7 +148,9 @@ web/
 - **Generation**:
   - Worm (cylindrical): 2-5 seconds
   - Wheel (helical): 3-8 seconds
-  - Wheel (virtual hobbing): 20-60 seconds (with progress callbacks)
+  - Wheel (virtual hobbing, 36 steps): 8-15 minutes (with progress callbacks)
+  - Wheel (virtual hobbing, 72 steps): 20-40 minutes
+  - Wheel (virtual hobbing, 144 steps): 1-2 hours
 - **Total data**: ~50MB (OCP + build123d are large)
 
 ### Progress Callbacks

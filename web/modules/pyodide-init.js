@@ -24,6 +24,27 @@ export function getGeneratorWorker() {
 }
 
 /**
+ * Enable generate button when generator is ready
+ */
+function enableGenerateButtons() {
+    const btn = document.getElementById('generate-btn');
+    if (btn) btn.disabled = false;
+}
+
+/**
+ * Update loading status message
+ */
+function updateLoadingStatus(message) {
+    const statusEl = document.getElementById('generator-loading-status');
+    if (statusEl) {
+        statusEl.textContent = message;
+        if (message === 'Generator ready') {
+            statusEl.style.color = '#22c55e';
+        }
+    }
+}
+
+/**
  * Initialize calculator Pyodide instance
  * @param {Function} onComplete - Callback when initialization completes
  */
@@ -105,9 +126,9 @@ from wormcalc import (
  */
 export async function initGenerator(showModal = true, setupMessageHandler) {
     if (generatorWorker) {
-        // Already initialized, just show content
-        document.getElementById('generator-lazy-load').style.display = 'none';
-        document.getElementById('generator-content').style.display = 'block';
+        // Already initialized, just enable buttons
+        enableGenerateButtons();
+        updateLoadingStatus('Generator ready');
         return;
     }
 
@@ -142,12 +163,10 @@ export async function initGenerator(showModal = true, setupMessageHandler) {
             generatorWorker.addEventListener('message', handleInit);
         });
 
-        // Hide loading, show generator UI (only if modal was shown)
-        if (showModal) {
-            document.getElementById('loading-generator').style.display = 'none';
-            document.getElementById('generator-lazy-load').style.display = 'none';
-            document.getElementById('generator-content').style.display = 'block';
-        }
+        // Hide loading overlay, enable buttons, update status
+        document.getElementById('loading-generator').style.display = 'none';
+        enableGenerateButtons();
+        updateLoadingStatus('Generator ready');
 
     } catch (error) {
         console.error('Failed to initialize generator:', error);

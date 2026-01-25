@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wormgear - Complete Design System</title>
+    <title>Wormgear Design System</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
     <style>
@@ -112,8 +112,7 @@
 <body>
     <div id="app">
         <header>
-            <h1>Wormgear Complete Design System</h1>
-            <p class="subtitle">Calculate parameters and generate 3D geometry - all in your browser</p>
+            <h1>Wormgear Design System</h1>
         </header>
 
         <!-- Tab Navigation -->
@@ -245,9 +244,9 @@
                             <div id="hobbing-precision-group" style="display: none;">
                                 <label for="hobbing-precision">Virtual Hobbing Precision:</label>
                                 <select id="hobbing-precision">
-                                    <option value="preview">Preview (36 steps, 1-3 min)</option>
-                                    <option value="balanced" selected>Balanced (72 steps, 3-6 min)</option>
-                                    <option value="high">High (144 steps, 6-12 min)</option>
+                                    <option value="preview">Preview (36 steps, 8-15 min)</option>
+                                    <option value="balanced" selected>Balanced (72 steps, 20-40 min)</option>
+                                    <option value="high">High (144 steps, 1-2 hours)</option>
                                 </select>
                                 <small class="hint">Times shown for WASM in browser</small>
                             </div>
@@ -260,11 +259,11 @@
                                 </div>
                             </div>
 
-                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1rem;">Dimensions</h3>
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1rem;">Worm Length and Wheel Width</h3>
 
                             <div class="checkbox-option">
                                 <input type="checkbox" id="use-recommended-dims" checked>
-                                <label for="use-recommended-dims">Use recommended dimensions</label>
+                                <label for="use-recommended-dims">Use auto-calculated dimensions (uncheck to customize)</label>
                             </div>
 
                             <div id="custom-dims-group" style="display: none;">
@@ -286,7 +285,7 @@
 
                             <!-- Always show recommended bore as reference -->
                             <div id="worm-bore-info" style="font-size: 0.85em; color: #666; margin-top: 0.25rem;">
-                                Recommended: <span id="worm-bore-recommended">--</span> mm
+                                Recommended: <span id="worm-bore-recommended">--</span>
                             </div>
 
                             <div id="worm-bore-custom" style="display: none; margin-top: 0.5rem;">
@@ -312,7 +311,7 @@
 
                             <!-- Always show recommended bore as reference -->
                             <div id="wheel-bore-info" style="font-size: 0.85em; color: #666; margin-top: 0.25rem;">
-                                Recommended: <span id="wheel-bore-recommended">--</span> mm
+                                Recommended: <span id="wheel-bore-recommended">--</span>
                             </div>
 
                             <div id="wheel-bore-custom" style="display: none; margin-top: 0.5rem;">
@@ -356,56 +355,89 @@
 
             <!-- Generator Tab -->
             <div id="generator-tab" class="tab-content">
-                <div id="generator-lazy-load" class="lazy-load-notice">
-                    <h3>3D Geometry Generator</h3>
-                    <p>Generate CNC-ready STEP files directly in your browser using WebAssembly.</p>
-                    <p><strong>Note:</strong> This will load ~50MB of dependencies (Pyodide, OCP, build123d). It may take 30-60 seconds on first load.</p>
-                    <button id="load-generator-btn">Load Generator</button>
-                </div>
+                <div id="generator-content">
+                    <div class="generator-layout">
+                        <!-- Left column: Controls -->
+                        <div class="generator-controls">
+                            <section class="generator-section compact">
+                                <div id="generator-loading-status" style="color: #666; font-size: 0.9em; margin-bottom: 0.75rem;">
+                                    Loading generator...
+                                </div>
 
-                <div id="generator-content" style="display: none;">
-                    <section class="generator-section">
-                        <h2>Design Summary</h2>
-                        <div id="gen-design-summary" class="design-summary">
-                            <p>No design loaded. Use Calculator tab or upload JSON.</p>
-                        </div>
-                    </section>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button id="generate-btn" disabled style="flex: 1; padding: 0.75rem; font-size: 1rem; font-weight: 600;">
+                                        Generate 3D Models
+                                    </button>
+                                    <button id="cancel-generate-btn" style="display: none; padding: 0.75rem 1.5rem; font-size: 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Cancel
+                                    </button>
+                                </div>
 
-                    <section class="generator-section">
-                        <h2>JSON Input</h2>
-                        <div class="json-input-area">
-                            <textarea id="json-input" placeholder="Paste JSON here or use Calculator tab..."></textarea>
-                            <div style="margin-top: 10px;">
-                                <button id="load-from-calculator">Load from Calculator</button>
-                                <input type="file" id="json-file-input" accept=".json" style="display: none;">
-                                <button id="load-json-file">Upload JSON File</button>
-                            </div>
-                        </div>
-                    </section>
+                                <p style="font-size: 0.85em; color: #666; margin-top: 0.5rem; margin-bottom: 0.75rem;">
+                                    Generates worm and wheel STEP files
+                                </p>
 
-                    <section class="generator-section">
-                        <h2>Generate</h2>
-                        <div class="button-group">
-                            <button id="generate-worm-btn">Generate Worm</button>
-                            <button id="generate-wheel-btn">Generate Wheel</button>
-                            <button id="generate-both-btn">Generate Both</button>
+                                <!-- Progress indicator -->
+                                <div id="generation-progress" style="display: none; margin-top: 0.75rem;">
+                                    <!-- Main progress steps -->
+                                    <div id="main-progress" style="margin-bottom: 0.75rem;">
+                                        <div style="font-weight: 600; font-size: 0.95em; margin-bottom: 0.5rem; color: #667eea;" id="main-step-text">
+                                            Starting generation...
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                            <div class="step-indicator" data-step="parse">Parse</div>
+                                            <div class="step-arrow">→</div>
+                                            <div class="step-indicator" data-step="worm">Worm</div>
+                                            <div class="step-arrow">→</div>
+                                            <div class="step-indicator" data-step="wheel">Wheel</div>
+                                            <div class="step-arrow">→</div>
+                                            <div class="step-indicator" data-step="export">Export</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Sub-progress (hobbing) -->
+                                    <div id="sub-progress" style="display: none;">
+                                        <div style="font-size: 0.85em; color: #666; margin-bottom: 0.25rem;" id="sub-progress-text">
+                                            Virtual hobbing in progress...
+                                        </div>
+                                        <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 20px;">
+                                            <div id="progress-bar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75em; font-weight: bold;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button id="download-zip" disabled style="width: 100%; margin-top: 0.75rem;">
+                                    Download Complete Package (ZIP)
+                                </button>
+
+                                <p style="font-size: 0.85em; color: #666; margin-top: 0.5rem; margin-bottom: 0;">
+                                    Includes: worm.step, wheel.step, worm.3mf, wheel.3mf, worm.stl, wheel.stl, design.json, design.md
+                                </p>
+                            </section>
+
+                            <details class="generator-section compact">
+                                <summary style="cursor: pointer; font-weight: 600; font-size: 1.25rem; margin-bottom: 1rem; color: var(--color-text);">Advanced: JSON Input</summary>
+                                <div class="json-input-area">
+                                    <textarea id="json-input" placeholder="Paste JSON here or use Calculator tab..."></textarea>
+                                    <div style="margin-top: 10px;">
+                                        <button id="load-from-calculator">Load from Calculator</button>
+                                        <input type="file" id="json-file-input" accept=".json" style="display: none;">
+                                        <button id="load-json-file">Upload JSON File</button>
+                                    </div>
+                                </div>
+                            </details>
                         </div>
 
-                        <!-- Progress indicator -->
-                        <div id="generation-progress" style="display: none; margin-top: 1rem;">
-                            <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 24px;">
-                                <div id="progress-bar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.85em; font-weight: bold;"></div>
-                            </div>
-                            <div id="progress-text" style="margin-top: 0.5rem; font-size: 0.9em; color: #666;"></div>
+                        <!-- Right column: Console -->
+                        <div class="generator-console">
+                            <section class="generator-section compact">
+                                <h2>Console Output</h2>
+                                <div id="console-output" class="console">
+                                    <div>Ready to generate geometry...</div>
+                                </div>
+                            </section>
                         </div>
-                    </section>
-
-                    <section class="generator-section">
-                        <h2>Console Output</h2>
-                        <div id="console-output" class="console">
-                            <div>Ready to generate geometry...</div>
-                        </div>
-                    </section>
+                    </div>
                 </div>
             </div>
         </main>
@@ -433,6 +465,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script type="module" src="app-lazy.js"></script>
 </body>
 </html>

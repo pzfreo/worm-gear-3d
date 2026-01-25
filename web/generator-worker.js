@@ -241,7 +241,7 @@ import json
 import base64
 import tempfile
 import os
-from wormgear.core import WormGeometry, WheelGeometry, VirtualHobbingWheelGeometry, BoreFeature, KeywayFeature, calculate_default_bore
+from wormgear.core import WormGeometry, WheelGeometry, GloboidWormGeometry, VirtualHobbingWheelGeometry, BoreFeature, KeywayFeature, DDCutFeature, calculate_default_bore
 from wormgear.io import WormParams, WheelParams, AssemblyParams
 
 print("📋 Parsing parameters...")
@@ -267,6 +267,7 @@ features = design_data.get('features', {})
 # Worm features
 worm_bore = None
 worm_keyway = None
+worm_ddcut = None
 worm_bore_diameter = None
 
 if 'worm' in features:
@@ -289,17 +290,30 @@ if 'worm' in features:
     if worm_bore_diameter is not None:
         worm_bore = BoreFeature(diameter=worm_bore_diameter)
 
-        # Add keyway if appropriate (DIN 6885 requires bore >= 6mm)
-        if 'anti_rotation' in worm_feat and worm_feat['anti_rotation'] == 'DIN6885':
-            if worm_bore_diameter >= 6.0:
-                print(f"Worm keyway: DIN 6885")
-                worm_keyway = KeywayFeature()
-            else:
-                print(f"Worm keyway: skipped (bore {worm_bore_diameter}mm < 6mm minimum for DIN 6885)")
+        # Add anti-rotation feature if specified (keyway and ddcut are mutually exclusive)
+        if 'anti_rotation' in worm_feat:
+            anti_rot = worm_feat['anti_rotation']
+
+            if anti_rot == 'DIN6885':
+                if worm_bore_diameter >= 6.0:
+                    print(f"Worm keyway: DIN 6885")
+                    worm_keyway = KeywayFeature()
+                else:
+                    print(f"Worm keyway: skipped (bore {worm_bore_diameter}mm < 6mm minimum for DIN 6885)")
+
+            elif anti_rot == 'DD-cut':
+                # Calculate depth as ~10% of bore diameter (standard practice for small shafts)
+                dd_depth = round(worm_bore_diameter * 0.1, 1)
+                print(f"Worm DD-cut: double-D flat anti-rotation (depth={dd_depth}mm)")
+                worm_ddcut = DDCutFeature(depth=dd_depth)
+
+            elif anti_rot not in ['none', '']:
+                print(f"Worm anti-rotation: unknown type '{anti_rot}', skipping")
 
 # Wheel features
 wheel_bore = None
 wheel_keyway = None
+wheel_ddcut = None
 wheel_bore_diameter = None
 
 if 'wheel' in features:
@@ -322,33 +336,67 @@ if 'wheel' in features:
     if wheel_bore_diameter is not None:
         wheel_bore = BoreFeature(diameter=wheel_bore_diameter)
 
-        # Add keyway if appropriate (DIN 6885 requires bore >= 6mm)
-        if 'anti_rotation' in wheel_feat and wheel_feat['anti_rotation'] == 'DIN6885':
-            if wheel_bore_diameter >= 6.0:
-                print(f"Wheel keyway: DIN 6885")
-                wheel_keyway = KeywayFeature()
-            else:
-                print(f"Wheel keyway: skipped (bore {wheel_bore_diameter}mm < 6mm minimum for DIN 6885)")
+        # Add anti-rotation feature if specified (keyway and ddcut are mutually exclusive)
+        if 'anti_rotation' in wheel_feat:
+            anti_rot = wheel_feat['anti_rotation']
+
+            if anti_rot == 'DIN6885':
+                if wheel_bore_diameter >= 6.0:
+                    print(f"Wheel keyway: DIN 6885")
+                    wheel_keyway = KeywayFeature()
+                else:
+                    print(f"Wheel keyway: skipped (bore {wheel_bore_diameter}mm < 6mm minimum for DIN 6885)")
+
+            elif anti_rot == 'DD-cut':
+                # Calculate depth as ~10% of bore diameter (standard practice for small shafts)
+                dd_depth = round(wheel_bore_diameter * 0.1, 1)
+                print(f"Wheel DD-cut: double-D flat anti-rotation (depth={dd_depth}mm)")
+                wheel_ddcut = DDCutFeature(depth=dd_depth)
+
+            elif anti_rot not in ['none', '']:
+                print(f"Wheel anti-rotation: unknown type '{anti_rot}', skipping")
 
 print("✓ Parameters parsed")
 print("")
 
 worm_b64 = None
 wheel_b64 = None
+worm_3mf_b64 = None
+wheel_3mf_b64 = None
+worm_stl_b64 = None
+wheel_stl_b64 = None
+worm = None  # Will hold worm geometry if generated
+
+# Check if globoid (has throat curvature radius) - needed for both worm and wheel generation
+is_globoid = hasattr(worm_params, 'throat_pitch_radius') and worm_params.throat_pitch_radius is not None
 
 # Generate worm if requested
 if generate_type in ['worm', 'both']:
     print("🔩 Generating worm gear...")
     try:
         print("  Creating worm geometry object...")
-        worm_geo = WormGeometry(
-            params=worm_params,
-            assembly_params=assembly_params,
-            length=worm_length,
-            sections_per_turn=36,
-            bore=worm_bore,
-            keyway=worm_keyway
-        )
+        if is_globoid:
+            print("  Using globoid (hourglass) worm geometry...")
+            worm_geo = GloboidWormGeometry(
+                params=worm_params,
+                assembly_params=assembly_params,
+                wheel_pitch_diameter=wheel_params.pitch_diameter,
+                length=worm_length,
+                sections_per_turn=36,
+                bore=worm_bore,
+                keyway=worm_keyway,
+                ddcut=worm_ddcut
+            )
+        else:
+            worm_geo = WormGeometry(
+                params=worm_params,
+                assembly_params=assembly_params,
+                length=worm_length,
+                sections_per_turn=36,
+                bore=worm_bore,
+                keyway=worm_keyway,
+                ddcut=worm_ddcut
+            )
         print("  Building 3D model...")
         worm = worm_geo.build()
         print("  Exporting to STEP format...")
@@ -368,9 +416,45 @@ if generate_type in ['worm', 'both']:
 
         worm_b64 = base64.b64encode(worm_step).decode('utf-8')
 
+        # Export 3MF for 3D printing (preferred - has explicit units and better precision)
+        print("  Exporting to 3MF format...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
+            temp_3mf_path = tmp.name
+
+        # Use build123d Mesher for 3MF export
+        from build123d import Mesher, Unit
+        mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+        mesher.add_shape(worm)
+        mesher.write(temp_3mf_path)
+
+        # Read back as bytes
+        with open(temp_3mf_path, 'rb') as f:
+            worm_3mf = f.read()
+
+        # Clean up temp file
+        os.unlink(temp_3mf_path)
+
+        worm_3mf_b64 = base64.b64encode(worm_3mf).decode('utf-8')
+
+        # Also export STL for compatibility
+        print("  Exporting to STL format...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.stl', delete=False) as tmp:
+            temp_stl_path = tmp.name
+
+        from build123d import export_stl
+        export_stl(worm, temp_stl_path)
+
+        with open(temp_stl_path, 'rb') as f:
+            worm_stl = f.read()
+
+        os.unlink(temp_stl_path)
+        worm_stl_b64 = base64.b64encode(worm_stl).decode('utf-8')
+
         size_kb = len(worm_step) / 1024
+        mf3_size_kb = len(worm_3mf) / 1024
+        stl_size_kb = len(worm_stl) / 1024
         print(f"✓ Worm generated successfully!")
-        print(f"  File size: {size_kb:.1f} KB ({len(worm_step)} bytes)")
+        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_size_kb:.1f} KB, STL: {stl_size_kb:.1f} KB")
     except Exception as e:
         print(f"✗ Worm generation failed: {e}")
         import traceback
@@ -383,10 +467,20 @@ if generate_type in ['wheel', 'both']:
     print("⚙️  Generating wheel gear...")
     try:
         print("  Creating wheel geometry object...")
+        # Debug: Log virtual hobbing settings
+        print(f"  [DEBUG] virtual_hobbing_val = {virtual_hobbing_val} (type: {type(virtual_hobbing_val).__name__})")
+        print(f"  [DEBUG] hobbing_steps_val = {hobbing_steps_val}")
+
         # Use VirtualHobbingWheelGeometry if virtual_hobbing enabled, otherwise regular WheelGeometry
         if virtual_hobbing_val:
             # Virtual hobbing supports progress callbacks
             print(f"  Using virtual hobbing with {hobbing_steps_val} steps...")
+
+            # Pass the actual worm geometry as hob ONLY for globoid (important for accuracy)
+            # For cylindrical, let VirtualHobbingWheelGeometry create a simpler hob internally
+            hob_geo = worm if (generate_type == 'both' and is_globoid) else None
+            hob_type = "globoid" if is_globoid else "cylindrical"
+            print(f"  Using {hob_type} hob geometry")
 
             wheel_geo = VirtualHobbingWheelGeometry(
                 params=wheel_params,
@@ -396,7 +490,9 @@ if generate_type in ['wheel', 'both']:
                 hobbing_steps=hobbing_steps_val,
                 progress_callback=progress_callback_fn,
                 bore=wheel_bore,
-                keyway=wheel_keyway
+                keyway=wheel_keyway,
+                ddcut=wheel_ddcut,
+                hob_geometry=hob_geo
             )
         else:
             # Regular helical wheel (no progress callbacks needed - it's fast)
@@ -406,7 +502,8 @@ if generate_type in ['wheel', 'both']:
                 assembly_params=assembly_params,
                 face_width=wheel_width,
                 bore=wheel_bore,
-                keyway=wheel_keyway
+                keyway=wheel_keyway,
+                ddcut=wheel_ddcut
             )
         print("  Building 3D model (this is the slowest step)...")
         wheel = wheel_geo.build()
@@ -427,9 +524,45 @@ if generate_type in ['wheel', 'both']:
 
         wheel_b64 = base64.b64encode(wheel_step).decode('utf-8')
 
+        # Export 3MF for 3D printing (preferred - has explicit units and better precision)
+        print("  Exporting to 3MF format...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
+            temp_3mf_path = tmp.name
+
+        # Use build123d Mesher for 3MF export
+        from build123d import Mesher, Unit
+        mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+        mesher.add_shape(wheel)
+        mesher.write(temp_3mf_path)
+
+        # Read back as bytes
+        with open(temp_3mf_path, 'rb') as f:
+            wheel_3mf = f.read()
+
+        # Clean up temp file
+        os.unlink(temp_3mf_path)
+
+        wheel_3mf_b64 = base64.b64encode(wheel_3mf).decode('utf-8')
+
+        # Also export STL for compatibility
+        print("  Exporting to STL format...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.stl', delete=False) as tmp:
+            temp_stl_path = tmp.name
+
+        from build123d import export_stl
+        export_stl(wheel, temp_stl_path)
+
+        with open(temp_stl_path, 'rb') as f:
+            wheel_stl = f.read()
+
+        os.unlink(temp_stl_path)
+        wheel_stl_b64 = base64.b64encode(wheel_stl).decode('utf-8')
+
         size_kb = len(wheel_step) / 1024
+        mf3_size_kb = len(wheel_3mf) / 1024
+        stl_size_kb = len(wheel_stl) / 1024
         print(f"✓ Wheel generated successfully!")
-        print(f"  File size: {size_kb:.1f} KB ({len(wheel_step)} bytes)")
+        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_size_kb:.1f} KB, STL: {stl_size_kb:.1f} KB")
     except Exception as e:
         print(f"✗ Wheel generation failed: {e}")
         import traceback
@@ -452,10 +585,14 @@ elif generate_type == 'both':
     else:
         print("❌ Both parts failed to generate")
 
-# Return results
+# Return results (markdown will be generated on main thread using calculator Pyodide)
 {
     'worm': worm_b64,
     'wheel': wheel_b64,
+    'worm_3mf': worm_3mf_b64,
+    'wheel_3mf': wheel_3mf_b64,
+    'worm_stl': worm_stl_b64,
+    'wheel_stl': wheel_stl_b64,
     'success': (generate_type == 'worm' and worm_b64 is not None) or
                (generate_type == 'wheel' and wheel_b64 is not None) or
                (generate_type == 'both' and worm_b64 is not None and wheel_b64 is not None)
@@ -466,12 +603,20 @@ elif generate_type == 'both':
         const success = result.get('success');
         const wormB64 = result.get('worm');
         const wheelB64 = result.get('wheel');
+        const worm3mfB64 = result.get('worm_3mf');
+        const wheel3mfB64 = result.get('wheel_3mf');
+        const wormStlB64 = result.get('worm_stl');
+        const wheelStlB64 = result.get('wheel_stl');
 
         self.postMessage({
             type: 'GENERATE_COMPLETE',
             success: success,
             worm: wormB64,
-            wheel: wheelB64
+            wheel: wheelB64,
+            worm_3mf: worm3mfB64,
+            wheel_3mf: wheel3mfB64,
+            worm_stl: wormStlB64,
+            wheel_stl: wheelStlB64
         });
 
     } catch (error) {

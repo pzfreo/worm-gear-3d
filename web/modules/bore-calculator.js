@@ -4,7 +4,11 @@
  * Handles bore size calculations and anti-rotation method selection.
  * Auto-calculates recommended bore sizes (~25% of pitch diameter) and
  * manages UI for bore type selection and anti-rotation methods.
+ *
+ * VERSION: 2025-01-25-debug
  */
+
+console.log('[Bore Calculator] Module loaded - VERSION: 2025-01-25-debug');
 
 // Store calculated bore values
 let calculatedWormBore = null;
@@ -68,17 +72,20 @@ export function updateBoreDisplaysAndDefaults(design) {
     // Show recommended values
     document.getElementById('worm-bore-info').style.display = 'block';
     document.getElementById('wheel-bore-info').style.display = 'block';
-    document.getElementById('worm-bore-recommended').textContent = calculatedWormBore.toFixed(1);
-    document.getElementById('wheel-bore-recommended').textContent = calculatedWheelBore.toFixed(1);
 
-    // Add warning if too small for DIN 6885
+    // Include mm and warning in the span content
     if (calculatedWormBore < 6.0) {
         document.getElementById('worm-bore-recommended').innerHTML =
-            `${calculatedWormBore.toFixed(1)} <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
+            `${calculatedWormBore.toFixed(1)} mm <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
+    } else {
+        document.getElementById('worm-bore-recommended').textContent = `${calculatedWormBore.toFixed(1)} mm`;
     }
+
     if (calculatedWheelBore < 6.0) {
         document.getElementById('wheel-bore-recommended').innerHTML =
-            `${calculatedWheelBore.toFixed(1)} <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
+            `${calculatedWheelBore.toFixed(1)} mm <span style="color: #c75; font-style: italic;">(too small for DIN 6885)</span>`;
+    } else {
+        document.getElementById('wheel-bore-recommended').textContent = `${calculatedWheelBore.toFixed(1)} mm`;
     }
 
     // Update anti-rotation options
@@ -89,6 +96,7 @@ export function updateBoreDisplaysAndDefaults(design) {
  * Update anti-rotation method dropdowns based on bore sizes
  */
 export function updateAntiRotationOptions() {
+    console.log('[Anti-Rotation] updateAntiRotationOptions called, wormBore=', calculatedWormBore, 'wheelBore=', calculatedWheelBore);
     // Update worm anti-rotation options
     updateAntiRotationForPart('worm', calculatedWormBore);
     // Update wheel anti-rotation options
@@ -119,6 +127,14 @@ function updateAntiRotationForPart(partName, calculatedBore) {
         effectiveBore = parseFloat(document.getElementById(`${partName}-bore-diameter`).value) || calculatedBore;
     }
 
+    console.log(`[Anti-Rotation] ${partName}: bore=${effectiveBore}mm, current=${antiRotSelect.value}`);
+
+    // Skip if bore not calculated yet
+    if (!effectiveBore || effectiveBore <= 0) {
+        console.log(`[Anti-Rotation] ${partName}: skipping (no bore calculated yet)`);
+        return;
+    }
+
     // Enable/disable DIN 6885 based on bore size
     const din6885Option = Array.from(antiRotSelect.options).find(opt => opt.value === 'DIN6885');
     if (din6885Option) {
@@ -130,10 +146,13 @@ function updateAntiRotationForPart(partName, calculatedBore) {
 
     // Auto-select sensible default
     if (antiRotSelect.value === 'DIN6885' && effectiveBore < 6.0) {
-        antiRotSelect.value = 'ddcut'; // Switch to DD-cut for small bores
+        console.log(`[Anti-Rotation] ${partName}: switching from DIN6885 to DD-cut (bore too small)`);
+        antiRotSelect.value = 'DD-cut'; // Switch to DD-cut for small bores
     } else if (antiRotSelect.value === '' || antiRotSelect.value === 'none') {
         // Set initial default based on bore size
-        antiRotSelect.value = effectiveBore < 6.0 ? 'ddcut' : 'DIN6885';
+        const newValue = effectiveBore < 6.0 ? 'DD-cut' : 'DIN6885';
+        console.log(`[Anti-Rotation] ${partName}: setting default to ${newValue} (bore ${effectiveBore}mm)`);
+        antiRotSelect.value = newValue;
     }
 }
 

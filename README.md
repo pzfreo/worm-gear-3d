@@ -1,9 +1,9 @@
-# Wormgear - Complete Worm Gear Design System
+# Wormgear - Worm Gear Design System
 
 **Version:** 1.0.0-alpha
 **Status:** Unified package - calculator + geometry in one
 
-Complete worm gear design system from engineering calculations to CNC-ready STEP files, supporting both traditional CNC manufacturing and 3D printing.
+Worm gear design system from engineering calculations to CNC-ready STEP files, supporting both traditional CNC manufacturing and 3D printing.
 
 ## Overview
 

@@ -10,6 +10,7 @@ import { appendToConsole, updateDesignSummary, handleProgress, hideProgressIndic
 // Global state
 let currentDesign = null;
 let currentValidation = null;
+let generatorTabVisited = false;
 
 // ============================================================================
 // TAB SWITCHING
@@ -34,6 +35,23 @@ function initTabs() {
             // Lazy load calculator if needed
             if (targetTab === 'calculator' && !getCalculatorPyodide()) {
                 initCalculatorTab();
+            }
+
+            // Generator tab actions
+            if (targetTab === 'generator') {
+                // Hide progress indicator on tab switch (will be shown again when generation starts)
+                const progressContainer = document.getElementById('generation-progress');
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
+                }
+
+                // Auto-load from calculator on first visit
+                if (!generatorTabVisited) {
+                    generatorTabVisited = true;
+                    if (currentDesign) {
+                        loadFromCalculator();
+                    }
+                }
             }
         });
     });
@@ -147,7 +165,7 @@ globals()['current_validation'] = validation
 
 json.dumps({
     'summary': to_summary(design),
-    'json_output': to_json(design, validation, bore_settings=bore_settings, manufacturing_settings=mfg_settings),
+    'json_output': to_json(design, bore_settings=bore_settings, manufacturing_settings=mfg_settings),
     'markdown': to_markdown(design, validation),
     'valid': validation.valid,
     'messages': [
@@ -236,7 +254,8 @@ function setupWorkerMessageHandler(worker) {
 
         switch (type) {
             case 'LOG':
-                appendToConsole(message);
+                // Process LOG messages through progress indicator too
+                handleProgress(message, null);
                 break;
             case 'PROGRESS':
                 handleProgress(message, percent);
@@ -301,6 +320,53 @@ function handleFileUpload(event) {
     reader.readAsText(file);
 }
 
+/**
+ * Cancel ongoing generation
+ */
+async function cancelGeneration() {
+    const generatorWorker = getGeneratorWorker();
+    if (!generatorWorker) {
+        return;
+    }
+
+    // Terminate the worker
+    generatorWorker.terminate();
+
+    // Append to console
+    const { appendToConsole, hideProgressIndicator } = await import('./modules/generator-ui.js');
+    appendToConsole('⚠️ Generation cancelled by user');
+
+    // Hide progress and reset UI
+    hideProgressIndicator();
+
+    // Reinitialize the worker for future generations
+    const { initGenerator } = await import('./modules/pyodide-init.js');
+    const setupGeneratorMessageHandler = (worker) => {
+        worker.addEventListener('message', async (e) => {
+            const { type, message, percent } = e.data;
+
+            switch (type) {
+                case 'LOG':
+                    // Process LOG messages through progress indicator too
+                    handleProgress(message, null);
+                    break;
+                case 'PROGRESS':
+                    handleProgress(message, percent);
+                    break;
+                case 'GENERATE_COMPLETE':
+                    handleGenerateComplete(e.data);
+                    break;
+                case 'GENERATE_ERROR':
+                    handleGenerateError(message);
+                    break;
+            }
+        });
+    };
+
+    await initGenerator(false, setupGeneratorMessageHandler);
+    appendToConsole('Ready for new generation');
+}
+
 async function generateGeometry(type) {
     const generatorWorker = getGeneratorWorker();
     if (!generatorWorker) {
@@ -343,6 +409,25 @@ async function generateGeometry(type) {
         appendToConsole('Starting geometry generation...');
         appendToConsole(`Parameters: ${type}, Virtual Hobbing: ${virtualHobbing}, Profile: ${profile}`);
 
+        // Show and reset progress indicator
+        const progressContainer = document.getElementById('generation-progress');
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+        }
+
+        // Reset step indicators
+        document.querySelectorAll('.step-indicator').forEach(indicator => {
+            indicator.classList.remove('active', 'complete');
+        });
+
+        // Reset timing and show cancel button
+        const { showCancelButton, resetHobbingTimer } = await import('./modules/generator-ui.js');
+        resetHobbingTimer();
+        showCancelButton();
+
+        // Store design data globally for download
+        window.currentGeneratedDesign = designData;
+
         // Send generation request to worker
         generatorWorker.postMessage({
             type: 'GENERATE',
@@ -377,13 +462,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('copy-link').addEventListener('click', copyLink);
 
     // Setup event listeners for generator
-    document.getElementById('load-generator-btn').addEventListener('click', () => initGeneratorTab(true));
     document.getElementById('load-from-calculator').addEventListener('click', loadFromCalculator);
     document.getElementById('load-json-file').addEventListener('click', loadJSONFile);
     document.getElementById('json-file-input').addEventListener('change', handleFileUpload);
-    document.getElementById('generate-worm-btn').addEventListener('click', () => generateGeometry('worm'));
-    document.getElementById('generate-wheel-btn').addEventListener('click', () => generateGeometry('wheel'));
-    document.getElementById('generate-both-btn').addEventListener('click', () => generateGeometry('both'));
+    document.getElementById('generate-btn').addEventListener('click', () => generateGeometry('both'));
+    document.getElementById('cancel-generate-btn').addEventListener('click', cancelGeneration);
 
     // Mode switching
     document.getElementById('mode').addEventListener('change', (e) => {
@@ -419,8 +502,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Use recommended dimensions toggle
     document.getElementById('use-recommended-dims').addEventListener('change', (e) => {
-        const customDims = document.getElementById('custom-dimensions');
-        customDims.style.display = e.target.checked ? 'none' : 'block';
+        const customDims = document.getElementById('custom-dims-group');
+        if (customDims) {
+            customDims.style.display = e.target.checked ? 'none' : 'block';
+        }
 
         // Populate with recommended values when toggling to custom
         if (!e.target.checked && currentDesign && currentDesign.manufacturing) {

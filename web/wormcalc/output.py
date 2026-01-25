@@ -105,6 +105,7 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
     # Build manufacturing section (wormgear schema v1.0 format)
     manufacturing_dict = {
         "profile": design.profile.value,  # "ZA", "ZK", or "ZI"
+        "worm_type": "cylindrical",  # Default, will be updated below
         "virtual_hobbing": False,  # Default, will be updated below
         "hobbing_steps": 18,  # Default value
         "throated_wheel": False,  # Default to helical
@@ -115,6 +116,7 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
     if design.manufacturing is not None:
         manufacturing_dict["throated_wheel"] = design.manufacturing.wheel_throated
         manufacturing_dict["profile"] = design.manufacturing.profile.value
+        manufacturing_dict["worm_type"] = design.manufacturing.worm_type.value  # Add worm type
         # Add recommended dimensions (always present, needed for UI defaults)
         manufacturing_dict["worm_length"] = design.manufacturing.worm_length
         manufacturing_dict["wheel_width"] = design.manufacturing.wheel_width
@@ -123,6 +125,15 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
             manufacturing_dict["virtual_hobbing"] = design.manufacturing.virtual_hobbing
         if hasattr(design.manufacturing, 'hobbing_steps'):
             manufacturing_dict["hobbing_steps"] = design.manufacturing.hobbing_steps
+
+    # Override with UI manufacturing settings if provided (takes precedence)
+    if validated_mfg:
+        if 'worm_type' in validated_mfg and validated_mfg['worm_type'] is not None:
+            manufacturing_dict["worm_type"] = validated_mfg['worm_type']
+        if 'virtual_hobbing' in validated_mfg and validated_mfg['virtual_hobbing'] is not None:
+            manufacturing_dict["virtual_hobbing"] = validated_mfg['virtual_hobbing']
+        if 'hobbing_steps' in validated_mfg and validated_mfg['hobbing_steps'] is not None:
+            manufacturing_dict["hobbing_steps"] = validated_mfg['hobbing_steps']
 
     # Build result with schema version
     result = {
@@ -209,13 +220,14 @@ def to_json(
 
     Args:
         design: The worm gear design
-        validation: Optional validation result to include
+        validation: Optional validation result to include (deprecated - validation
+                   should be in markdown output only, not in generator input JSON)
         indent: JSON indentation (default 2)
         bore_settings: Optional bore configuration from UI
         manufacturing_settings: Optional manufacturing/dimension settings from UI
 
     Returns:
-        JSON string compatible with wormgear package
+        JSON string compatible with wormgear package (pure input parameters)
     """
     data = design_to_dict(design, bore_settings=bore_settings, manufacturing_settings=manufacturing_settings)
 
@@ -302,11 +314,13 @@ def to_markdown(
 
     # Add globoid throat radii if present
     if design.worm.throat_pitch_radius is not None:
-        lines.extend([
-            f"| Throat Pitch Radius | {design.worm.throat_pitch_radius:.3f} mm |",
-            f"| Throat Tip Radius | {design.worm.throat_tip_radius:.3f} mm |",
-            f"| Throat Root Radius | {design.worm.throat_root_radius:.3f} mm |",
-        ])
+        lines.append(f"| Throat Pitch Radius | {design.worm.throat_pitch_radius:.3f} mm |")
+
+    if design.worm.throat_tip_radius is not None:
+        lines.append(f"| Throat Tip Radius | {design.worm.throat_tip_radius:.3f} mm |")
+
+    if design.worm.throat_root_radius is not None:
+        lines.append(f"| Throat Root Radius | {design.worm.throat_root_radius:.3f} mm |")
 
     lines.extend([
         "",
