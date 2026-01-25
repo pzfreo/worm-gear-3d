@@ -201,6 +201,89 @@ Fixes #58
 5. Update documentation and examples
 6. Test end-to-end workflow
 
+### 6. Critical Architecture Rules for Web/WASM Projects
+
+**NEVER track build artifacts in git**
+
+Build artifacts (copied files for deployment) must ALWAYS be gitignored:
+
+✅ **Correct**:
+```
+src/wormgear/           # ← Source of truth (tracked)
+web/wormgear/           # ← Build artifact (gitignored, created by build.sh)
+```
+
+❌ **Wrong**:
+```
+src/wormgear/           # ← Source
+web/src/                # ← Duplicate tracked in git (WRONG!)
+web/src/wormgear/       # ← Build artifact tracked (WRONG!)
+```
+
+**.gitignore must include**:
+```
+# Build artifacts
+web/wormgear/           # Created by build.sh
+web/src/                # If it exists, it's wrong and should be removed
+```
+
+**NEVER maintain duplicate implementations**
+
+For Pyodide/WASM projects:
+- ✅ **One calculator implementation**: `src/wormgear/calculator/`
+- ✅ **Used by both**: Python package AND web via Pyodide
+- ❌ **Never create**: `web/wormcalc/` as separate dict-based implementation
+
+**Why this matters**:
+- Violates DRY (Don't Repeat Yourself) principle
+- Violates SSOT (Single Source of Truth) principle
+- Bug fixes must be duplicated
+- Features must be implemented twice
+- Implementations WILL diverge over time
+- Maintenance burden compounds
+
+**Pyodide loading pattern**:
+```javascript
+// web/modules/pyodide-init.js
+// Load from build artifact (created by build.sh)
+const files = ['__init__.py', 'core.py', 'validation.py', 'output.py'];
+calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/calculator');
+
+for (const file of files) {
+    const response = await fetch(`wormgear/calculator/${file}`);  // ← From build artifact
+    const content = await response.text();
+    calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/calculator/${file}`, content);
+}
+
+// Import unified package
+from wormgear.calculator.core import design_from_module
+```
+
+**Build script pattern**:
+```bash
+#!/bin/bash
+# web/build.sh
+
+# Copy source to build artifact location (gitignored)
+cp -r ../src/wormgear web/
+
+# Remove cache files
+find web/wormgear -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+```
+
+**Historical mistake (2025-01)**:
+- Created `web/src/` as tracked directory duplicating `src/wormgear/`
+- Maintained separate `web/wormcalc/` implementation (840 lines) vs `src/wormgear/calculator/` (556 lines)
+- Build script created `web/src/wormgear/` but nothing used it
+- Globoid worm bugs required THREE separate fixes
+- Architecture cleanup required removing duplicates and unifying to single implementation
+
+**Self-check before committing**:
+- [ ] Am I tracking any build artifacts? (If yes, STOP and gitignore them)
+- [ ] Am I creating a duplicate implementation? (If yes, STOP and use unified package)
+- [ ] Do multiple directories contain "the same" code? (If yes, STOP and consolidate)
+- [ ] Does documentation claim code reuse but reality is duplicates? (If yes, STOP and fix)
+
 ## Current State (2026-01-25)
 
 **Status:** v1.0.0-alpha - Unified package complete
