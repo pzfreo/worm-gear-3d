@@ -9,6 +9,7 @@ import subprocess
 import json
 from pathlib import Path
 import pytest
+from dataclasses import fields
 
 
 # Define the repository root
@@ -16,6 +17,7 @@ REPO_ROOT = Path(__file__).parent.parent
 WEB_DIR = REPO_ROOT / "web"
 BUILD_SCRIPT = WEB_DIR / "build.sh"
 SRC_DIR = REPO_ROOT / "src" / "wormgear"
+EXAMPLES_DIR = REPO_ROOT / "examples"
 
 
 # List of all files that MUST be present after build for WASM to work
@@ -223,6 +225,98 @@ def test_pyodide_version_consistency():
             f"Pyodide version mismatch: HTML has {html_version}, "
             f"but app-lazy.js has {js_version}"
         )
+
+
+def test_json_field_names_match_dataclass_params():
+    """
+    JSON field names should match Python dataclass parameter names exactly.
+
+    This prevents errors like 'throat_pitch_radius_mm' vs 'throat_curvature_radius_mm'.
+    """
+    # Import dataclasses
+    import sys
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    from wormgear.io.loaders import WormParams, WheelParams, AssemblyParams
+
+    # Get all field names from dataclasses
+    worm_fields = {f.name for f in fields(WormParams)}
+    wheel_fields = {f.name for f in fields(WheelParams)}
+    assembly_fields = {f.name for f in fields(AssemblyParams)}
+
+    # Find and load example JSON files
+    json_files = list(EXAMPLES_DIR.glob("*.json"))
+    assert len(json_files) > 0, f"No example JSON files found in {EXAMPLES_DIR}"
+
+    errors = []
+
+    for json_file in json_files:
+        with open(json_file) as f:
+            data = json.load(f)
+
+        # Check worm section
+        if "worm" in data:
+            for key in data["worm"].keys():
+                if key not in worm_fields:
+                    errors.append(
+                        f"{json_file.name}: worm.{key} not in WormParams dataclass. "
+                        f"Available fields: {sorted(worm_fields)}"
+                    )
+
+        # Check wheel section
+        if "wheel" in data:
+            for key in data["wheel"].keys():
+                if key not in wheel_fields:
+                    errors.append(
+                        f"{json_file.name}: wheel.{key} not in WheelParams dataclass. "
+                        f"Available fields: {sorted(wheel_fields)}"
+                    )
+
+        # Check assembly section
+        if "assembly" in data:
+            for key in data["assembly"].keys():
+                if key not in assembly_fields:
+                    errors.append(
+                        f"{json_file.name}: assembly.{key} not in AssemblyParams dataclass. "
+                        f"Available fields: {sorted(assembly_fields)}"
+                    )
+
+    if errors:
+        error_msg = "JSON field name mismatches found:\n" + "\n".join(f"  - {e}" for e in errors)
+        pytest.fail(error_msg)
+
+
+def test_app_lazy_js_field_names_match():
+    """
+    Field names in app-lazy.js should match Python dataclass parameters.
+
+    Specifically checks for known issues like 'throat_pitch_radius_mm' which should be
+    'throat_curvature_radius_mm'.
+    """
+    app_lazy = WEB_DIR / "app-lazy.js"
+    content = app_lazy.read_text()
+
+    # Known incorrect field names that should NOT appear
+    incorrect_fields = [
+        "throat_pitch_radius_mm",  # Should be throat_curvature_radius_mm
+    ]
+
+    errors = []
+    for incorrect_field in incorrect_fields:
+        if incorrect_field in content:
+            errors.append(
+                f"app-lazy.js contains incorrect field name '{incorrect_field}'. "
+                f"This field does not exist in WormParams dataclass."
+            )
+
+    # Check that correct field name is used instead
+    if "throat_pitch_radius_mm" in content and "throat_curvature_radius_mm" not in content:
+        errors.append(
+            "app-lazy.js should use 'throat_curvature_radius_mm' not 'throat_pitch_radius_mm'"
+        )
+
+    if errors:
+        error_msg = "Field name errors in app-lazy.js:\n" + "\n".join(f"  - {e}" for e in errors)
+        pytest.fail(error_msg)
 
 
 if __name__ == "__main__":
