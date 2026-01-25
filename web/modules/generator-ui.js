@@ -173,14 +173,29 @@ export function hideCancelButton() {
  * @param {number} percent - Progress percentage
  */
 export function handleProgress(message, percent) {
-    const progressContainer = document.getElementById('generation-progress');
-    if (progressContainer) {
-        progressContainer.style.display = 'block';
-    }
-
     // Detect which step we're on based on message content
     const msgLower = message.toLowerCase();
     console.log('[Progress]', message, 'percent:', percent);
+
+    // Don't show progress indicator for initialization messages (Pyodide loading, package installation)
+    const isInitMessage = msgLower.includes('loading pyodide') ||
+                          msgLower.includes('installing') ||
+                          msgLower.includes('loading micropip') ||
+                          msgLower.includes('loading numpy') ||
+                          msgLower.includes('generator ready') ||
+                          msgLower.includes('package') && !msgLower.includes('generating');
+
+    // Only show progress indicator for actual generation steps
+    const isGenerationMessage = msgLower.includes('parsing') ||
+                                msgLower.includes('generating') ||
+                                msgLower.includes('exporting') ||
+                                msgLower.includes('starting geometry') ||
+                                msgLower.includes('% complete');
+
+    const progressContainer = document.getElementById('generation-progress');
+    if (progressContainer && isGenerationMessage && !isInitMessage) {
+        progressContainer.style.display = 'block';
+    }
 
     // Check for hobbing progress FIRST (before generic wheel messages)
     // Hobbing messages: "X% complete (Y/Z cuts)" or "Hobbing simulation"
