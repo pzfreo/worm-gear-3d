@@ -180,6 +180,22 @@ summary:hover {
     color: var(--color-primary-hover);
 }
 
+/* Generator section as details */
+details.generator-section {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+details.generator-section summary {
+    padding: 0;
+    margin-bottom: 0;
+}
+
+details.generator-section[open] summary {
+    margin-bottom: 1rem;
+}
+
 #options-inputs {
     padding-top: 0.5rem;
 }
@@ -509,11 +525,21 @@ footer a:hover {
     box-shadow: var(--shadow-sm);
 }
 
+.generator-section.compact {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
 .generator-section h2 {
     margin: 0 0 1rem;
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-text);
+}
+
+.generator-section.compact h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
 }
 
 .generator-section p {
@@ -525,13 +551,13 @@ footer a:hover {
 .console {
     background: #1e1e1e;
     color: #d4d4d4;
-    padding: 1rem;
+    padding: 0.75rem;
     border-radius: 6px;
     font-family: 'Courier New', Consolas, Monaco, monospace;
-    font-size: 0.9em;
-    max-height: 300px;
+    font-size: 0.85em;
+    max-height: 400px;
     overflow-y: auto;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 .console div {
@@ -602,12 +628,13 @@ footer a:hover {
 /* JSON input area */
 .json-input-area textarea {
     width: 100%;
-    min-height: 200px;
-    padding: 1rem;
+    min-height: 150px;
+    max-height: 400px;
+    padding: 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: 0.375rem;
     font-family: 'Courier New', Consolas, Monaco, monospace;
-    font-size: 0.9em;
+    font-size: 0.85em;
     resize: vertical;
 }
 
@@ -680,7 +707,7 @@ footer a:hover {
 @media (min-width: 1024px) {
     .generator-layout {
         grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
+        gap: 1rem;
     }
 
     .generator-console {
@@ -690,7 +717,8 @@ footer a:hover {
     }
 
     .generator-console .console {
-        max-height: 600px;
+        max-height: calc(100vh - 250px);
+        min-height: 400px;
     }
 }
 

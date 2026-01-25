@@ -39,6 +39,19 @@ function enableGenerateButtons() {
 }
 
 /**
+ * Update loading status message
+ */
+function updateLoadingStatus(message) {
+    const statusEl = document.getElementById('generator-loading-status');
+    if (statusEl) {
+        statusEl.textContent = message;
+        if (message === 'Generator ready') {
+            statusEl.style.color = '#22c55e';
+        }
+    }
+}
+
+/**
  * Initialize calculator Pyodide instance
  * @param {Function} onComplete - Callback when initialization completes
  */
@@ -120,10 +133,9 @@ from wormcalc import (
  */
 export async function initGenerator(showModal = true, setupMessageHandler) {
     if (generatorWorker) {
-        // Already initialized, just show content
-        document.getElementById('generator-loading').style.display = 'none';
-        document.getElementById('generator-content').style.display = 'block';
+        // Already initialized, just enable buttons
         enableGenerateButtons();
+        updateLoadingStatus('Generator ready');
         return;
     }
 
@@ -158,11 +170,10 @@ export async function initGenerator(showModal = true, setupMessageHandler) {
             generatorWorker.addEventListener('message', handleInit);
         });
 
-        // Hide loading, show generator UI
+        // Hide loading overlay, enable buttons, update status
         document.getElementById('loading-generator').style.display = 'none';
-        document.getElementById('generator-loading').style.display = 'none';
-        document.getElementById('generator-content').style.display = 'block';
         enableGenerateButtons();
+        updateLoadingStatus('Generator ready');
 
     } catch (error) {
         console.error('Failed to initialize generator:', error);
