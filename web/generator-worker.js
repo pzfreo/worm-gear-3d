@@ -423,6 +423,10 @@ if generate_type in ['wheel', 'both']:
     print("⚙️  Generating wheel gear...")
     try:
         print("  Creating wheel geometry object...")
+        # Debug: Log virtual hobbing settings
+        print(f"  [DEBUG] virtual_hobbing_val = {virtual_hobbing_val} (type: {type(virtual_hobbing_val).__name__})")
+        print(f"  [DEBUG] hobbing_steps_val = {hobbing_steps_val}")
+
         # Use VirtualHobbingWheelGeometry if virtual_hobbing enabled, otherwise regular WheelGeometry
         if virtual_hobbing_val:
             # Virtual hobbing supports progress callbacks

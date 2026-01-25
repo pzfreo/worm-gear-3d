@@ -124,6 +124,13 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
         if hasattr(design.manufacturing, 'hobbing_steps'):
             manufacturing_dict["hobbing_steps"] = design.manufacturing.hobbing_steps
 
+    # Override with UI manufacturing settings if provided (takes precedence)
+    if validated_mfg:
+        if 'virtual_hobbing' in validated_mfg and validated_mfg['virtual_hobbing'] is not None:
+            manufacturing_dict["virtual_hobbing"] = validated_mfg['virtual_hobbing']
+        if 'hobbing_steps' in validated_mfg and validated_mfg['hobbing_steps'] is not None:
+            manufacturing_dict["hobbing_steps"] = validated_mfg['hobbing_steps']
+
     # Build result with schema version
     result = {
         "schema_version": "1.0",
