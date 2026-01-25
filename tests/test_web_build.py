@@ -35,6 +35,7 @@ REQUIRED_WASM_FILES = [
     "wormgear/calculator/core.py",
     "wormgear/calculator/validation.py",
     "wormgear/calculator/js_bridge.py",
+    "wormgear/calculator/json_schema.py",
 ]
 
 

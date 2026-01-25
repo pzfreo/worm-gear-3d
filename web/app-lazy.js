@@ -254,117 +254,88 @@ function getInputs(mode) {
         return isNaN(parsed) ? null : parsed;
     };
 
-    const pressureAngle = safeParseFloat(document.getElementById('pressure-angle').value);
-    const backlash = safeParseFloat(document.getElementById('backlash').value);
-    const numStarts = safeParseInt(document.getElementById('num-starts').value);
-    const hand = document.getElementById('hand').value;
-    const profileShift = safeParseFloat(document.getElementById('profile-shift').value);
-    const profile = document.getElementById('profile').value;
-    const wormType = document.getElementById('worm-type').value;
-    const throatReduction = safeParseFloat(document.getElementById('throat-reduction').value) || 0.0;
+    // Calculator parameters only (passed to Python calculation functions)
+    const calculatorParams = {
+        pressure_angle: safeParseFloat(document.getElementById('pressure-angle').value),
+        backlash: safeParseFloat(document.getElementById('backlash').value),
+        num_starts: safeParseInt(document.getElementById('num-starts').value),
+        hand: document.getElementById('hand').value,
+        profile_shift: safeParseFloat(document.getElementById('profile-shift').value),
+        profile: document.getElementById('profile').value,
+        worm_type: document.getElementById('worm-type').value,
+        throat_reduction: safeParseFloat(document.getElementById('throat-reduction').value) || 0.0,
+        wheel_throated: document.getElementById('wheel-throated').checked
+    };
+
+    // Add mode-specific calculator parameters
+    switch (mode) {
+        case 'envelope':
+            calculatorParams.worm_od = safeParseFloat(document.getElementById('worm-od').value);
+            calculatorParams.wheel_od = safeParseFloat(document.getElementById('wheel-od').value);
+            calculatorParams.ratio = safeParseInt(document.getElementById('ratio').value);
+            break;
+        case 'from-wheel':
+            calculatorParams.wheel_od = safeParseFloat(document.getElementById('wheel-od-fw').value);
+            calculatorParams.ratio = safeParseInt(document.getElementById('ratio-fw').value);
+            calculatorParams.target_lead_angle = safeParseFloat(document.getElementById('target-lead-angle').value);
+            break;
+        case 'from-module':
+            calculatorParams.module = safeParseFloat(document.getElementById('module').value);
+            calculatorParams.ratio = safeParseInt(document.getElementById('ratio-fm').value);
+            break;
+        case 'from-centre-distance':
+            calculatorParams.centre_distance = safeParseFloat(document.getElementById('centre-distance').value);
+            calculatorParams.ratio = safeParseInt(document.getElementById('ratio-fcd').value);
+            break;
+    }
+
+    // Manufacturing parameters (for JSON export, not calculation)
     const wheelGeneration = document.getElementById('wheel-generation').value;
     const hobbingPrecision = document.getElementById('hobbing-precision').value;
-    const wheelThroated = document.getElementById('wheel-throated').checked;
-    const useRecommendedDims = document.getElementById('use-recommended-dims').checked;
-    const wormLength = safeParseFloat(document.getElementById('worm-length').value);
-    const wheelWidth = safeParseFloat(document.getElementById('wheel-width').value);
-
-    // Bore settings
-    const wormBoreType = document.getElementById('worm-bore-type').value;
-    const wormBoreDiameter = safeParseFloat(document.getElementById('worm-bore-diameter').value);
-    const wormKeyway = document.getElementById('worm-keyway').value;
-    const wheelBoreType = document.getElementById('wheel-bore-type').value;
-    const wheelBoreDiameter = safeParseFloat(document.getElementById('wheel-bore-diameter').value);
-    const wheelKeyway = document.getElementById('wheel-keyway').value;
-
-    // Map hobbing precision to steps
     const hobbingStepsMap = {
         'preview': 36,
         'balanced': 72,
         'high': 144
     };
-    const hobbingSteps = hobbingStepsMap[hobbingPrecision] || 72;
 
-    const baseInputs = {
-        pressure_angle: pressureAngle,
-        backlash: backlash,
-        num_starts: numStarts,
-        hand: hand,
-        profile_shift: profileShift,
-        profile: profile,
-        worm_type: wormType,
-        throat_reduction: throatReduction,
+    const manufacturingParams = {
         virtual_hobbing: wheelGeneration === 'virtual-hobbing',
-        hobbing_steps: hobbingSteps,
-        wheel_throated: wheelThroated,
-        use_recommended_dims: useRecommendedDims,
-        worm_length: wormLength,
-        wheel_width: wheelWidth,
-        worm_bore_type: wormBoreType,
-        worm_bore_diameter: wormBoreDiameter,
-        worm_keyway: wormKeyway,
-        wheel_bore_type: wheelBoreType,
-        wheel_bore_diameter: wheelBoreDiameter,
-        wheel_keyway: wheelKeyway
+        hobbing_steps: hobbingStepsMap[hobbingPrecision] || 72,
+        use_recommended_dims: document.getElementById('use-recommended-dims').checked,
+        worm_length: safeParseFloat(document.getElementById('worm-length').value),
+        wheel_width: safeParseFloat(document.getElementById('wheel-width').value)
     };
 
-    switch (mode) {
-        case 'envelope':
-            return {
-                ...baseInputs,
-                worm_od: safeParseFloat(document.getElementById('worm-od').value),
-                wheel_od: safeParseFloat(document.getElementById('wheel-od').value),
-                ratio: safeParseInt(document.getElementById('ratio').value)
-            };
-        case 'from-wheel':
-            return {
-                ...baseInputs,
-                wheel_od: safeParseFloat(document.getElementById('wheel-od-fw').value),
-                ratio: safeParseInt(document.getElementById('ratio-fw').value),
-                target_lead_angle: safeParseFloat(document.getElementById('target-lead-angle').value)
-            };
-        case 'from-module':
-            return {
-                ...baseInputs,
-                module: safeParseFloat(document.getElementById('module').value),
-                ratio: safeParseInt(document.getElementById('ratio-fm').value)
-            };
-        case 'from-centre-distance':
-            return {
-                ...baseInputs,
-                centre_distance: safeParseFloat(document.getElementById('centre-distance').value),
-                ratio: safeParseInt(document.getElementById('ratio-fcd').value)
-            };
-        default:
-            return baseInputs;
-    }
+    // Bore/keyway parameters (for JSON export, not calculation)
+    const boreParams = {
+        worm_bore_type: document.getElementById('worm-bore-type').value,
+        worm_bore_diameter: safeParseFloat(document.getElementById('worm-bore-diameter').value),
+        worm_keyway: document.getElementById('worm-keyway').value,
+        wheel_bore_type: document.getElementById('wheel-bore-type').value,
+        wheel_bore_diameter: safeParseFloat(document.getElementById('wheel-bore-diameter').value),
+        wheel_keyway: document.getElementById('wheel-keyway').value
+    };
+
+    return {
+        calculator: calculatorParams,
+        manufacturing: manufacturingParams,
+        bore: boreParams
+    };
 }
 
-function formatArgs(inputs) {
-    // Parameters that should NOT be passed to calculator functions
-    const skipParams = [
-        'virtual_hobbing',        // Generator param, not calculator
-        'hobbing_steps',           // Generator param
-        'use_recommended_dims',    // UI state, not design param
-        'worm_length',             // Dimension, not design param
-        'wheel_width',             // Dimension, not design param
-        'worm_bore_type',          // Feature, not design param
-        'worm_bore_diameter',      // Feature
-        'worm_keyway',             // Feature
-        'wheel_bore_type',         // Feature
-        'wheel_bore_diameter',     // Feature
-        'wheel_keyway'             // Feature
-    ];
-
-    return Object.entries(inputs)
-        .filter(([key, value]) => value !== null && value !== undefined)  // Skip null/undefined values
-        .filter(([key, value]) => !skipParams.includes(key))  // Skip non-calculator params
+function formatArgs(calculatorParams) {
+    // Convert calculator parameters to Python function call arguments
+    // Receives only calculator params - no filtering needed (clean boundary!)
+    return Object.entries(calculatorParams)
+        .filter(([key, value]) => value !== null && value !== undefined)
         .map(([key, value]) => {
+            // Enum conversions
             if (key === 'hand') return `hand=Hand.${value}`;
             if (key === 'profile') return `profile=WormProfile.${value}`;
             if (key === 'worm_type') return `worm_type=WormType.${value.toUpperCase()}`;
-            // Convert JavaScript booleans to Python booleans
+            // Boolean conversion
             if (typeof value === 'boolean') return `${key}=${value ? 'True' : 'False'}`;
+            // Numeric/string values
             return `${key}=${value}`;
         })
         .join(', ');
@@ -379,32 +350,20 @@ function calculate() {
 
     try {
         const mode = document.getElementById('mode').value;
-        const inputs = getInputs(mode);
+        const inputs = getInputs(mode);  // Returns {calculator, manufacturing, bore}
         const func = getDesignFunction(mode);
-        const args = formatArgs(inputs);
+        const args = formatArgs(inputs.calculator);  // Only calculator params
         const useStandardModule = document.getElementById('use-standard-module').checked;
 
-        // Prepare bore settings for features section
-        const boreSettings = {
-            worm_bore_type: inputs.worm_bore_type,
-            worm_bore_diameter: inputs.worm_bore_diameter,
-            worm_keyway: inputs.worm_keyway,
-            wheel_bore_type: inputs.wheel_bore_type,
-            wheel_bore_diameter: inputs.wheel_bore_diameter,
-            wheel_keyway: inputs.wheel_keyway
-        };
-
-        // Prepare manufacturing settings (for JSON export, not calculation)
+        // Handle recommended dimensions in manufacturing settings
         const manufacturingSettings = {
-            virtual_hobbing: inputs.virtual_hobbing || false,
-            hobbing_steps: inputs.hobbing_steps || 72,
-            use_recommended_dims: inputs.use_recommended_dims !== false,  // Default true
-            worm_length: inputs.use_recommended_dims ? null : inputs.worm_length,
-            wheel_width: inputs.use_recommended_dims ? null : inputs.wheel_width
+            ...inputs.manufacturing,
+            worm_length: inputs.manufacturing.use_recommended_dims ? null : inputs.manufacturing.worm_length,
+            wheel_width: inputs.manufacturing.use_recommended_dims ? null : inputs.manufacturing.wheel_width
         };
 
-        // Set as globals so Python can access them
-        calculatorPyodide.globals.set('bore_settings_dict', boreSettings);
+        // Set as globals so Python can access them (will be validated at boundary)
+        calculatorPyodide.globals.set('bore_settings_dict', inputs.bore);
         calculatorPyodide.globals.set('manufacturing_settings_dict', manufacturingSettings);
 
         // Run calculation (simplified from original)

@@ -14,6 +14,7 @@ from .core import (
     WormProfile, WormType, ManufacturingParams
 )
 from .js_bridge import validate_manufacturing_settings, validate_bore_settings
+from .json_schema import validate_design_json
 from .validation import ValidationResult, ValidationMessage, Severity
 
 
@@ -214,6 +215,14 @@ def to_json(
         JSON string compatible with wormgear package
     """
     data = design_to_dict(design, bore_settings=bore_settings, manufacturing_settings=manufacturing_settings)
+
+    # Validate JSON structure against schema v1.0
+    is_valid, errors = validate_design_json(data)
+    if not is_valid:
+        # Log validation errors (don't fail - let caller decide)
+        print(f"Warning: Generated JSON has {len(errors)} validation error(s):")
+        for error in errors:
+            print(f"  - {error}")
 
     if validation:
         data["validation"] = validation_to_dict(validation)
