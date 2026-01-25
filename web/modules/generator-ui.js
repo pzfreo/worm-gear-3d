@@ -128,11 +128,11 @@ function updateSubProgress(percent, message = null) {
             // Add time estimate if available
             if (hobbingTimeEstimate !== null && percent < 100) {
                 const minutes = Math.floor(hobbingTimeEstimate / 60);
-                const seconds = Math.round(hobbingTimeEstimate % 60);
+                const seconds = Math.max(1, Math.round(hobbingTimeEstimate % 60));
 
                 if (minutes > 0) {
                     displayMessage += ` - Estimated: ${minutes}m ${seconds}s remaining`;
-                } else {
+                } else if (seconds > 0) {
                     displayMessage += ` - Estimated: ${seconds}s remaining`;
                 }
             }

@@ -310,11 +310,13 @@ def to_markdown(
 
     # Add globoid throat radii if present
     if design.worm.throat_pitch_radius is not None:
-        lines.extend([
-            f"| Throat Pitch Radius | {design.worm.throat_pitch_radius:.3f} mm |",
-            f"| Throat Tip Radius | {design.worm.throat_tip_radius:.3f} mm |",
-            f"| Throat Root Radius | {design.worm.throat_root_radius:.3f} mm |",
-        ])
+        lines.append(f"| Throat Pitch Radius | {design.worm.throat_pitch_radius:.3f} mm |")
+
+    if design.worm.throat_tip_radius is not None:
+        lines.append(f"| Throat Tip Radius | {design.worm.throat_tip_radius:.3f} mm |")
+
+    if design.worm.throat_root_radius is not None:
+        lines.append(f"| Throat Root Radius | {design.worm.throat_root_radius:.3f} mm |")
 
     lines.extend([
         "",
