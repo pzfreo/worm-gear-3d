@@ -6,7 +6,7 @@ import json
 import pytest
 from pathlib import Path
 
-from wormgear_geometry.io import (
+from wormgear import (
     load_design_json,
     save_design_json,
     WormParams,
@@ -14,8 +14,8 @@ from wormgear_geometry.io import (
     AssemblyParams,
     WormGearDesign,
     ManufacturingParams,
-    ManufacturingFeatures,
 )
+from wormgear.io.loaders import ManufacturingFeatures
 
 
 class TestLoadDesignJson:
@@ -224,18 +224,18 @@ class TestManufacturingParams:
     def test_manufacturing_params_all_fields(self):
         """Test creating ManufacturingParams with all fields."""
         params = ManufacturingParams(
-            worm_type="globoid",
-            worm_length=50.0,
-            wheel_width=15.0,
-            wheel_throated=True,
-            profile="ZK"
+            profile="ZK",
+            virtual_hobbing=True,
+            hobbing_steps=24,
+            throated_wheel=True,
+            sections_per_turn=48
         )
 
-        assert params.worm_type == "globoid"
-        assert params.worm_length == 50.0
-        assert params.wheel_width == 15.0
-        assert params.wheel_throated is True
         assert params.profile == "ZK"
+        assert params.virtual_hobbing is True
+        assert params.hobbing_steps == 24
+        assert params.throated_wheel is True
+        assert params.sections_per_turn == 48
 
 
 class TestProfileJsonSerialization:
@@ -333,22 +333,26 @@ class TestProfileJsonSerialization:
         assert loaded.manufacturing.profile == "ZA"
 
     def test_save_complete_design_with_all_manufacturing(self, tmp_path, base_design):
-        """Test saving complete design with all manufacturing options."""
+        """Test saving complete design with all manufacturing and features."""
+        from wormgear import Features, WormFeatures, WheelFeatures, HubSpec, SetScrewSpec
+
         base_design.manufacturing = ManufacturingParams(
-            worm_type="globoid",
-            worm_length=50.0,
-            wheel_width=12.0,
-            wheel_throated=True,
             profile="ZK",
-            worm_features=ManufacturingFeatures(
-                bore_diameter=8.0,
-                keyway_width=3.0,
-                keyway_depth=1.8
+            virtual_hobbing=True,
+            hobbing_steps=24,
+            throated_wheel=True,
+            sections_per_turn=48
+        )
+
+        base_design.features = Features(
+            worm=WormFeatures(
+                bore_diameter_mm=8.0,
+                anti_rotation="DIN6885"
             ),
-            wheel_features=ManufacturingFeatures(
-                bore_diameter=12.0,
-                hub_type="extended",
-                hub_length=15.0
+            wheel=WheelFeatures(
+                bore_diameter_mm=12.0,
+                anti_rotation="DIN6885",
+                hub=HubSpec(type="extended", length_mm=15.0)
             )
         )
 
@@ -356,7 +360,12 @@ class TestProfileJsonSerialization:
         save_design_json(base_design, json_file)
 
         loaded = load_design_json(json_file)
-        assert loaded.manufacturing.worm_type == "globoid"
+        assert loaded.manufacturing is not None
         assert loaded.manufacturing.profile == "ZK"
-        assert loaded.manufacturing.worm_features.bore_diameter == 8.0
-        assert loaded.manufacturing.wheel_features.hub_type == "extended"
+        assert loaded.manufacturing.virtual_hobbing is True
+        assert loaded.features is not None
+        assert loaded.features.worm is not None
+        assert loaded.features.worm.bore_diameter_mm == 8.0
+        assert loaded.features.wheel is not None
+        assert loaded.features.wheel.hub is not None
+        assert loaded.features.wheel.hub.type == "extended"

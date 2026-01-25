@@ -3,333 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Worm Gear 3D Generator - Web Interface</title>
+    <title>Wormgear - Complete Design System</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-        }
-
-        .content {
-            padding: 30px;
-        }
-
-        .status-panel {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-        }
-
-        .status-panel.loading {
-            border-color: #ffc107;
-        }
-
-        .status-panel.success {
-            border-color: #28a745;
-        }
-
-        .status-panel.error {
-            border-color: #dc3545;
-        }
-
-        .status-text {
-            font-weight: 500;
-            margin-bottom: 5px;
-        }
-
-        .status-detail {
-            font-size: 0.9em;
-            color: #666;
-            font-family: 'Courier New', monospace;
-        }
-
-        .section {
-            margin-bottom: 30px;
-        }
-
-        .section h2 {
-            color: #333;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 8px;
-        }
-
-        .json-input-area {
-            position: relative;
-        }
-
-        textarea {
-            width: 100%;
-            min-height: 200px;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            resize: vertical;
-            transition: border-color 0.3s;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .control-group label {
-            font-weight: 500;
-            margin-bottom: 5px;
-            color: #555;
-        }
-
-        .control-group input,
-        .control-group select {
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 1em;
-            transition: border-color 0.3s;
-        }
-
-        .control-group input:focus,
-        .control-group select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 0;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 30px;
-            border: none;
-            border-radius: 6px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        button:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .console {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 15px;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85em;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-
-        .console-line {
-            margin-bottom: 5px;
-        }
-
-        .console-line.info {
-            color: #4fc3f7;
-        }
-
-        .console-line.success {
-            color: #81c784;
-        }
-
-        .console-line.error {
-            color: #e57373;
-        }
-
-        .console-line.warning {
-            color: #ffb74d;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .viewer-container {
-            width: 100%;
-            height: 500px;
-            background: #f0f0f0;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 1.1em;
-        }
-
-        .file-drop-zone {
-            border: 3px dashed #ddd;
-            border-radius: 6px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 15px;
-        }
-
-        .file-drop-zone:hover {
-            border-color: #667eea;
-            background: #f8f9fa;
-        }
-
-        .file-drop-zone.drag-over {
-            border-color: #667eea;
-            background: #e3f2fd;
-        }
-
-        .sample-designs {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-
-        .sample-btn {
-            background: white;
-            border: 2px solid #667eea;
-            color: #667eea;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .sample-btn:hover {
-            background: #667eea;
-            color: white;
-        }
-
-        /* Tab Navigation */
-        .tab-container {
-            margin-bottom: 20px;
-        }
-
+        /* Tab styling */
         .tabs {
             display: flex;
-            gap: 5px;
-            border-bottom: 2px solid #ddd;
-            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            background: #f8f9fa;
+            margin: 0;
         }
 
         .tab {
-            padding: 10px 20px;
-            background: white;
-            border: none;
-            border-bottom: 3px solid transparent;
+            padding: 15px 30px;
             cursor: pointer;
+            border: none;
+            background: transparent;
             font-size: 1em;
+            font-weight: 500;
             color: #666;
-            transition: all 0.2s;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
         }
 
         .tab:hover {
+            background: rgba(102, 126, 234, 0.1);
             color: #667eea;
-            background: #f8f9fa;
         }
 
         .tab.active {
             color: #667eea;
             border-bottom-color: #667eea;
-            font-weight: 500;
+            background: white;
         }
 
         .tab-content {
@@ -340,1246 +46,275 @@
             display: block;
         }
 
-        /* Parameter Form */
-        .param-form {
-            display: grid;
-            gap: 20px;
+        .lazy-load-notice {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
         }
 
-        .param-section {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid #667eea;
+        .lazy-load-notice h3 {
+            color: #856404;
+            margin-bottom: 10px;
         }
 
-        .param-section h3 {
-            margin: 0 0 15px 0;
-            color: #667eea;
-            font-size: 1.1em;
+        .lazy-load-notice p {
+            color: #856404;
+            margin-bottom: 15px;
         }
 
-        .param-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .param-field {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .param-field label {
-            font-size: 0.9em;
-            color: #555;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-
-        .param-field label .unit {
-            color: #999;
-            font-weight: normal;
-        }
-
-        .param-field input, .param-field select {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1em;
-        }
-
-        .param-field input:focus, .param-field select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .param-help {
-            font-size: 0.85em;
-            color: #999;
-            margin-top: 3px;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .btn-secondary {
-            background: white;
-            border: 2px solid #667eea;
-            color: #667eea;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-secondary:hover {
-            background: #667eea;
-            color: white;
+        .lazy-load-notice button {
+            background: #ffc107;
+            color: #000;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔩 Worm Gear 3D Generator</h1>
-            <p>Browser-based CAD generation using Pyodide & build123d</p>
+    <div id="app">
+        <header>
+            <h1>Wormgear Complete Design System</h1>
+            <p class="subtitle">Calculate parameters and generate 3D geometry - all in your browser</p>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab active" data-tab="calculator">Calculator</button>
+            <button class="tab" data-tab="generator">3D Generator</button>
         </div>
 
-        <div class="content">
-            <!-- Status Panel -->
-            <div id="statusPanel" class="status-panel loading">
-                <div class="status-text">
-                    <span class="spinner"></span>
-                    <span id="statusText">Initializing Pyodide...</span>
-                </div>
-                <div class="status-detail" id="statusDetail">Loading Python runtime...</div>
-            </div>
+        <main>
+            <!-- Calculator Tab -->
+            <div id="calculator-tab" class="tab-content active">
+                <section id="inputs-section">
+                    <h2>Inputs</h2>
 
-            <!-- Input Section with Tabs -->
-            <div class="section">
-                <h2>1. Design Input</h2>
+                    <label for="mode">Design Mode:</label>
+                    <select id="mode">
+                        <option value="envelope">Envelope (both ODs)</option>
+                        <option value="from-wheel">From Wheel OD</option>
+                        <option value="from-module">From Module</option>
+                        <option value="from-centre-distance">From Centre Distance</option>
+                    </select>
 
-                <div class="tab-container">
-                    <div class="tabs">
-                        <button class="tab active" onclick="switchTab('json')">JSON Input</button>
-                        <button class="tab" onclick="switchTab('params')">Parameter Input</button>
+                    <div id="mode-inputs">
+                        <!-- Envelope mode inputs (default) -->
+                        <div class="input-group" data-mode="envelope">
+                            <label for="worm-od">Worm OD (mm):</label>
+                            <input type="number" id="worm-od" value="20" step="0.1">
+
+                            <label for="wheel-od">Wheel OD (mm):</label>
+                            <input type="number" id="wheel-od" value="65" step="0.1">
+
+                            <label for="ratio">Ratio:</label>
+                            <input type="number" id="ratio" value="30" step="1">
+
+                            <div class="checkbox-option" style="margin-top: 0.5rem;">
+                                <input type="checkbox" id="od-as-maximum">
+                                <label for="od-as-maximum">Treat ODs as maximum constraints (find largest standard module that fits)</label>
+                            </div>
+                        </div>
+
+                        <!-- From wheel mode inputs -->
+                        <div class="input-group" data-mode="from-wheel" style="display: none;">
+                            <label for="wheel-od-fw">Wheel OD (mm):</label>
+                            <input type="number" id="wheel-od-fw" value="65" step="0.1">
+
+                            <label for="ratio-fw">Ratio:</label>
+                            <input type="number" id="ratio-fw" value="30" step="1">
+
+                            <label for="target-lead-angle">Target Lead Angle (degrees):</label>
+                            <input type="number" id="target-lead-angle" value="8" step="0.1">
+                        </div>
+
+                        <!-- From module mode inputs -->
+                        <div class="input-group" data-mode="from-module" style="display: none;">
+                            <label for="module">Module (mm):</label>
+                            <input type="number" id="module" value="2.0" step="0.01">
+
+                            <label for="ratio-fm">Ratio:</label>
+                            <input type="number" id="ratio-fm" value="30" step="1">
+                        </div>
+
+                        <!-- From centre distance mode inputs -->
+                        <div class="input-group" data-mode="from-centre-distance" style="display: none;">
+                            <label for="centre-distance">Centre Distance (mm):</label>
+                            <input type="number" id="centre-distance" value="40" step="0.1">
+
+                            <label for="ratio-fcd">Ratio:</label>
+                            <input type="number" id="ratio-fcd" value="30" step="1">
+                        </div>
                     </div>
 
-                    <!-- JSON Tab -->
-                    <div id="jsonTab" class="tab-content active">
-                        <div class="sample-designs">
-                            <button class="sample-btn" onclick="loadSampleDesign('sample_m2_ratio30')">Sample M2 Ratio 30:1</button>
-                            <button class="sample-btn" onclick="loadSampleDesign('7mm')">7mm Design</button>
-                        </div>
+                    <details open>
+                        <summary>Options</summary>
+                        <div id="options-inputs">
+                            <label for="pressure-angle">Pressure Angle (degrees):</label>
+                            <input type="number" id="pressure-angle" value="20" step="0.1">
 
-                        <div class="file-drop-zone" id="dropZone">
-                            <div>📁 Drop JSON file here or click to browse</div>
-                            <input type="file" id="fileInput" accept=".json" style="display: none;">
+                            <label for="backlash">Backlash (mm):</label>
+                            <input type="number" id="backlash" value="0" step="0.01">
+
+                            <label for="num-starts">Number of Starts:</label>
+                            <input type="number" id="num-starts" value="1" step="1" min="1">
+
+                            <label for="hand">Hand:</label>
+                            <select id="hand">
+                                <option value="RIGHT">Right</option>
+                                <option value="LEFT">Left</option>
+                            </select>
+
+                            <label for="profile-shift">Profile Shift Coefficient:</label>
+                            <input type="number" id="profile-shift" value="0" step="0.01" min="-0.5" max="0.8">
+
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="use-standard-module" checked>
+                                <label for="use-standard-module">Round to nearest standard module (ISO 54)</label>
+                            </div>
                         </div>
+                    </details>
+
+                    <details>
+                        <summary>Manufacturing Options</summary>
+                        <div id="manufacturing-inputs">
+                            <label for="profile">Tooth Profile (DIN 3975):</label>
+                            <select id="profile">
+                                <option value="ZA" selected>ZA - Straight (CNC machining)</option>
+                                <option value="ZK">ZK - Convex (3D printing)</option>
+                            </select>
+
+                            <label for="worm-type">Worm Type:</label>
+                            <select id="worm-type">
+                                <option value="cylindrical" selected>Cylindrical (standard)</option>
+                                <option value="globoid">Globoid (hourglass - better contact)</option>
+                            </select>
+
+                            <div id="throat-reduction-group" style="display: none;">
+                                <label for="throat-reduction">Throat Reduction (mm):</label>
+                                <input type="number" id="throat-reduction" value="0.05" step="0.01" min="0">
+                                <small class="hint">Typical: 0.05-0.1mm for small gears, 0.1-0.2mm for medium, 0.2-0.5mm for large</small>
+                            </div>
+
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="wheel-throated">
+                                <label for="wheel-throated">Throated wheel teeth (hobbed, better contact)</label>
+                            </div>
+                        </div>
+                    </details>
+                </section>
+
+                <section id="validation-section">
+                    <h2>Validation</h2>
+                    <div id="validation-status" class="status-pending">Waiting for calculation...</div>
+                    <div id="module-info" class="module-info" style="display: none;"></div>
+                    <ul id="validation-messages"></ul>
+                </section>
+
+                <section id="results-section">
+                    <h2>Results</h2>
+                    <pre id="results-text">Enter parameters and click Calculate</pre>
+                </section>
+
+                <section id="export-section">
+                    <h2>Export</h2>
+                    <button id="copy-json" disabled>Copy JSON</button>
+                    <button id="download-json" disabled>Download JSON</button>
+                    <button id="download-md" disabled>Download Markdown</button>
+                    <button id="copy-link" disabled>Copy Share Link</button>
+                </section>
+            </div>
+
+            <!-- Generator Tab -->
+            <div id="generator-tab" class="tab-content">
+                <div id="generator-lazy-load" class="lazy-load-notice">
+                    <h3>3D Geometry Generator</h3>
+                    <p>Generate CNC-ready STEP files directly in your browser using WebAssembly.</p>
+                    <p><strong>Note:</strong> This will load ~50MB of dependencies (Pyodide, OCP, build123d). It may take 30-60 seconds on first load.</p>
+                    <button id="load-generator-btn">Load Generator</button>
+                </div>
+
+                <div id="generator-content" style="display: none;">
+                    <section class="generator-section">
+                        <h2>JSON Input</h2>
+                        <p>Paste your design JSON from the Calculator tab or upload a file:</p>
 
                         <div class="json-input-area">
-                            <textarea id="jsonInput" placeholder="Paste your design JSON from wormgearcalc here..."></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Parameter Tab -->
-                    <div id="paramsTab" class="tab-content">
-                        <div class="param-form">
-                            <!-- Worm Parameters -->
-                            <div class="param-section">
-                                <h3>Worm Parameters</h3>
-                                <div class="param-grid">
-                                    <div class="param-field">
-                                        <label>Module <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_module" value="2.0" min="0.5" max="10" step="0.5">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Number of Starts</label>
-                                        <input type="number" id="param_worm_starts" value="1" min="1" max="4" step="1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Pitch Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_pitch_dia" value="16.29" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Tip Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_tip_dia" value="20.29" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Root Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_root_dia" value="11.29" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Lead <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_lead" value="6.283" step="0.001">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Lead Angle <span class="unit">(deg)</span></label>
-                                        <input type="number" id="param_worm_lead_angle" value="7.0" step="0.1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Addendum <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_addendum" value="2.0" step="0.1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Dedendum <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_dedendum" value="2.5" step="0.1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Thread Thickness <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_worm_thread_thickness" value="3.142" step="0.001">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Hand</label>
-                                        <select id="param_worm_hand">
-                                            <option value="RIGHT">Right</option>
-                                            <option value="LEFT">Left</option>
-                                        </select>
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Profile Shift</label>
-                                        <input type="number" id="param_worm_profile_shift" value="0.0" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Wheel Parameters -->
-                            <div class="param-section">
-                                <h3>Wheel Parameters</h3>
-                                <div class="param-grid">
-                                    <div class="param-field">
-                                        <label>Module <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_module" value="2.0" min="0.5" max="10" step="0.5">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Number of Teeth</label>
-                                        <input type="number" id="param_wheel_teeth" value="30" min="12" max="100" step="1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Pitch Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_pitch_dia" value="60.0" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Tip Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_tip_dia" value="64.0" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Root Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_root_dia" value="55.0" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Throat Diameter <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_throat_dia" value="62.0" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Helix Angle <span class="unit">(deg)</span></label>
-                                        <input type="number" id="param_wheel_helix_angle" value="83.0" step="0.1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Addendum <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_addendum" value="2.0" step="0.1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Dedendum <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_wheel_dedendum" value="2.5" step="0.1">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Profile Shift</label>
-                                        <input type="number" id="param_wheel_profile_shift" value="0.0" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Assembly Parameters -->
-                            <div class="param-section">
-                                <h3>Assembly Parameters</h3>
-                                <div class="param-grid">
-                                    <div class="param-field">
-                                        <label>Centre Distance <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_assembly_centre_distance" value="38.145" step="0.001">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Pressure Angle <span class="unit">(deg)</span></label>
-                                        <input type="number" id="param_assembly_pressure_angle" value="20.0" step="0.5">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Backlash <span class="unit">(mm)</span></label>
-                                        <input type="number" id="param_assembly_backlash" value="0.05" step="0.01">
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Hand</label>
-                                        <select id="param_assembly_hand">
-                                            <option value="RIGHT">Right</option>
-                                            <option value="LEFT">Left</option>
-                                        </select>
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Ratio</label>
-                                        <input type="number" id="param_assembly_ratio" value="30" min="1" step="1">
-                                        <div class="param-help">Wheel teeth / Worm starts</div>
-                                    </div>
-                                    <div class="param-field">
-                                        <label>Efficiency <span class="unit">(%)</span></label>
-                                        <input type="number" id="param_assembly_efficiency" value="72.3" min="0" max="100" step="0.1">
-                                    </div>
-                                    <div class="param-field" style="align-items: flex-start; flex-direction: row; align-items: center; gap: 8px;">
-                                        <input type="checkbox" id="param_assembly_self_locking" style="width: auto; margin: 0;">
-                                        <label for="param_assembly_self_locking" style="margin: 0;">Self-Locking</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Form Actions -->
-                            <div class="form-actions">
-                                <button class="btn-secondary" onclick="paramsToJSON()">Convert to JSON</button>
-                                <button class="btn-secondary" onclick="loadParamsPreset('m2_z30')">Load M2 Z30 Preset</button>
-                                <button class="btn-secondary" onclick="loadParamsPreset('7mm')">Load 7mm Preset</button>
+                            <textarea id="json-input" placeholder="Paste JSON here or use Calculator tab..."></textarea>
+                            <div style="margin-top: 10px;">
+                                <button id="load-from-calculator">Load from Calculator</button>
+                                <input type="file" id="json-file-input" accept=".json" style="display: none;">
+                                <button id="load-json-file">Upload JSON File</button>
                             </div>
                         </div>
-                    </div>
+                    </section>
+
+                    <section class="generator-section">
+                        <h2>Generation Options</h2>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="gen-worm-length">Worm Length (mm):</label>
+                                <input type="number" id="gen-worm-length" value="40" step="1" min="10">
+                            </div>
+                            <div class="control-group">
+                                <label for="gen-wheel-width">Wheel Width (mm):</label>
+                                <input type="number" id="gen-wheel-width" placeholder="Auto" step="1" min="5">
+                            </div>
+                        </div>
+
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="gen-globoid">
+                            <label for="gen-globoid">Generate globoid worm (hourglass shape)</label>
+                        </div>
+
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="gen-virtual-hobbing">
+                            <label for="gen-virtual-hobbing">Use virtual hobbing for wheel (slower, more accurate)</label>
+                        </div>
+                    </section>
+
+                    <section class="generator-section">
+                        <h2>Generate</h2>
+                        <div class="button-group">
+                            <button id="generate-worm-btn">Generate Worm</button>
+                            <button id="generate-wheel-btn">Generate Wheel</button>
+                            <button id="generate-both-btn">Generate Both</button>
+                        </div>
+                    </section>
+
+                    <section class="generator-section">
+                        <h2>Console Output</h2>
+                        <div id="console-output" class="console">
+                            <div>Ready to generate geometry...</div>
+                        </div>
+                    </section>
                 </div>
             </div>
+        </main>
 
-            <!-- Parameter Controls -->
-            <div class="section">
-                <h2>2. Generation Parameters</h2>
+        <footer>
+            <p>Created by Paul Fremantle | <a href="https://github.com/pzfreo/worm-gear-3d">GitHub</a></p>
+        </footer>
+    </div>
 
-                <div class="controls">
-                    <div class="control-group">
-                        <label>Worm Length (mm)</label>
-                        <input type="number" id="wormLength" value="40" min="10" max="200" step="5">
-                    </div>
-
-                    <div class="control-group">
-                        <label>Wheel Width (mm)</label>
-                        <input type="number" id="wheelWidth" value="" placeholder="Auto">
-                    </div>
-
-                    <div class="control-group">
-                        <label>Wheel Type</label>
-                        <select id="wheelType">
-                            <option value="helical">Helical (Default)</option>
-                            <option value="hobbed">Hobbed (Throated)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="controls">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="addBore">
-                        <label for="addBore">Add Bore</label>
-                    </div>
-
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="addKeyway">
-                        <label for="addKeyway">Add Keyway (DIN 6885)</label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="section">
-                <h2>3. Generate Geometry</h2>
-
-                <div class="button-group">
-                    <button id="generateBtn" onclick="generateGeometry()" disabled>
-                        Generate STEP Files
-                    </button>
-                    <button id="testBtn" onclick="testBuild123d()" disabled>
-                        Test build123d
-                    </button>
-                </div>
-            </div>
-
-            <!-- Console Output -->
-            <div class="section">
-                <h2>Console Output</h2>
-                <div class="console" id="console">
-                    <div class="console-line info">Waiting for initialization...</div>
-                </div>
-            </div>
-
-            <!-- 3D Viewer (placeholder for now) -->
-            <div class="section hidden" id="viewerSection">
-                <h2>3D Preview</h2>
-                <div class="viewer-container">
-                    3D Viewer (Coming Soon)
-                </div>
-            </div>
+    <!-- Loading overlays -->
+    <div id="loading-calculator" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Loading calculator...</p>
+            <p class="loading-detail">Initializing Pyodide calculator environment</p>
         </div>
     </div>
 
-    <!-- Load Pyodide -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
-
-    <script>
-        let pyodide = null;
-        let consoleLines = [];
-
-        // Console logging
-        function log(message, type = 'info') {
-            const timestamp = new Date().toLocaleTimeString();
-            consoleLines.push({ time: timestamp, message, type });
-            updateConsole();
-        }
-
-        function updateConsole() {
-            const console = document.getElementById('console');
-            console.innerHTML = consoleLines.map(line =>
-                `<div class="console-line ${line.type}">[${line.time}] ${line.message}</div>`
-            ).join('');
-            console.scrollTop = console.scrollHeight;
-        }
-
-        // Status panel updates
-        function updateStatus(text, detail, state = 'loading') {
-            const panel = document.getElementById('statusPanel');
-            const statusText = document.getElementById('statusText');
-            const statusDetail = document.getElementById('statusDetail');
-
-            panel.className = `status-panel ${state}`;
-
-            if (state === 'loading') {
-                statusText.innerHTML = `<span class="spinner"></span><span>${text}</span>`;
-            } else {
-                const icon = state === 'success' ? '✓' : state === 'error' ? '✗' : 'ℹ';
-                statusText.innerHTML = `<span>${icon} ${text}</span>`;
-            }
-
-            statusDetail.textContent = detail;
-        }
-
-        // Initialize Pyodide
-        async function initPyodide() {
-            try {
-                log('Loading Pyodide...');
-                updateStatus('Loading Pyodide...', 'Downloading Python runtime', 'loading');
-
-                pyodide = await loadPyodide({
-                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.0/full/',
-                    stdout: (text) => {
-                        if (text.trim()) log(`[py] ${text}`, 'info');
-                    },
-                    stderr: (text) => {
-                        if (text.trim()) log(`[py:err] ${text}`, 'warning');
-                    }
-                });
-
-                log('Pyodide loaded successfully', 'success');
-                updateStatus('Pyodide Ready', 'Python runtime loaded', 'success');
-
-                // Install micropip
-                log('Installing micropip...');
-                await pyodide.loadPackage('micropip');
-                const micropip = pyodide.pyimport('micropip');
-
-                log('micropip ready', 'success');
-
-                // Now try to install build123d
-                await installBuild123d(micropip);
-
-            } catch (error) {
-                log(`Error initializing Pyodide: ${error.message}`, 'error');
-                updateStatus('Initialization Failed', error.message, 'error');
-                console.error('Pyodide init error:', error);
-            }
-        }
-
-        // Install build123d and dependencies
-        async function installBuild123d(micropip) {
-            try {
-                // Use Jojain's approach from build123d-sandbox
-                // https://github.com/Jojain/build123d-sandbox
-                updateStatus('Installing CAD packages...', 'Following Jojain\'s working method', 'loading');
-                log('📦 Using proven installation method from build123d-sandbox');
-                log('⏳ Large download - please be patient (2-5 minutes)...', 'info');
-
-                const result = await pyodide.runPythonAsync(`
-import micropip
-
-print("Starting package installation...")
-print("Setting index URLs...")
-micropip.set_index_urls(["https://yeicor.github.io/OCP.wasm", "https://pypi.org/simple"])
-print("Index URLs set")
-
-print("Installing lib3mf...")
-await micropip.install("lib3mf")
-print("✓ lib3mf installed")
-
-print("Installing ssl...")
-await micropip.install("ssl")
-print("✓ ssl installed")
-
-print("Installing ocp_vscode from Jojain's fork...")
-await micropip.install("https://raw.githubusercontent.com/Jojain/vscode-ocp-cad-viewer/no_pyperclip/ocp_vscode-2.9.0-py3-none-any.whl")
-print("✓ ocp_vscode installed")
-
-# Mock package for build123d<0.10.0 compatibility
-micropip.add_mock_package("py-lib3mf", "2.4.1", modules={"py_lib3mf": '''from lib3mf import *'''})
-print("✓ Mock package added")
-
-print("Installing build123d and sqlite3...")
-await micropip.install(["build123d", "sqlite3"])
-print("✓ Installation completed")
-
-# Test imports
-print("Testing imports...")
-try:
-    import build123d
-    print(f"✓ build123d imported (version: {getattr(build123d, '__version__', 'unknown')})")
-    success = True
-except ImportError as e:
-    print(f"✗ build123d import failed: {e}")
-    success = False
-
-"SUCCESS" if success else "FAILED"
-                `);
-
-                if (result === 'SUCCESS') {
-                    log('✓ All packages installed successfully!', 'success');
-                    log('✓ build123d is ready to use', 'success');
-                    updateStatus('Ready to Generate', 'build123d loaded and tested', 'success');
-
-                    document.getElementById('generateBtn').disabled = false;
-                    document.getElementById('testBtn').disabled = false;
-
-                    log('System ready - click "Test build123d" to verify geometry creation', 'info');
-                } else {
-                    log('⚠ Packages installed but import test failed', 'warning');
-                    log('Click "Test build123d" to see detailed error', 'info');
-                    updateStatus('Partially Ready', 'Packages installed, imports may fail', 'warning');
-
-                    document.getElementById('testBtn').disabled = false;
-                }
-
-            } catch (error) {
-                log(`✗ Installation failed`, 'error');
-                log(`Error: ${error.message}`, 'error');
-
-                // Show traceback
-                try {
-                    const tb = await pyodide.runPythonAsync('import traceback; traceback.format_exc()');
-                    log('Python traceback:', 'error');
-                    tb.split('\\n').forEach(line => line && log(line, 'error'));
-                } catch (e) {}
-
-                updateStatus('Installation Failed',
-                    'Could not install CAD packages', 'error');
-                console.error('Installation error:', error);
-
-                document.getElementById('testBtn').disabled = false;
-
-                log('', 'info');
-                log('📝 Troubleshooting:', 'warning');
-                log('• Check browser console for detailed errors', 'info');
-                log('• Try using the Python library locally instead (recommended)', 'info');
-                log('• See web/CURRENT_STATUS.md for known issues', 'info');
-            }
-        }
-
-        // Test build123d import
-        async function testBuild123d() {
-            if (!pyodide) {
-                log('Pyodide not initialized yet', 'error');
-                return;
-            }
-
-            try {
-                log('Testing build123d and OCP...');
-                log('This may take a moment...', 'info');
-
-                const result = await pyodide.runPythonAsync(`
-import sys
-
-output = []
-
-# Test OCP import
-try:
-    import OCP
-    output.append("✓ OCP imported successfully")
-    ocp_ok = True
-except ImportError as e:
-    output.append(f"✗ OCP import failed: {e}")
-    ocp_ok = False
-
-# Test build123d import
-try:
-    import build123d
-    output.append(f"✓ build123d imported (version: {getattr(build123d, '__version__', 'unknown')})")
-    b3d_ok = True
-except ImportError as e:
-    output.append(f"✗ build123d import failed: {e}")
-    b3d_ok = False
-
-# If both work, try to create a simple object
-if ocp_ok and b3d_ok:
-    try:
-        from build123d import Box, Cylinder
-        box = Box(10, 10, 10)
-        cyl = Cylinder(5, 20)
-        output.append(f"✓ Created test box (volume: {box.volume:.2f} mm³)")
-        output.append(f"✓ Created test cylinder (volume: {cyl.volume:.2f} mm³)")
-        result = "SUCCESS"
-    except Exception as e:
-        output.append(f"✗ Geometry creation failed: {e}")
-        result = "PARTIAL"
-else:
-    result = "FAILED"
-
-"\\n".join(output) + "\\n" + result
-                `);
-
-                if (!result) {
-                    log('Test returned no result', 'error');
-                    return;
-                }
-
-                const lines = result.split('\n');
-                for (const line of lines) {
-                    if (line.includes('✓')) {
-                        log(line, 'success');
-                    } else if (line.includes('✗')) {
-                        log(line, 'error');
-                    } else if (line === 'SUCCESS' || line === 'PARTIAL' || line === 'FAILED') {
-                        // Skip these, we'll handle them below
-                    } else if (line.trim()) {
-                        log(line, 'info');
-                    }
-                }
-
-                if (result.includes('SUCCESS')) {
-                    log('✓ All tests passed! Ready to generate worm gears', 'success');
-                } else if (result.includes('PARTIAL')) {
-                    log('⚠ Partial success - some features may not work', 'warning');
-                } else {
-                    log('✗ Tests failed - installation incomplete', 'error');
-                }
-
-            } catch (error) {
-                log(`Test error: ${error.message}`, 'error');
-                console.error('Test error:', error);
-            }
-        }
-
-        // File handling
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const jsonInput = document.getElementById('jsonInput');
-
-        dropZone.onclick = () => fileInput.click();
-
-        dropZone.ondragover = (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        };
-
-        dropZone.ondragleave = () => {
-            dropZone.classList.remove('drag-over');
-        };
-
-        dropZone.ondrop = (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) loadFile(file);
-        };
-
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) loadFile(file);
-        };
-
-        function loadFile(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                jsonInput.value = e.target.result;
-                log(`Loaded file: ${file.name}`, 'success');
-                try {
-                    const data = JSON.parse(e.target.result);
-
-                    // Validate structure
-                    if (!data.design) {
-                        log('⚠ Warning: JSON missing "design" object', 'warning');
-                        log('Expected format: { "design": { "worm": {...}, "wheel": {...}, "assembly": {...} } }', 'info');
-                    } else if (!data.design.worm || !data.design.wheel || !data.design.assembly) {
-                        log('⚠ Warning: Incomplete design structure', 'warning');
-                        if (!data.design.worm) log('  Missing: design.worm', 'warning');
-                        if (!data.design.wheel) log('  Missing: design.wheel', 'warning');
-                        if (!data.design.assembly) log('  Missing: design.assembly', 'warning');
-                    } else {
-                        log('✓ JSON validated successfully', 'success');
-                        log(`  Module: ${data.design.worm.module_mm} mm, Ratio: ${data.design.assembly.ratio}:1`, 'info');
-                    }
-                } catch (error) {
-                    log(`✗ Invalid JSON: ${error.message}`, 'error');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // Load sample designs
-        async function loadSampleDesign(name) {
-            try {
-                log(`Loading sample design: ${name}...`);
-
-                // Try both paths (for local dev and deployed versions)
-                let json = null;
-                let loaded = false;
-
-                // Try deployed path first (examples/ relative to index.html)
-                try {
-                    const response = await fetch(`examples/${name}.json`);
-                    if (response.ok) {
-                        json = await response.json();
-                        loaded = true;
-                    }
-                } catch (e) {
-                    // Fallback to local dev path
-                    try {
-                        const response = await fetch(`../examples/${name}.json`);
-                        if (response.ok) {
-                            json = await response.json();
-                            loaded = true;
-                        }
-                    } catch (e2) {
-                        // Will be caught below
-                    }
-                }
-
-                if (loaded && json) {
-                    jsonInput.value = JSON.stringify(json, null, 2);
-                    log(`✓ Loaded ${name} design`, 'success');
-                } else {
-                    log(`Could not load ${name}.json - file not found`, 'error');
-                }
-            } catch (error) {
-                log(`Error loading sample: ${error.message}`, 'error');
-            }
-        }
-
-        // Load wormgear_geometry package into Pyodide
-        async function loadWormGearPackage() {
-            try {
-                log('Loading wormgear_geometry package...', 'info');
-
-                // Create package directory and load source files
-                await pyodide.runPythonAsync(`
-import os
-import sys
-os.makedirs('/home/pyodide/wormgear_geometry', exist_ok=True)
-if '/home/pyodide' not in sys.path:
-    sys.path.insert(0, '/home/pyodide')
-                `);
-
-                // Fetch and load package files
-                const packageFiles = ['__init__.py', 'io.py', 'worm.py', 'wheel.py', 'features.py'];
-                let loadedCount = 0;
-
-                for (const filename of packageFiles) {
-                    let content = null;
-                    let loadedFrom = null;
-
-                    // Try GitHub Pages/deployed path first (src/ relative to index.html)
-                    try {
-                        const response = await fetch(`src/wormgear_geometry/${filename}`);
-                        if (response.ok) {
-                            content = await response.text();
-                            loadedFrom = 'src/';
-                        }
-                    } catch (e) {
-                        // Try local dev path (../src/ when serving from project root)
-                        try {
-                            const response = await fetch(`../src/wormgear_geometry/${filename}`);
-                            if (response.ok) {
-                                content = await response.text();
-                                loadedFrom = '../src/';
-                            }
-                        } catch (e2) {
-                            console.error(`Failed to fetch ${filename}:`, e, e2);
-                        }
-                    }
-
-                    if (content) {
-                        pyodide.FS.writeFile(`/home/pyodide/wormgear_geometry/${filename}`, content);
-                        log(`  ✓ Loaded ${filename} (from ${loadedFrom})`, 'success');
-                        loadedCount++;
-                    } else {
-                        log(`  ✗ Failed to load ${filename} from both paths`, 'error');
-                    }
-                }
-
-                if (loadedCount < packageFiles.length) {
-                    log(`Warning: Only loaded ${loadedCount}/${packageFiles.length} files`, 'warning');
-                }
-
-                // Test import
-                await pyodide.runPythonAsync(`
-import wormgear_geometry
-print(f"wormgear_geometry loaded (version {wormgear_geometry.__version__})")
-                `);
-
-                log('✓ wormgear_geometry package ready', 'success');
-                return true;
-            } catch (error) {
-                log(`✗ Failed to load wormgear_geometry: ${error.message}`, 'error');
-                console.error('Package loading error:', error);
-                return false;
-            }
-        }
-
-        // Generate geometry
-        async function generateGeometry() {
-            if (!pyodide) {
-                log('Pyodide not initialized', 'error');
-                return;
-            }
-
-            const startTime = Date.now();
-
-            try {
-                const jsonText = document.getElementById('jsonInput').value;
-                if (!jsonText) {
-                    log('Please provide design JSON', 'error');
-                    return;
-                }
-
-                const designData = JSON.parse(jsonText);
-                log('✓ JSON parsed successfully', 'success');
-
-                // Validate structure
-                if (!designData.design || !designData.design.worm || !designData.design.wheel || !designData.design.assembly) {
-                    log('✗ Invalid JSON structure', 'error');
-                    log('Expected format: { "design": { "worm": {...}, "wheel": {...}, "assembly": {...} } }', 'error');
-                    log('See examples/sample_m2_ratio30.json for correct format', 'info');
-                    return;
-                }
-
-                // Extract parameters from UI
-                const wormLength = parseFloat(document.getElementById('wormLength').value) || 40;
-                const wheelWidthInput = document.getElementById('wheelWidth').value;
-                const wheelWidth = wheelWidthInput ? parseFloat(wheelWidthInput) : null;
-                const throated = document.getElementById('wheelType').value === 'hobbed';
-
-                console.log(`DEBUG: wormLength input value = "${document.getElementById('wormLength').value}"`);
-                console.log(`DEBUG: wormLength parsed = ${wormLength}`);
-
-                log('Starting geometry generation...', 'info');
-                log(`Parameters:`, 'info');
-                log(`  Module: ${designData.design.worm.module_mm} mm`, 'info');
-                log(`  Ratio: ${designData.design.assembly.ratio}:1`, 'info');
-                log(`  Worm length: ${wormLength} mm`, 'info');
-                log(`  Wheel width: ${wheelWidth || 'auto'} mm`, 'info');
-                log(`  Wheel type: ${throated ? 'hobbed (throated)' : 'helical'}`, 'info');
-                log('', 'info');
-
-                // Load package if not already loaded
-                log('⏳ Step 1/4: Checking package...', 'info');
-                const packageLoaded = await loadWormGearPackage();
-                if (!packageLoaded) {
-                    log('Cannot proceed - package loading failed', 'error');
-                    return;
-                }
-                log('✓ Package ready', 'success');
-                log('', 'info');
-
-                // Pass data to Python and generate
-                log('⏳ Step 2/4: Preparing Python environment...', 'info');
-                pyodide.globals.set('design_json_str', JSON.stringify(designData));
-                pyodide.globals.set('worm_length', wormLength);
-                pyodide.globals.set('wheel_width_val', wheelWidth || null);  // Ensure null not undefined
-                pyodide.globals.set('throated_val', throated);
-                log('✓ Parameters passed to Python', 'success');
-                log('', 'info');
-
-                updateStatus('Generating geometry...', 'This may take 30-60 seconds', 'loading');
-                log('⏳ Step 3/4: Generating 3D geometry (please wait)...', 'info');
-                log('  This may take 30-90 seconds on mobile devices', 'info');
-
-                const pythonStartTime = Date.now();
-                const result = await pyodide.runPythonAsync(`
-import json
-import base64
-import tempfile
-import os
-from wormgear_geometry import WormGeometry, WheelGeometry
-from wormgear_geometry import WormParams, WheelParams, AssemblyParams
-
-print("📋 Parsing parameters...")
-# Parse design JSON
-design_data = json.loads(design_json_str)
-design = design_data['design']
-
-# Create parameter objects
-worm_params = WormParams(**design['worm'])
-wheel_params = WheelParams(**design['wheel'])
-assembly_params = AssemblyParams(**design['assembly'])
-
-# Handle None wheel_width - convert JS null to Python None
-# JsNull is not Python None, so we need to check if it's truthy or use try/except
-try:
-    wheel_width = float(wheel_width_val) if wheel_width_val else None
-except (TypeError, ValueError):
-    wheel_width = None
-print(f"Wheel width: {wheel_width if wheel_width else 'auto-calculated'}")
-print(f"Worm length (from JS): {worm_length}")
-
-print("✓ Parameters parsed")
-
-print("")
-print("🔩 Generating worm gear...")
-worm_b64 = None
-try:
-    # Generate worm
-    print("  Creating worm geometry object...")
-    worm_geo = WormGeometry(
-        params=worm_params,
-        assembly_params=assembly_params,
-        length=worm_length,
-        sections_per_turn=36
-    )
-    print("  Building 3D model...")
-    worm = worm_geo.build()
-    print("  Exporting to STEP format...")
-
-    # Export to temp file (build123d doesn't support BytesIO)
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.step', delete=False) as tmp:
-        temp_path = tmp.name
-
-    worm_geo.export_step(temp_path)
-
-    # Read back as bytes
-    with open(temp_path, 'rb') as f:
-        worm_step = f.read()
-
-    # Clean up temp file
-    os.unlink(temp_path)
-
-    worm_b64 = base64.b64encode(worm_step).decode('utf-8')
-
-    size_kb = len(worm_step) / 1024
-    print(f"✓ Worm generated successfully!")
-    print(f"  File size: {size_kb:.1f} KB ({len(worm_step)} bytes)")
-except Exception as e:
-    print(f"✗ Worm generation failed: {e}")
-    import traceback
-    traceback.print_exc()
-
-print("")
-print("⚙️  Generating wheel gear...")
-wheel_b64 = None
-try:
-    # Generate wheel
-    print("  Creating wheel geometry object...")
-    wheel_geo = WheelGeometry(
-        params=wheel_params,
-        worm_params=worm_params,
-        assembly_params=assembly_params,
-        face_width=wheel_width,
-        throated=throated_val
-    )
-    print("  Building 3D model (this is the slowest step)...")
-    wheel = wheel_geo.build()
-    print("  Exporting to STEP format...")
-
-    # Export to temp file (build123d doesn't support BytesIO)
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.step', delete=False) as tmp:
-        temp_path = tmp.name
-
-    wheel_geo.export_step(temp_path)
-
-    # Read back as bytes
-    with open(temp_path, 'rb') as f:
-        wheel_step = f.read()
-
-    # Clean up temp file
-    os.unlink(temp_path)
-
-    wheel_b64 = base64.b64encode(wheel_step).decode('utf-8')
-
-    size_kb = len(wheel_step) / 1024
-    print(f"✓ Wheel generated successfully!")
-    print(f"  File size: {size_kb:.1f} KB ({len(wheel_step)} bytes)")
-except Exception as e:
-    print(f"✗ Wheel generation failed: {e}")
-    import traceback
-    traceback.print_exc()
-
-print("")
-if worm_b64 and wheel_b64:
-    print("✅ Both parts generated successfully!")
-elif worm_b64:
-    print("⚠️  Only worm generated (wheel failed)")
-elif wheel_b64:
-    print("⚠️  Only wheel generated (worm failed)")
-else:
-    print("❌ Both parts failed to generate")
-
-# Return results
-{
-    'worm': worm_b64,
-    'wheel': wheel_b64,
-    'success': worm_b64 is not None and wheel_b64 is not None
-}
-                `);
-
-                const pythonElapsed = ((Date.now() - pythonStartTime) / 1000).toFixed(1);
-                log(`✓ Python execution completed (${pythonElapsed}s)`, 'success');
-                log('', 'info');
-
-                // Process results
-                log('⏳ Step 4/4: Processing results...', 'info');
-                const resultObj = result.toJs({ dict_converter: Object.fromEntries });
-
-                log(`Result status: ${resultObj.success ? 'SUCCESS' : 'FAILED'}`, resultObj.success ? 'success' : 'error');
-                log(`Worm data: ${resultObj.worm ? 'Present' : 'Missing'}`, resultObj.worm ? 'success' : 'error');
-                log(`Wheel data: ${resultObj.wheel ? 'Present' : 'Missing'}`, resultObj.wheel ? 'success' : 'error');
-
-                if (resultObj.success) {
-                    log('', 'info');
-                    log('✓ Geometry generated successfully!', 'success');
-                    updateStatus('Generation Complete', 'Downloading STEP files...', 'success');
-
-                    // Create download buttons
-                    if (resultObj.worm) {
-                        log('📥 Triggering worm.step download...', 'info');
-                        downloadSTEP('worm.step', resultObj.worm);
-                        log('✓ Worm STEP file download triggered', 'success');
-                    }
-
-                    if (resultObj.wheel) {
-                        log('📥 Triggering wheel.step download...', 'info');
-                        downloadSTEP('wheel.step', resultObj.wheel);
-                        log('✓ Wheel STEP file download triggered', 'success');
-                    }
-
-                    const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-                    log('', 'info');
-                    log(`✅ Generation complete! Total time: ${totalElapsed}s`, 'success');
-                    log('📁 Check your downloads folder for worm.step and wheel.step', 'success');
-                    updateStatus('Ready', 'Files downloaded successfully', 'success');
-
-                } else {
-                    log('', 'info');
-                    log('❌ Generation failed - check messages above for details', 'error');
-                    updateStatus('Generation Failed', 'See console for error details', 'error');
-                }
-
-            } catch (error) {
-                log('', 'info');
-                log(`❌ Error: ${error.message}`, 'error');
-                console.error('Generation error:', error);
-
-                // Show Python traceback if available
-                try {
-                    const tb = await pyodide.runPythonAsync('import traceback; traceback.format_exc()');
-                    if (tb && tb !== 'NoneType: None\n') {
-                        log('Python traceback:', 'error');
-                        tb.split('\n').forEach(line => line && log(line, 'error'));
-                    }
-                } catch (e) {
-                    console.error('Could not get Python traceback:', e);
-                }
-
-                updateStatus('Generation Error', error.message, 'error');
-            }
-        }
-
-        // Download STEP file from base64
-        function downloadSTEP(filename, base64Data) {
-            try {
-                log(`  Decoding ${filename}...`, 'info');
-                // Decode base64 to binary
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-
-                const sizeKB = (bytes.length / 1024).toFixed(1);
-                log(`  File size: ${sizeKB} KB (${bytes.length} bytes)`, 'info');
-
-                // Create blob and download
-                log(`  Creating download blob...`, 'info');
-                const blob = new Blob([bytes], { type: 'application/step' });
-                const url = URL.createObjectURL(blob);
-
-                log(`  Triggering browser download for ${filename}...`, 'info');
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.style.display = 'none';
-                document.body.appendChild(a);
-
-                // Click to trigger download
-                a.click();
-
-                // Cleanup
-                setTimeout(() => {
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    log(`  Download complete: ${filename}`, 'success');
-                }, 100);
-
-            } catch (error) {
-                log(`❌ Download failed for ${filename}: ${error.message}`, 'error');
-                console.error('Download error:', error);
-            }
-        }
-
-        // Tab switching
-        function switchTab(tab) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-
-            // Update tab content
-            document.getElementById('jsonTab').classList.remove('active');
-            document.getElementById('paramsTab').classList.remove('active');
-
-            if (tab === 'json') {
-                document.getElementById('jsonTab').classList.add('active');
-            } else {
-                document.getElementById('paramsTab').classList.add('active');
-            }
-        }
-
-        // Convert parameters to JSON
-        function paramsToJSON() {
-            try {
-                const design = {
-                    design: {
-                        worm: {
-                            module_mm: parseFloat(document.getElementById('param_worm_module').value),
-                            num_starts: parseInt(document.getElementById('param_worm_starts').value),
-                            pitch_diameter_mm: parseFloat(document.getElementById('param_worm_pitch_dia').value),
-                            tip_diameter_mm: parseFloat(document.getElementById('param_worm_tip_dia').value),
-                            root_diameter_mm: parseFloat(document.getElementById('param_worm_root_dia').value),
-                            lead_mm: parseFloat(document.getElementById('param_worm_lead').value),
-                            lead_angle_deg: parseFloat(document.getElementById('param_worm_lead_angle').value),
-                            addendum_mm: parseFloat(document.getElementById('param_worm_addendum').value),
-                            dedendum_mm: parseFloat(document.getElementById('param_worm_dedendum').value),
-                            thread_thickness_mm: parseFloat(document.getElementById('param_worm_thread_thickness').value),
-                            hand: document.getElementById('param_worm_hand').value,
-                            profile_shift: parseFloat(document.getElementById('param_worm_profile_shift').value)
-                        },
-                        wheel: {
-                            module_mm: parseFloat(document.getElementById('param_wheel_module').value),
-                            num_teeth: parseInt(document.getElementById('param_wheel_teeth').value),
-                            pitch_diameter_mm: parseFloat(document.getElementById('param_wheel_pitch_dia').value),
-                            tip_diameter_mm: parseFloat(document.getElementById('param_wheel_tip_dia').value),
-                            root_diameter_mm: parseFloat(document.getElementById('param_wheel_root_dia').value),
-                            throat_diameter_mm: parseFloat(document.getElementById('param_wheel_throat_dia').value),
-                            helix_angle_deg: parseFloat(document.getElementById('param_wheel_helix_angle').value),
-                            addendum_mm: parseFloat(document.getElementById('param_wheel_addendum').value),
-                            dedendum_mm: parseFloat(document.getElementById('param_wheel_dedendum').value),
-                            profile_shift: parseFloat(document.getElementById('param_wheel_profile_shift').value)
-                        },
-                        assembly: {
-                            centre_distance_mm: parseFloat(document.getElementById('param_assembly_centre_distance').value),
-                            pressure_angle_deg: parseFloat(document.getElementById('param_assembly_pressure_angle').value),
-                            backlash_mm: parseFloat(document.getElementById('param_assembly_backlash').value),
-                            hand: document.getElementById('param_assembly_hand').value,
-                            ratio: parseInt(document.getElementById('param_assembly_ratio').value),
-                            efficiency_percent: parseFloat(document.getElementById('param_assembly_efficiency').value),
-                            self_locking: document.getElementById('param_assembly_self_locking').checked
-                        }
-                    },
-                    validation: {
-                        valid: true,
-                        messages: []
-                    },
-                    metadata: {
-                        source: "manual_input",
-                        created: new Date().toISOString()
-                    }
-                };
-
-                // Set the JSON textarea
-                document.getElementById('jsonInput').value = JSON.stringify(design, null, 2);
-
-                // Switch to JSON tab
-                document.querySelector('.tab:first-child').click();
-
-                log('✓ Parameters converted to JSON', 'success');
-                log('Switched to JSON tab - you can now generate', 'info');
-
-            } catch (error) {
-                log(`✗ Error converting parameters: ${error.message}`, 'error');
-                console.error('Parameter conversion error:', error);
-            }
-        }
-
-        // Load preset into parameter form
-        function loadParamsPreset(preset) {
-            const presets = {
-                'm2_z30': {
-                    worm: {
-                        module: 2.0, starts: 1, pitch_dia: 16.29, tip_dia: 20.29, root_dia: 11.29,
-                        lead: 6.283, lead_angle: 7.0, addendum: 2.0, dedendum: 2.5,
-                        thread_thickness: 3.142, hand: 'RIGHT', profile_shift: 0.0
-                    },
-                    wheel: {
-                        module: 2.0, teeth: 30, pitch_dia: 60.0, tip_dia: 64.0, root_dia: 55.0,
-                        throat_dia: 62.0, helix_angle: 83.0, addendum: 2.0, dedendum: 2.5,
-                        profile_shift: 0.0
-                    },
-                    assembly: {
-                        centre_distance: 38.145, pressure_angle: 20.0, backlash: 0.05,
-                        hand: 'RIGHT', ratio: 30, efficiency: 72.3, self_locking: false
-                    }
-                },
-                '7mm': {
-                    worm: {
-                        module: 0.5, starts: 1, pitch_dia: 6.0, tip_dia: 7.0, root_dia: 4.75,
-                        lead: 1.571, lead_angle: 4.76, addendum: 0.5, dedendum: 0.625,
-                        thread_thickness: 0.685, hand: 'RIGHT', profile_shift: 0.0
-                    },
-                    wheel: {
-                        module: 0.5, teeth: 12, pitch_dia: 6.0, tip_dia: 7.3, root_dia: 5.05,
-                        throat_dia: 6.5, helix_angle: 85.24, addendum: 0.65, dedendum: 0.475,
-                        profile_shift: 0.0
-                    },
-                    assembly: {
-                        centre_distance: 6.0, pressure_angle: 25, backlash: 0.1,
-                        hand: 'RIGHT', ratio: 12, efficiency: 59.9, self_locking: true
-                    }
-                }
-            };
-
-            const data = presets[preset];
-            if (!data) {
-                log(`✗ Unknown preset: ${preset}`, 'error');
-                return;
-            }
-
-            // Worm
-            document.getElementById('param_worm_module').value = data.worm.module;
-            document.getElementById('param_worm_starts').value = data.worm.starts;
-            document.getElementById('param_worm_pitch_dia').value = data.worm.pitch_dia;
-            document.getElementById('param_worm_tip_dia').value = data.worm.tip_dia;
-            document.getElementById('param_worm_root_dia').value = data.worm.root_dia;
-            document.getElementById('param_worm_lead').value = data.worm.lead;
-            document.getElementById('param_worm_lead_angle').value = data.worm.lead_angle;
-            document.getElementById('param_worm_addendum').value = data.worm.addendum;
-            document.getElementById('param_worm_dedendum').value = data.worm.dedendum;
-            document.getElementById('param_worm_thread_thickness').value = data.worm.thread_thickness;
-            document.getElementById('param_worm_hand').value = data.worm.hand;
-            document.getElementById('param_worm_profile_shift').value = data.worm.profile_shift;
-
-            // Wheel
-            document.getElementById('param_wheel_module').value = data.wheel.module;
-            document.getElementById('param_wheel_teeth').value = data.wheel.teeth;
-            document.getElementById('param_wheel_pitch_dia').value = data.wheel.pitch_dia;
-            document.getElementById('param_wheel_tip_dia').value = data.wheel.tip_dia;
-            document.getElementById('param_wheel_root_dia').value = data.wheel.root_dia;
-            document.getElementById('param_wheel_throat_dia').value = data.wheel.throat_dia;
-            document.getElementById('param_wheel_helix_angle').value = data.wheel.helix_angle;
-            document.getElementById('param_wheel_addendum').value = data.wheel.addendum;
-            document.getElementById('param_wheel_dedendum').value = data.wheel.dedendum;
-            document.getElementById('param_wheel_profile_shift').value = data.wheel.profile_shift;
-
-            // Assembly
-            document.getElementById('param_assembly_centre_distance').value = data.assembly.centre_distance;
-            document.getElementById('param_assembly_pressure_angle').value = data.assembly.pressure_angle;
-            document.getElementById('param_assembly_backlash').value = data.assembly.backlash;
-            document.getElementById('param_assembly_hand').value = data.assembly.hand;
-            document.getElementById('param_assembly_ratio').value = data.assembly.ratio;
-            document.getElementById('param_assembly_efficiency').value = data.assembly.efficiency;
-            document.getElementById('param_assembly_self_locking').checked = data.assembly.self_locking;
-
-            log(`✓ Loaded ${preset} preset`, 'success');
-            log('Modify parameters as needed, then click "Convert to JSON"', 'info');
-        }
-
-        // Initialize on page load
-        window.onload = () => {
-            initPyodide();
-        };
-    </script>
+    <div id="loading-generator" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Loading 3D generator...</p>
+            <p class="loading-detail">Loading Pyodide, OCP, and build123d (~50MB)</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script src="app-lazy.js"></script>
 </body>
 </html>

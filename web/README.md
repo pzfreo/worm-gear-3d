@@ -1,285 +1,290 @@
-# Worm Gear 3D - Web Interface (Experimental Prototype)
+# Wormgear Web Interface
 
-Browser-based 3D CAD generation for worm gears using Pyodide and build123d.
-
-## Overview
-
-**Status: 🚧 Experimental Prototype**
-
-This web interface is a proof-of-concept that demonstrates browser-based STEP file generation with no server-side processing. It accepts JSON design files from the [wormgearcalc](https://pzfreo.github.io/wormgearcalc/) tool and generates 3D geometry using build123d running in WebAssembly via Pyodide.
-
-**What works:** Core CAD generation, STEP downloads
-**In progress:** 3D visualization, progress indicators, UI/UX polish
-**Planned:** Full integration per [WEB_TOOL_SPEC_V2.md](../docs/WEB_TOOL_SPEC_V2.md)
+Browser-based complete design system with calculator and 3D geometry generator (experimental).
 
 ## Features
 
-- ✅ **Client-side Processing**: All CAD generation happens in your browser
-- ✅ **No Installation**: No Python or dependencies to install locally
-- ✅ **JSON Import**: Load designs from wormgearcalc or paste JSON directly
-- ✅ **Interactive Controls**: Adjust worm length, wheel width, and features
-- ✅ **STEP Export**: Download CNC-ready files for machining
-- 🚧 **3D Preview**: Real-time visualization (coming soon)
+### Calculator Tab (Fast Load)
+- **Instant loading** - Uses lightweight Pyodide environment (~5MB)
+- Calculate worm gear parameters from engineering constraints
+- Real-time validation with DIN 3975/DIN 3996 standards
+- Multiple design modes:
+  - Envelope (fit within worm OD and wheel OD)
+  - From wheel OD (reverse-calculate from wheel size)
+  - From module (standard module-based design)
+  - From centre distance (fit specific spacing)
+- Export JSON Schema v1.0 for geometry generation
+- Download markdown specifications
+- Share designs via URL
+
+### 3D Generator Tab (Lazy Loaded)
+- **Lazy loading** - Only loads when you click "Load Generator"
+- Generates CNC-ready STEP files directly in browser using WebAssembly
+- Uses Pyodide + OCP + build123d (~50MB, loads in 30-60 seconds)
+- Load JSON from Calculator tab or upload files
+- Options for globoid worm and virtual hobbing
+- Console output for generation progress
 
 ## Quick Start
 
-### Option 1: Local Development Server
+### Local Development
+
+**Important**: You MUST use an HTTP server. Opening `index.html` directly (file://) will not work due to CORS restrictions.
 
 ```bash
-# From the worm-gear-3d directory
+# Using Python (recommended)
 cd web
 python3 -m http.server 8000
+
+# Using Node.js
+npx serve web
+
+# Using PHP
+cd web
+php -S localhost:8000
 ```
 
 Then open http://localhost:8000 in your browser.
 
-### Option 2: Static Hosting
+### Using the Interface
 
-Upload the `web/` directory to any static hosting service:
-- GitHub Pages
-- Netlify
-- Vercel
-- AWS S3
-- Or any web server
+1. **Design your gears** in the Calculator tab (loads instantly)
+2. Enter your constraints (ODs, ratio, etc.)
+3. Review validation and export JSON
+4. **Switch to Generator tab** when ready for 3D geometry
+5. Click "Load Generator" (one-time ~1 minute wait)
+6. Load JSON from calculator and generate STEP files
 
-## Usage
+## Architecture
 
-### 1. Load a Design
+### Lazy Loading Strategy
 
-**Option A: Use Sample Designs**
-- Click "Sample M2 Ratio 30:1" or "7mm Design" buttons
-- Pre-loaded example designs from the calculator
+The interface uses lazy loading to optimize user experience:
 
-**Option B: Upload JSON File**
-- Drag and drop a `.json` file from wormgearcalc
-- Or click the drop zone to browse
+**On Page Load:**
+- HTML/CSS/JavaScript loads instantly (~50KB)
+- No Python/WASM loading yet
+- UI is immediately interactive
 
-**Option C: Paste JSON**
-- Copy JSON from the calculator
-- Paste directly into the text area
+**Calculator Tab (Lazy):**
+- Loads Pyodide + calculator Python code when first accessed (~5MB)
+- Takes ~5-10 seconds on first load
+- Subsequent calculations are instant
 
-### 2. Configure Parameters
+**Generator Tab (Lazy):**
+- Only loads when user clicks "Load Generator" button
+- Loads Pyodide + OCP + build123d (~50MB total)
+- Takes ~30-60 seconds on first load
+- Users only wait if they actually need STEP file generation
 
-- **Worm Length**: Physical length of worm gear (default: 40mm)
-- **Wheel Width**: Face width of wheel (leave blank for auto-calculation)
-- **Wheel Type**:
-  - Helical (default): Simpler flat-bottomed teeth
-  - Hobbed: Throated teeth matching worm curvature
-- **Add Bore**: Include central bore
-- **Add Keyway**: Add DIN 6885 standard keyway
+This approach ensures:
+- Fast initial page load
+- No wasted bandwidth if user only needs calculator
+- Clear expectation setting (user clicks "Load" button)
 
-### 3. Generate
+### Two Pyodide Instances
 
-Click "Generate STEP Files" to create the geometry. Download buttons will appear for:
-- `worm.step` - Worm gear
-- `wheel.step` - Wheel gear
+The app maintains separate Pyodide environments:
 
-## Technical Details
+1. **Calculator Pyodide** - Lightweight, calculator-only
+2. **Generator Pyodide** - Full environment with OCP + build123d
 
-### Architecture
+This separation:
+- Keeps calculator fast and lightweight
+- Avoids loading heavy 3D libraries unless needed
+- Prevents memory issues from single bloated environment
 
-```
-┌─────────────────────────────────────────┐
-│  index.html (Single Page App)          │
-├─────────────────────────────────────────┤
-│  Pyodide v0.25.0                        │
-│  ├─ Python 3.11 in WebAssembly          │
-│  ├─ micropip (package installer)        │
-│  └─ build123d + OCP (CAD kernel)        │
-├─────────────────────────────────────────┤
-│  wormgear_geometry package              │
-│  ├─ Loaded from ../src/                 │
-│  ├─ WormGeometry class                  │
-│  └─ WheelGeometry class                 │
-├─────────────────────────────────────────┤
-│  Three.js / model-viewer (planned)      │
-│  └─ WebGL 3D visualization              │
-└─────────────────────────────────────────┘
-```
-
-### Dependencies
-
-**Loaded from CDN:**
-- Pyodide 0.25.0 - Python runtime in WebAssembly
-- build123d - CAD library (installed via micropip)
-- OCP - OpenCascade bindings (bundled with build123d)
-
-**Local:**
-- wormgear_geometry - This project's source code
-
-### Current Status
-
-**✅ Implemented:**
-- Pyodide initialization and loading
-- OCP.wasm integration via package index
-- build123d installation from WebAssembly builds
-- UI for JSON input (file upload, drag-drop, paste)
-- Parameter controls (worm length, wheel width, wheel type)
-- Console output with color-coded logging
-- Sample design loading from examples/
-- wormgear_geometry package loading
-- Full geometry generation (worm + wheel)
-- STEP file download to browser
-- GitHub Pages deployment workflow
-
-**🚧 In Progress:**
-- 3D visualization with Three.js/model-viewer
-- Progress indicators for long operations
-
-**📋 Planned:**
-- Mobile responsive design improvements
-- Advanced error recovery
-- Offline support with service worker
-- Geometry preview thumbnails
-
-## Known Issues
-
-### build123d in Pyodide
-
-build123d depends on OCP (OpenCascade), which requires a special WebAssembly build. The standard `micropip install build123d` may not work out of the box.
-
-**Solutions being explored:**
-1. Use pre-built OCP.wasm from [yet-another-cad-viewer](https://github.com/yeicor-3d/yet-another-cad-viewer)
-2. Build custom Pyodide package with OCP included
-3. Alternative: Generate GLTF/STL instead of STEP using pure Python geometry
-
-### Browser Compatibility
-
-Requires modern browser with:
-- WebAssembly support
-- ES6+ JavaScript
-- Sufficient memory (recommend 4GB+ RAM)
-
-**Tested browsers:**
-- Chrome 90+
-- Firefox 88+
-- Safari 15+
-- Edge 90+
-
-## Development
-
-### Project Structure
+## File Structure
 
 ```
 web/
-├── index.html          # Main application (self-contained)
-├── README.md           # This file
-└── serve.py            # Development server helper
+├── index.html              # Two-tab interface
+├── app-lazy.js             # Lazy-loading application logic
+├── app-backup.js           # Backup of original app.js
+├── style.css               # Styles (with lazy-load overlays)
+├── wormcalc/               # Python calculator code (for Pyodide)
+│   ├── __init__.py
+│   ├── core.py            # Calculator functions
+│   ├── validation.py      # Validation rules
+│   └── output.py          # JSON/Markdown export
+├── wormgear-pyodide.js    # WASM geometry wrapper (experimental)
+├── performance-test.html  # WASM performance testing
+└── README.md              # This file
 ```
 
-### Testing Locally
+## Development Status
 
-```bash
-# Install build123d normally (for comparison)
-pip install build123d
+### ✅ Complete
+- Calculator tab with lazy loading
+- JSON Schema v1.0 export
+- Validation and real-time updates
+- Markdown export
+- URL parameter sharing
+- Tab interface with lazy initialization
 
-# Run the web interface
-cd web
-python3 -m http.server 8000
-```
+### 🚧 In Progress
+- Generator tab basic UI
+- Lazy loading framework for OCP + build123d
+- JSON input from calculator
 
-### Debugging
+### 📋 TODO
+- Complete WASM geometry generation integration
+- Progress callbacks during generation
+- STEP file download
+- 3D preview in browser
+- Performance optimizations for large gears
 
-The interface includes a console panel that shows:
-- Pyodide loading status
-- Package installation progress
-- Python errors and output
-- JSON validation messages
+## Performance
 
-Browser DevTools console shows additional technical details.
+### Calculator Tab
+- **Initial load**: <1 second (HTML/CSS/JS)
+- **Pyodide load**: 5-10 seconds (lazy, on first calculation)
+- **Calculations**: <100ms (instant after load)
+- **Total data**: ~5MB
 
-## Integration with Calculator
+### Generator Tab
+- **Initial load**: <1 second (shows "Load Generator" button)
+- **Full load**: 30-60 seconds (when user clicks "Load Generator")
+- **Generation**: 2-30 seconds depending on complexity
+- **Total data**: ~50MB (OCP + build123d are large)
 
-### Standalone Deployment
+## Browser Compatibility
 
-Deploy this web app independently and link from wormgearcalc:
-
-```html
-<a href="https://yoursite.com/worm-gear-3d-web/?design=..."
-   target="_blank">
-  Generate 3D Models
-</a>
-```
-
-### Embedded Widget
-
-Embed in the calculator page using iframe:
-
-```html
-<iframe src="https://yoursite.com/worm-gear-3d-web/"
-        width="100%" height="800px">
-</iframe>
-```
-
-Pass design data via postMessage:
-
-```javascript
-iframe.contentWindow.postMessage({
-  type: 'loadDesign',
-  design: designJSON
-}, '*');
-```
+Requires modern browser with WebAssembly support:
+- Chrome 88+
+- Firefox 89+
+- Safari 15+
+- Edge 88+
 
 ## Deployment
 
-**Note:** This is an experimental prototype. While functional for testing, consider completing the items in the deployment checklist below before production use.
+### GitHub Pages
 
-### Quick Deploy to GitHub Pages (for testing/development)
+```bash
+# From repository root
+git add web/
+git commit -m "Update web interface"
+git push origin main
 
-1. Push to main branch:
-   ```bash
-   git push origin main
-   ```
+# Enable GitHub Pages on main branch /web/ directory
+# Access at https://yourusername.github.io/worm-gear-3d/
+```
 
-2. Enable GitHub Pages:
-   - Go to repository Settings → Pages
-   - Source: "GitHub Actions"
+### Static Hosting (Netlify, Vercel, etc.)
 
-3. Wait for deployment (2-3 minutes)
+Point to `web/` directory as root. No build step required - pure static files.
 
-4. Access at:
-   ```
-   https://your-username.github.io/worm-gear-3d/
-   ```
+## Technical Notes
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions including Netlify, Vercel, Cloudflare Pages, and custom domains.
+### Why Lazy Loading?
 
-## Deployment Checklist
+Without lazy loading, users would wait 30-60 seconds on every page load, even if they only want to use the calculator. With lazy loading:
 
-**✅ Prototype Complete (Current State):**
-- [x] OCP.wasm integration complete
-- [x] Geometry generation functional
-- [x] STEP file download working
-- [x] GitHub Pages workflow configured
+- **Calculator users**: 5-second wait (vs 60-second wait)
+- **Generator users**: Same 60-second total wait, but split into two steps with clear indication
+- **Bandwidth savings**: Users only download what they need
 
-**🚧 Required Before Production Deployment:**
-- [ ] Test with all sample designs
-- [ ] Verify on multiple browsers (Chrome, Firefox, Safari, Edge)
-- [ ] Test on mobile devices
-- [ ] Add 3D visualization
-- [ ] Add loading progress indicators
-- [ ] Optimize initial load time (currently ~30-60s)
-- [ ] Add error recovery and user-friendly error messages
-- [ ] Comprehensive UI/UX review and improvements
+### Why Separate Pyodide Instances?
 
-**📋 Optional Enhancements:**
-- [ ] Add usage analytics
-- [ ] Implement service worker for offline support
-- [ ] Add geometry preview thumbnails
+A single Pyodide instance with all dependencies would be:
+- Slower to load (~60 seconds every time)
+- Higher memory usage (~200MB vs 50MB for calculator)
+- More complex error handling
+- Harder to debug
+
+Separate instances:
+- Calculator stays lightweight and fast
+- Generator can be reloaded independently if errors occur
+- Clear separation of concerns
+
+### CORS and File Access
+
+When running locally with `python -m http.server`, you may encounter CORS issues if trying to load resources from different origins. Use the local server approach shown in Quick Start.
+
+## URL Parameters
+
+Share designs by encoding parameters in the URL:
+
+```
+https://pzfreo.github.io/worm-gear-3d/?mode=envelope&worm_od=20&wheel_od=65&ratio=30
+```
+
+All input parameters can be included for complete design sharing.
+
+## Development
+
+The Python files in `wormcalc/` are the calculator module. To update:
+
+```bash
+# Copy updated Python files from source if needed
+# (Currently these are separate from main package)
+
+# Commit and push
+git add web/
+git commit -m "Update web app"
+git push
+```
+
+## Troubleshooting
+
+### "Loading calculator..." never completes
+
+- Check browser console for errors
+- Ensure CDN access to Pyodide (cdn.jsdelivr.net)
+- Try clearing browser cache
+- Verify HTTP server is running (not file://)
+
+### Generator fails to load
+
+- Large download (~50MB) may timeout on slow connections
+- Check browser console for WASM errors
+- Try in different browser (Chrome/Firefox work best)
+- Ensure sufficient memory available (>500MB free)
+
+### Calculations not updating
+
+- Check browser console for Python errors
+- Verify all input fields have valid values
+- Try refreshing the page
+
+### Export buttons not working
+
+- Copy to clipboard requires HTTPS (works on GitHub Pages)
+- Check clipboard permissions in browser settings
+
+## Known Issues
+
+- **Generator WASM integration incomplete** - UI is ready, but full OCP + build123d integration needs completion
+- **Mobile support limited** - Works on tablets, phones may struggle with large downloads
+- **Safari memory** - Older Safari versions may have memory issues with large WASM files
+
+## Future Enhancements
+
+- [ ] Complete WASM geometry generation
+- [ ] 3D preview using Three.js or OCP viewer
+- [ ] Drag-and-drop JSON file upload
+- [ ] Save/load designs to browser localStorage
+- [ ] Design gallery with common configurations
+- [ ] Export to other formats (STL, IGES)
+- [ ] Integrated CAM toolpath preview
 
 ## Contributing
 
-This is part of the [worm-gear-3d](https://github.com/pzfreo/worm-gear-3d) project.
+See [CLAUDE.md](../CLAUDE.md) for development guidelines.
 
-See the main project README for contribution guidelines.
+## Credits
+
+Created by Paul Fremantle (pzfreo) for designing custom worm gears for CNC manufacture and 3D printing.
+
+Built with:
+- [Pyodide](https://pyodide.org/) - Python in WebAssembly
+- [build123d](https://build123d.readthedocs.io/) - CAD library (for geometry generator)
+- Pure HTML/CSS/JavaScript - No build tools required
 
 ## License
 
-Same as parent project - see LICENSE file.
+MIT (to be added)
 
-## Resources
+---
 
-- [Pyodide Documentation](https://pyodide.org/)
-- [build123d Documentation](https://build123d.readthedocs.io/)
-- [wormgearcalc Calculator](https://pzfreo.github.io/wormgearcalc/)
-- [Yet Another CAD Viewer](https://github.com/yeicor-3d/yet-another-cad-viewer) - Reference implementation
+**Tip**: For the fastest experience, use the Calculator tab for design iteration, then switch to Generator tab only when you have a final design ready for manufacture.
