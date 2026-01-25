@@ -379,7 +379,31 @@ function loadFromCalculator() {
         return;
     }
     document.getElementById('json-input').value = currentDesign;
+    updateDesignSummary(JSON.parse(currentDesign));
     appendToConsole('Loaded design from calculator');
+}
+
+function updateDesignSummary(design) {
+    const summary = document.getElementById('gen-design-summary');
+    if (!design || !design.worm || !design.wheel) {
+        summary.innerHTML = '<p>No design loaded. Use Calculator tab or upload JSON.</p>';
+        return;
+    }
+
+    const manufacturing = design.manufacturing || {};
+    summary.innerHTML = `
+        <table style="width: 100%; font-size: 0.9em;">
+            <tr><td><strong>Module:</strong></td><td>${design.worm.module_mm} mm</td></tr>
+            <tr><td><strong>Ratio:</strong></td><td>${design.assembly.ratio}:1</td></tr>
+            <tr><td><strong>Profile:</strong></td><td>${manufacturing.profile || 'ZA'} (${manufacturing.profile === 'ZK' ? '3D printing' : 'CNC machining'})</td></tr>
+            <tr><td><strong>Worm Type:</strong></td><td>${design.worm.throat_pitch_radius_mm ? 'Globoid (hourglass)' : 'Cylindrical'}</td></tr>
+            <tr><td><strong>Wheel Type:</strong></td><td>${manufacturing.throated_wheel ? 'Throated (hobbed)' : 'Helical'}</td></tr>
+            <tr><td><strong>Hand:</strong></td><td>${design.assembly.hand}</td></tr>
+        </table>
+        <p style="margin-top: 0.5rem; font-size: 0.85em; color: #666;">
+            These settings from your design will be used for generation.
+        </p>
+    `;
 }
 
 function loadJSONFile() {
@@ -393,7 +417,13 @@ function handleFileUpload(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         document.getElementById('json-input').value = e.target.result;
-        appendToConsole(`Loaded ${file.name}`);
+        try {
+            const design = JSON.parse(e.target.result);
+            updateDesignSummary(design);
+            appendToConsole(`Loaded ${file.name}`);
+        } catch (error) {
+            appendToConsole(`Error parsing ${file.name}: ${error.message}`);
+        }
     };
     reader.readAsText(file);
 }
@@ -416,17 +446,31 @@ async function generateGeometry(type) {
         // Parse JSON
         const design = JSON.parse(jsonInput);
 
-        // Get options
+        // Get options from UI (only length/width, everything else from JSON)
         const wormLength = parseFloat(document.getElementById('gen-worm-length').value);
-        const wheelWidth = document.getElementById('gen-wheel-width').value || 'auto';
-        const globoid = document.getElementById('gen-globoid').checked;
-        const virtualHobbing = document.getElementById('gen-virtual-hobbing').checked;
+        const wheelWidth = document.getElementById('gen-wheel-width').value || null;
+
+        // Get settings from design JSON
+        const manufacturing = design.manufacturing || {};
+        const isGloboid = design.worm.throat_pitch_radius_mm !== undefined;
+        const isThroated = manufacturing.throated_wheel || false;
+        const profile = manufacturing.profile || 'ZA';
+
+        appendToConsole(`Design settings:`);
+        appendToConsole(`  Profile: ${profile} (${profile === 'ZK' ? '3D printing' : 'CNC machining'})`);
+        appendToConsole(`  Worm: ${isGloboid ? 'Globoid' : 'Cylindrical'}`);
+        appendToConsole(`  Wheel: ${isThroated ? 'Throated (virtual hobbing)' : 'Helical'}`);
+        appendToConsole(`  Length: ${wormLength}mm, Width: ${wheelWidth || 'auto'}`);
+        appendToConsole('');
 
         // TODO: Actual geometry generation would go here
         // This requires build123d + OCP to be loaded
-        appendToConsole(`Generation options: length=${wormLength}, globoid=${globoid}`);
-        appendToConsole('Note: Full geometry generation coming soon!');
-        appendToConsole('For now, use the Python CLI: wormgear-geometry design.json');
+        appendToConsole('Note: Full WASM geometry generation is in development.');
+        appendToConsole('For now, use the Python CLI:');
+        appendToConsole(`  wormgear-geometry design.json --worm-length ${wormLength}`);
+        if (wheelWidth) {
+            appendToConsole(`    --wheel-width ${wheelWidth}`);
+        }
 
     } catch (error) {
         appendToConsole(`Error: ${error.message}`);

@@ -671,3 +671,25 @@ footer a:hover {
     color: var(--color-info);
     margin-bottom: 0.5rem;
 }
+
+/* Design summary */
+.design-summary {
+    background: #f8f9fa;
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+
+.design-summary table {
+    border-collapse: collapse;
+}
+
+.design-summary td {
+    padding: 0.25rem 0.5rem;
+}
+
+.design-summary td:first-child {
+    text-align: right;
+    padding-right: 1rem;
+    white-space: nowrap;
+}

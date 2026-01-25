@@ -236,9 +236,14 @@
 
                 <div id="generator-content" style="display: none;">
                     <section class="generator-section">
-                        <h2>JSON Input</h2>
-                        <p>Paste your design JSON from the Calculator tab or upload a file:</p>
+                        <h2>Design Summary</h2>
+                        <div id="gen-design-summary" class="design-summary">
+                            <p>No design loaded. Use Calculator tab or upload JSON.</p>
+                        </div>
+                    </section>
 
+                    <section class="generator-section">
+                        <h2>JSON Input</h2>
                         <div class="json-input-area">
                             <textarea id="json-input" placeholder="Paste JSON here or use Calculator tab..."></textarea>
                             <div style="margin-top: 10px;">
@@ -251,6 +256,7 @@
 
                     <section class="generator-section">
                         <h2>Generation Options</h2>
+                        <p class="hint">Profile, worm type, and wheel type are defined in the design JSON above.</p>
                         <div class="controls">
                             <div class="control-group">
                                 <label for="gen-worm-length">Worm Length (mm):</label>
@@ -260,16 +266,6 @@
                                 <label for="gen-wheel-width">Wheel Width (mm):</label>
                                 <input type="number" id="gen-wheel-width" placeholder="Auto" step="1" min="5">
                             </div>
-                        </div>
-
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="gen-globoid">
-                            <label for="gen-globoid">Generate globoid worm (hourglass shape)</label>
-                        </div>
-
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="gen-virtual-hobbing">
-                            <label for="gen-virtual-hobbing">Use virtual hobbing for wheel (slower, more accurate)</label>
                         </div>
                     </section>
 
