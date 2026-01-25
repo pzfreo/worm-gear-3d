@@ -11,6 +11,76 @@
 - 3D printing of functional gears (FDM, SLA, SLS)
 - Educational and research applications
 
+---
+
+## Critical Context Maintenance Rules
+
+**NEVER claim success until the user has tested it.**
+
+### Pre-Push Checklist (Required)
+Before pushing ANY code or declaring something "working":
+
+- [ ] Build script runs locally without errors
+- [ ] Tests pass locally (`pytest tests/test_web_build.py -v`)
+- [ ] If web changes: **WAIT FOR USER TO TEST IN BROWSER**
+- [ ] No assumptions about what "should" work
+- [ ] Read error messages completely before fixing
+
+### Web Calculator Architecture (CRITICAL)
+**What web loads:**
+- ✅ `wormgear/calculator/` (calculations)
+- ✅ `wormgear/io/` (dataclasses - WormGearDesign, WormParams, etc.)
+- ❌ `wormgear/core/` (NOT loaded - geometry generation, build123d)
+
+**Why this matters:**
+- Imports must be: `from ..io import WormGearDesign` (NOT from .core)
+- Web only needs calculator + io (no geometry dependencies)
+- Build artifact: `web/wormgear/` (gitignored)
+- Never track build artifacts in git
+
+### Common Failure Points
+1. **Import errors** - Dataclasses are in `io`, not `calculator.core`
+2. **Missing modules** - Web needs `io` module (calculator imports from it)
+3. **Build artifacts tracked** - `web/wormgear/` must be gitignored
+4. **Tests pass but web fails** - Tests don't run code in browser
+5. **Circular imports** - Calculator imports io, io doesn't import calculator
+
+### Session Recovery Checklist
+When reloading context or starting a session:
+1. Read `CLAUDE.md` "Current Status" (below)
+2. Check last commit message for recent changes
+3. Verify web architecture: calculator + io only (no core)
+4. Before any "fix", understand the actual error first
+
+---
+
+## Current Status (2026-01-25)
+
+**Branch**: `refactor/unify-calculator` (PR #40)
+**Status**: 🔴 **NOT WORKING** - Web calculator has import errors
+
+**What's working:**
+- ✅ Build script runs
+- ✅ Tests pass locally and in CI
+- ✅ Vercel deployment succeeds
+
+**What's broken:**
+- ❌ Web calculator fails to load in browser
+- ❌ Import errors: `output.py` importing dataclasses from wrong module
+- ❌ User has NOT tested successfully yet
+
+**Known issues:**
+- `output.py` was importing `WormGearDesign` from `.core` instead of `..io`
+- May be other import issues not yet discovered
+- Only user testing in browser will reveal real status
+
+**Next step:**
+- Wait for user to test web calculator in browser
+- Fix any remaining import errors
+- Do NOT claim success until user confirms it works
+
+---
+
 ## Development Best Practices
 
 ### 1. Always Align with Architecture
