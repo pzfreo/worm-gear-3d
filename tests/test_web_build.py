@@ -9,7 +9,6 @@ import subprocess
 import json
 from pathlib import Path
 import pytest
-from dataclasses import fields
 
 
 # Define the repository root
@@ -233,15 +232,47 @@ def test_json_field_names_match_dataclass_params():
 
     This prevents errors like 'throat_pitch_radius_mm' vs 'throat_curvature_radius_mm'.
     """
-    # Import dataclasses
-    import sys
-    sys.path.insert(0, str(REPO_ROOT / "src"))
-    from wormgear.io.loaders import WormParams, WheelParams, AssemblyParams
+    # Read loaders.py source directly to extract field names without importing build123d
+    loaders_file = SRC_DIR / "io" / "loaders.py"
+    assert loaders_file.exists(), f"loaders.py not found at {loaders_file}"
 
-    # Get all field names from dataclasses
-    worm_fields = {f.name for f in fields(WormParams)}
-    wheel_fields = {f.name for f in fields(WheelParams)}
-    assembly_fields = {f.name for f in fields(AssemblyParams)}
+    loaders_content = loaders_file.read_text()
+
+    # Extract field names from dataclass definitions using regex
+    import re
+
+    def extract_dataclass_fields(content: str, class_name: str) -> set:
+        """Extract field names from a dataclass definition."""
+        # Find the class definition
+        class_pattern = rf'@dataclass\s+class {class_name}:.*?(?=@dataclass|class \w+:|def \w+|$)'
+        match = re.search(class_pattern, content, re.DOTALL)
+        if not match:
+            return set()
+
+        class_body = match.group(0)
+
+        # Extract field names (lines with "field_name: type")
+        # Handles optional types, defaults, and inline comments
+        field_pattern = r'^\s+(\w+):\s+(?:Optional\[)?[\w\[\],\s]+(?:\])?\s*(?:=.*?)?(?:#.*)?$'
+        field_names = set()
+        for line in class_body.split('\n'):
+            # Skip comment-only lines
+            if line.strip().startswith('#'):
+                continue
+            field_match = re.match(field_pattern, line)
+            if field_match:
+                field_names.add(field_match.group(1))
+
+        return field_names
+
+    # Get field names from dataclasses
+    worm_fields = extract_dataclass_fields(loaders_content, "WormParams")
+    wheel_fields = extract_dataclass_fields(loaders_content, "WheelParams")
+    assembly_fields = extract_dataclass_fields(loaders_content, "AssemblyParams")
+
+    assert len(worm_fields) > 0, "Failed to extract WormParams fields"
+    assert len(wheel_fields) > 0, "Failed to extract WheelParams fields"
+    assert len(assembly_fields) > 0, "Failed to extract AssemblyParams fields"
 
     # Find and load example JSON files
     json_files = list(EXAMPLES_DIR.glob("*.json"))
