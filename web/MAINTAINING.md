@@ -93,6 +93,25 @@ When adding/moving Python files, update these locations:
 - [ ] Run `pytest tests/test_web_build.py`
 - [ ] Test locally in browser
 
+## Field Name Validation
+
+Two tests ensure JSON field names match Python dataclass parameters:
+
+### `test_json_field_names_match_dataclass_params`
+- Validates all example JSON files against WormParams, WheelParams, AssemblyParams
+- Catches typos like `throat_pitch_radius_mm` (wrong) vs `throat_curvature_radius_mm` (correct)
+- Prevents TypeError when loading designs in browser
+
+### `test_app_lazy_js_field_names_match`
+- Checks app-lazy.js doesn't use known incorrect field names
+- Specifically looks for deprecated/wrong names
+
+**When adding new fields to dataclasses:**
+1. Update `src/wormgear/io/loaders.py` dataclass definitions
+2. Update JSON Schema in `src/wormgear/io/schema.py`
+3. Update example JSON files if needed
+4. Tests will catch any mismatches automatically
+
 ## CI/CD
 
 GitHub Actions automatically runs `test-web-build.yml` on PRs that touch:

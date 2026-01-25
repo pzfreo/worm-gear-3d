@@ -515,6 +515,8 @@ pytest tests/ -v
 - No cache files in output
 - Vercel configuration is correct
 - Pyodide versions are consistent
+- **JSON field names match Python dataclass parameters** (prevents TypeError from field name mismatches)
+- **JavaScript uses correct field names** (catches typos like `throat_pitch_radius_mm` vs `throat_curvature_radius_mm`)
 
 **CI/CD:** GitHub Actions automatically runs these tests on PRs touching `web/` or `src/wormgear/`.
 
