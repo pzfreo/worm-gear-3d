@@ -63,41 +63,53 @@ export async function initCalculator(onComplete) {
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/"
         });
 
-        // Load local Python files
-        const files = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
-        calculatorPyodide.FS.mkdir('/home/pyodide/wormcalc');
+        // Load unified wormgear package from build artifact (created by build.sh)
+        // Create directory structure for package
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear');
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/calculator');
 
-        for (const file of files) {
-            const response = await fetch(`wormcalc/${file}`);
+        // Load wormgear package root __init__.py
+        const pkgInit = await fetch('wormgear/__init__.py');
+        if (!pkgInit.ok) {
+            throw new Error(`Failed to load wormgear/__init__.py: ${pkgInit.status}`);
+        }
+        const pkgInitContent = await pkgInit.text();
+        calculatorPyodide.FS.writeFile('/home/pyodide/wormgear/__init__.py', pkgInitContent);
+
+        // Load calculator module files
+        const calcFiles = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
+
+        for (const file of calcFiles) {
+            const response = await fetch(`wormgear/calculator/${file}`);
             if (!response.ok) {
-                throw new Error(`Failed to load ${file}: ${response.status}`);
+                throw new Error(`Failed to load calculator/${file}: ${response.status}`);
             }
             const content = await response.text();
             if (content.trim().startsWith('<!DOCTYPE')) {
-                throw new Error(`${file} contains HTML instead of Python code`);
+                throw new Error(`calculator/${file} contains HTML instead of Python code`);
             }
-            calculatorPyodide.FS.writeFile(`/home/pyodide/wormcalc/${file}`, content);
+            calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/calculator/${file}`, content);
         }
 
-        // Import module
+        // Import unified package
         await calculatorPyodide.runPythonAsync(`
 import sys
 sys.path.insert(0, '/home/pyodide')
-import wormcalc
-from wormcalc import (
-    design_from_envelope,
-    design_from_wheel,
+from wormgear.calculator.core import (
     design_from_module,
     design_from_centre_distance,
-    validate_design,
-    to_json,
-    to_markdown,
-    to_summary,
-    nearest_standard_module,
+    design_from_wheel,
     Hand,
     WormProfile,
-    WormType
+    WormType,
+    nearest_standard_module
 )
+from wormgear.calculator.validation import validate_design
+from wormgear.calculator.output import to_json, to_markdown, to_summary
+
+# Legacy compatibility - allow old wormcalc imports
+import wormgear.calculator as wormcalc
+design_from_envelope = design_from_module  # Alias for compatibility
         `);
 
         // Hide loading screen
