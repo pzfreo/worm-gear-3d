@@ -68,6 +68,9 @@ async function calculate() {
             wheel_width: inputs.manufacturing.use_recommended_dims ? null : inputs.manufacturing.wheel_width
         };
 
+        // Debug: Log manufacturing settings being sent to Python
+        console.log('[DEBUG] Manufacturing settings from UI:', manufacturingSettings);
+
         // Set globals for Python
         calculatorPyodide.globals.set('bore_settings_dict', inputs.bore);
         calculatorPyodide.globals.set('manufacturing_settings_dict', manufacturingSettings);
@@ -163,6 +166,9 @@ json.dumps({
         currentDesign = typeof data.json_output === 'string' ? JSON.parse(data.json_output) : data.json_output;
         currentValidation = data.valid;
 
+        // Debug: Log what's in the calculated design
+        console.log('[DEBUG] Calculated design.manufacturing:', currentDesign.manufacturing);
+
         // Update UI
         updateBoreDisplaysAndDefaults(currentDesign);
         document.getElementById('results-text').textContent = data.summary;
@@ -257,9 +263,20 @@ function loadFromCalculator() {
         alert('No design in calculator. Calculate a design first.');
         return;
     }
+
+    // Debug: Log what's being loaded
+    console.log('[DEBUG] Loading from calculator:', {
+        manufacturing: currentDesign.manufacturing
+    });
+
     document.getElementById('json-input').value = JSON.stringify(currentDesign, null, 2);
     updateDesignSummary(currentDesign);
     appendToConsole('Loaded design from calculator');
+
+    // Also log to generator console
+    if (currentDesign.manufacturing) {
+        appendToConsole(`Manufacturing: Virtual Hobbing: ${currentDesign.manufacturing.virtual_hobbing || false}, Steps: ${currentDesign.manufacturing.hobbing_steps || 72}`);
+    }
 }
 
 function loadJSONFile() {
@@ -311,6 +328,14 @@ async function generateGeometry(type) {
         const virtualHobbing = manufacturing.virtual_hobbing || false;
         const hobbingSteps = manufacturing.hobbing_steps || 72;
         const profile = manufacturing.profile || 'ZA';
+
+        // Debug: Log what's being read from JSON
+        console.log('[DEBUG] Generator reading from JSON:', {
+            manufacturing: designData.manufacturing,
+            virtualHobbing,
+            hobbingSteps,
+            profile
+        });
 
         let wormLength = designData.worm.length_mm || manufacturing.worm_length || 40;
         let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width;
