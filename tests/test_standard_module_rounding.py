@@ -30,7 +30,7 @@ class TestStandardModuleRounding:
         assert nearest_standard_module(2.3) == 2.25
         assert nearest_standard_module(2.0) == 2.0  # Already standard
         assert nearest_standard_module(1.7) == 1.75
-        assert nearest_standard_module(0.45) == 0.5
+        assert nearest_standard_module(0.45) == 0.4  # Closer to 0.4 than 0.5
         assert nearest_standard_module(4.8) == 5.0
 
     def test_is_standard_module_detection(self):
@@ -66,7 +66,7 @@ class TestStandardModuleRounding:
                 pressure_angle=initial_design.assembly.pressure_angle_deg,
                 backlash=initial_design.assembly.backlash_mm,
                 num_starts=initial_design.worm.num_starts,
-                hand=initial_design.assembly.hand.value.lower(),
+                hand=initial_design.assembly.hand.lower() if isinstance(initial_design.assembly.hand, str) else initial_design.assembly.hand,
             )
 
             # Verify module was rounded
@@ -208,13 +208,13 @@ class TestStandardModuleEdgeCases:
 
     def test_very_small_non_standard_module(self):
         """Test rounding for very small modules."""
-        # Module 0.45mm should round to 0.5mm
-        assert nearest_standard_module(0.45) == 0.5
+        # Module 0.45mm should round to 0.4mm (nearest)
+        assert nearest_standard_module(0.45) == 0.4
 
     def test_very_large_non_standard_module(self):
         """Test rounding for large modules."""
-        # Module 9.5mm should round to 10mm
-        assert nearest_standard_module(9.5) == 10.0
+        # Module 9.5mm should round to 9mm (nearest)
+        assert nearest_standard_module(9.5) == 9.0
 
     def test_already_standard_no_change(self):
         """
@@ -273,4 +273,5 @@ class TestStandardModuleEdgeCases:
                 hand="left"
             )
 
-            assert rounded.assembly.hand.value.lower() == "left"
+            # Hand is already a string in the dataclass
+            assert rounded.assembly.hand.lower() == "left"

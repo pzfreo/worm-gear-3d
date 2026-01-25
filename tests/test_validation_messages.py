@@ -45,15 +45,11 @@ class TestModuleValidationMessages:
     def test_module_non_standard_shown_for_large_deviation(self):
         """
         MODULE_NON_STANDARD should appear when deviation >= 10%.
-        Example: 2.3mm is ~15% from 2.0mm standard.
+        Example: 0.35mm is ~16.7% from 0.3mm standard.
         """
         # Module with 10%+ deviation
-        # Nearest standard to 2.3 is 2.25, so deviation = (2.3-2.25)/2.25 = 2.2%
-        # Let's use 2.5 which is closer to 2.25 or 2.0?
-        # Actually: 2.8mm → nearest is 3.0mm → deviation = (3.0-2.8)/3.0 = 6.7% (not enough)
-        # Try: 1.75mm + 0.2mm = 1.95mm → nearest is 2.0mm → deviation = 2.5% (not enough)
-        # Try: 3.3mm → nearest is 3.0mm → deviation = (3.3-3.0)/3.0 = 10%
-        design = calculate_design_from_module(module=3.3, ratio=30)
+        # 0.35mm → nearest is 0.3mm → deviation = (0.35-0.3)/0.3 = 16.7%
+        design = calculate_design_from_module(module=0.35, ratio=30)
         validation = validate_design(design)
 
         # Should have MODULE_NON_STANDARD as WARNING
