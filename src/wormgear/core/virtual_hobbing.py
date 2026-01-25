@@ -187,6 +187,9 @@ class VirtualHobbingWheelGeometry:
         else:
             self.face_width = face_width
 
+        # Cache for built geometry (avoids rebuilding on export)
+        self._part = None
+
     def build(self) -> Part:
         """
         Build the wheel geometry using virtual hobbing simulation.
@@ -194,6 +197,10 @@ class VirtualHobbingWheelGeometry:
         Returns:
             build123d Part object ready for export
         """
+        # Return cached geometry if already built
+        if self._part is not None:
+            return self._part
+
         print(f"    Virtual hobbing with {self.hobbing_steps} steps...")
 
         # Create wheel blank
@@ -236,6 +243,8 @@ class VirtualHobbingWheelGeometry:
                 axis=Axis.Z
             )
 
+        # Cache the built geometry
+        self._part = wheel
         return wheel
 
     def _create_blank(self) -> Part:
@@ -859,13 +868,15 @@ class VirtualHobbingWheelGeometry:
         return wheel
 
     def export_step(self, filepath: str):
-        """Build and export wheel to STEP file."""
-        wheel = self.build()
+        """Export wheel to STEP file (builds if not already built)."""
+        if self._part is None:
+            print("    Exporting to STEP format...")
+            self.build()
 
-        if hasattr(wheel, 'export_step'):
-            wheel.export_step(filepath)
+        if hasattr(self._part, 'export_step'):
+            self._part.export_step(filepath)
         else:
             from build123d import export_step as exp_step
-            exp_step(wheel, filepath)
+            exp_step(self._part, filepath)
 
         print(f"Exported wheel to {filepath}")
