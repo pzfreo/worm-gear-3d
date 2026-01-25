@@ -265,7 +265,7 @@ def to_markdown(
     worm_type_str = "Cylindrical"
     wheel_type_str = "Helical"
     if design.manufacturing:
-        worm_type_str = design.worm.type.title()
+        worm_type_str = design.worm.type.title() if design.worm.type else "Cylindrical"
         wheel_type_str = "Throated (Hobbed)" if design.manufacturing.throated_wheel else "Helical"
 
     lines = [
