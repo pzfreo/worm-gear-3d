@@ -82,21 +82,50 @@ export function hideProgressIndicator() {
  * @param {object} data - Completion data from worker
  */
 export function handleGenerateComplete(data) {
-    const { wormBlob, wheelBlob, wormUrl, wheelUrl } = data;
+    const { worm, wheel, success } = data;
 
     appendToConsole('✓ Generation complete');
     hideProgressIndicator();
+
+    if (!success) {
+        appendToConsole('⚠️ Generation completed with errors');
+        return;
+    }
+
+    // Convert base64 STEP data to blob URLs
+    let wormUrl = null;
+    let wheelUrl = null;
+
+    if (worm) {
+        const wormBinary = atob(worm);
+        const wormBytes = new Uint8Array(wormBinary.length);
+        for (let i = 0; i < wormBinary.length; i++) {
+            wormBytes[i] = wormBinary.charCodeAt(i);
+        }
+        const wormBlob = new Blob([wormBytes], { type: 'application/octet-stream' });
+        wormUrl = URL.createObjectURL(wormBlob);
+    }
+
+    if (wheel) {
+        const wheelBinary = atob(wheel);
+        const wheelBytes = new Uint8Array(wheelBinary.length);
+        for (let i = 0; i < wheelBinary.length; i++) {
+            wheelBytes[i] = wheelBinary.charCodeAt(i);
+        }
+        const wheelBlob = new Blob([wheelBytes], { type: 'application/octet-stream' });
+        wheelUrl = URL.createObjectURL(wheelBlob);
+    }
 
     // Enable download buttons
     const wormBtn = document.getElementById('download-worm');
     const wheelBtn = document.getElementById('download-wheel');
 
-    if (wormBtn) {
+    if (wormBtn && wormUrl) {
         wormBtn.disabled = false;
         wormBtn.onclick = () => downloadFile(wormUrl, 'worm.step');
     }
 
-    if (wheelBtn) {
+    if (wheelBtn && wheelUrl) {
         wheelBtn.disabled = false;
         wheelBtn.onclick = () => downloadFile(wheelUrl, 'wheel.step');
     }
