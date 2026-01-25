@@ -584,7 +584,7 @@ function updateDesignSummary(design) {
             <tr><td><strong>Module:</strong></td><td>${design.worm.module_mm} mm</td></tr>
             <tr><td><strong>Ratio:</strong></td><td>${design.assembly.ratio}:1</td></tr>
             <tr><td><strong>Profile:</strong></td><td>${manufacturing.profile || 'ZA'} (${manufacturing.profile === 'ZK' ? '3D printing' : 'CNC machining'})</td></tr>
-            <tr><td><strong>Worm Type:</strong></td><td>${design.worm.throat_pitch_radius_mm ? 'Globoid (hourglass)' : 'Cylindrical'}</td></tr>
+            <tr><td><strong>Worm Type:</strong></td><td>${design.worm.throat_curvature_radius_mm ? 'Globoid (hourglass)' : 'Cylindrical'}</td></tr>
             <tr><td><strong>Wheel Type:</strong></td><td>${manufacturing.throated_wheel ? 'Throated (hobbed)' : 'Helical'}</td></tr>
             <tr><td><strong>Hand:</strong></td><td>${design.assembly.hand}</td></tr>
         </table>
@@ -648,7 +648,7 @@ async function generateGeometry(type) {
 
         // Get settings from design JSON
         const manufacturing = designData.manufacturing || {};
-        const isGloboid = designData.worm.throat_pitch_radius_mm !== undefined;
+        const isGloboid = designData.worm.throat_curvature_radius_mm !== undefined;
         const isThroated = manufacturing.throated_wheel || false;
         const profile = manufacturing.profile || 'ZA';
 
