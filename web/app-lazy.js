@@ -666,12 +666,61 @@ async function generateGeometry(type) {
         appendToConsole('⏳ Generating 3D geometry (please wait)...');
         appendToConsole('  This may take 30-90 seconds on mobile devices');
 
+        // Show progress indicator
+        const progressContainer = document.getElementById('generation-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+        progressText.textContent = 'Initializing...';
+
+        // Create progress callback that keeps UI responsive
+        let lastProgressUpdate = Date.now();
+        let lastConsoleUpdate = 0;
+
+        // JavaScript handler for progress updates
+        window.handleProgress = (message, percent) => {
+            const now = Date.now();
+
+            // Always update progress bar (it's cheap)
+            if (percent >= 0 && percent <= 100) {
+                progressBar.style.width = `${percent}%`;
+                progressBar.textContent = `${percent.toFixed(0)}%`;
+            }
+            progressText.textContent = message;
+
+            // Only update console every 500ms to avoid excessive appends
+            if (now - lastConsoleUpdate > 500 || percent >= 100 || percent < 0) {
+                appendToConsole(`  [${percent.toFixed(0)}%] ${message}`);
+                lastConsoleUpdate = now;
+            }
+
+            lastProgressUpdate = now;
+        };
+
+        // Python progress callback - delegates to JavaScript which naturally yields to event loop
+        const progressCallback = generatorPyodide.runPython(`
+import js
+
+def progress_callback(message, percent):
+    """Progress callback - sends updates to JavaScript.
+
+    JavaScript event loop will handle between Python callbacks,
+    keeping browser responsive during long operations.
+    """
+    js.handleProgress(message, percent)
+
+progress_callback
+        `);
+
         // Pass data to Python and generate
         generatorPyodide.globals.set('design_json_str', JSON.stringify(designData));
         generatorPyodide.globals.set('worm_length', wormLength);
         generatorPyodide.globals.set('wheel_width_val', wheelWidth || null);
         generatorPyodide.globals.set('throated_val', isThroated);
         generatorPyodide.globals.set('generate_type', type);
+        generatorPyodide.globals.set('progress_callback_fn', progressCallback);
 
         const pythonStartTime = Date.now();
         const result = await generatorPyodide.runPythonAsync(`
@@ -679,7 +728,7 @@ import json
 import base64
 import tempfile
 import os
-from wormgear.core import WormGeometry, WheelGeometry
+from wormgear.core import WormGeometry, WheelGeometry, VirtualHobbingWheelGeometry
 from wormgear.io import WormParams, WheelParams, AssemblyParams
 
 print("📋 Parsing parameters...")
@@ -750,13 +799,28 @@ if generate_type in ['wheel', 'both']:
     print("⚙️  Generating wheel gear...")
     try:
         print("  Creating wheel geometry object...")
-        wheel_geo = WheelGeometry(
-            params=wheel_params,
-            worm_params=worm_params,
-            assembly_params=assembly_params,
-            face_width=wheel_width,
-            throated=throated_val
-        )
+        # Use VirtualHobbingWheelGeometry if throated, otherwise regular WheelGeometry
+        if throated_val:
+            # Virtual hobbing supports progress callbacks
+            from wormgear.core import get_hobbing_preset
+            preset = get_hobbing_preset("balanced")  # Use balanced preset for reasonable speed
+
+            wheel_geo = VirtualHobbingWheelGeometry(
+                params=wheel_params,
+                worm_params=worm_params,
+                assembly_params=assembly_params,
+                wheel_pitch_diameter=wheel_params.pitch_diameter_mm,
+                hobbing_steps=preset['steps'],
+                progress_callback=progress_callback_fn
+            )
+        else:
+            # Regular helical wheel (no progress callbacks needed - it's fast)
+            wheel_geo = WheelGeometry(
+                params=wheel_params,
+                worm_params=worm_params,
+                assembly_params=assembly_params,
+                face_width=wheel_width
+            )
         print("  Building 3D model (this is the slowest step)...")
         wheel = wheel_geo.build()
         print("  Exporting to STEP format...")
@@ -845,9 +909,15 @@ elif generate_type == 'both':
             appendToConsole(`✅ Generation complete! Total time: ${totalElapsed}s`);
             appendToConsole('📁 Check your downloads folder for STEP files');
 
+            // Hide progress indicator
+            progressContainer.style.display = 'none';
+
         } else {
             appendToConsole('');
             appendToConsole('❌ Generation failed - check messages above for details');
+
+            // Hide progress indicator
+            progressContainer.style.display = 'none';
         }
 
     } catch (error) {
@@ -865,6 +935,9 @@ elif generate_type == 'both':
         } catch (e) {
             console.error('Could not get Python traceback:', e);
         }
+
+        // Hide progress indicator
+        progressContainer.style.display = 'none';
     }
 }
 

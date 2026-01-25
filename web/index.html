@@ -277,6 +277,14 @@
                             <button id="generate-wheel-btn">Generate Wheel</button>
                             <button id="generate-both-btn">Generate Both</button>
                         </div>
+
+                        <!-- Progress indicator -->
+                        <div id="generation-progress" style="display: none; margin-top: 1rem;">
+                            <div style="background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 24px;">
+                                <div id="progress-bar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.85em; font-weight: bold;"></div>
+                            </div>
+                            <div id="progress-text" style="margin-top: 0.5rem; font-size: 0.9em; color: #666;"></div>
+                        </div>
                     </section>
 
                     <section class="generator-section">
