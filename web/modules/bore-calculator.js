@@ -4,7 +4,11 @@
  * Handles bore size calculations and anti-rotation method selection.
  * Auto-calculates recommended bore sizes (~25% of pitch diameter) and
  * manages UI for bore type selection and anti-rotation methods.
+ *
+ * VERSION: 2025-01-25-debug
  */
+
+console.log('[Bore Calculator] Module loaded - VERSION: 2025-01-25-debug');
 
 // Store calculated bore values
 let calculatedWormBore = null;
@@ -89,6 +93,7 @@ export function updateBoreDisplaysAndDefaults(design) {
  * Update anti-rotation method dropdowns based on bore sizes
  */
 export function updateAntiRotationOptions() {
+    console.log('[Anti-Rotation] updateAntiRotationOptions called, wormBore=', calculatedWormBore, 'wheelBore=', calculatedWheelBore);
     // Update worm anti-rotation options
     updateAntiRotationForPart('worm', calculatedWormBore);
     // Update wheel anti-rotation options
