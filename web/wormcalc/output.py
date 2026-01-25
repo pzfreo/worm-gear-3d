@@ -115,6 +115,9 @@ def design_to_dict(design: WormGearDesign, bore_settings: dict = None, manufactu
     if design.manufacturing is not None:
         manufacturing_dict["throated_wheel"] = design.manufacturing.wheel_throated
         manufacturing_dict["profile"] = design.manufacturing.profile.value
+        # Add recommended dimensions (always present, needed for UI defaults)
+        manufacturing_dict["worm_length"] = design.manufacturing.worm_length
+        manufacturing_dict["wheel_width"] = design.manufacturing.wheel_width
         # Add virtual hobbing settings if available
         if hasattr(design.manufacturing, 'virtual_hobbing'):
             manufacturing_dict["virtual_hobbing"] = design.manufacturing.virtual_hobbing
