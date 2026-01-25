@@ -241,7 +241,7 @@ import json
 import base64
 import tempfile
 import os
-from wormgear.core import WormGeometry, WheelGeometry, VirtualHobbingWheelGeometry, BoreFeature, KeywayFeature, DDCutFeature, calculate_default_bore
+from wormgear.core import WormGeometry, WheelGeometry, GloboidWormGeometry, VirtualHobbingWheelGeometry, BoreFeature, KeywayFeature, DDCutFeature, calculate_default_bore
 from wormgear.io import WormParams, WheelParams, AssemblyParams
 
 print("📋 Parsing parameters...")
@@ -365,21 +365,38 @@ worm_3mf_b64 = None
 wheel_3mf_b64 = None
 worm_stl_b64 = None
 wheel_stl_b64 = None
+worm = None  # Will hold worm geometry if generated
+
+# Check if globoid (has throat curvature radius) - needed for both worm and wheel generation
+is_globoid = hasattr(worm_params, 'throat_pitch_radius') and worm_params.throat_pitch_radius is not None
 
 # Generate worm if requested
 if generate_type in ['worm', 'both']:
     print("🔩 Generating worm gear...")
     try:
         print("  Creating worm geometry object...")
-        worm_geo = WormGeometry(
-            params=worm_params,
-            assembly_params=assembly_params,
-            length=worm_length,
-            sections_per_turn=36,
-            bore=worm_bore,
-            keyway=worm_keyway,
-            ddcut=worm_ddcut
-        )
+        if is_globoid:
+            print("  Using globoid (hourglass) worm geometry...")
+            worm_geo = GloboidWormGeometry(
+                params=worm_params,
+                assembly_params=assembly_params,
+                wheel_pitch_diameter=wheel_params.pitch_diameter,
+                length=worm_length,
+                sections_per_turn=36,
+                bore=worm_bore,
+                keyway=worm_keyway,
+                ddcut=worm_ddcut
+            )
+        else:
+            worm_geo = WormGeometry(
+                params=worm_params,
+                assembly_params=assembly_params,
+                length=worm_length,
+                sections_per_turn=36,
+                bore=worm_bore,
+                keyway=worm_keyway,
+                ddcut=worm_ddcut
+            )
         print("  Building 3D model...")
         worm = worm_geo.build()
         print("  Exporting to STEP format...")
@@ -459,6 +476,12 @@ if generate_type in ['wheel', 'both']:
             # Virtual hobbing supports progress callbacks
             print(f"  Using virtual hobbing with {hobbing_steps_val} steps...")
 
+            # Pass the actual worm geometry as hob ONLY for globoid (important for accuracy)
+            # For cylindrical, let VirtualHobbingWheelGeometry create a simpler hob internally
+            hob_geo = worm if (generate_type == 'both' and is_globoid) else None
+            hob_type = "globoid" if is_globoid else "cylindrical"
+            print(f"  Using {hob_type} hob geometry")
+
             wheel_geo = VirtualHobbingWheelGeometry(
                 params=wheel_params,
                 worm_params=worm_params,
@@ -468,7 +491,8 @@ if generate_type in ['wheel', 'both']:
                 progress_callback=progress_callback_fn,
                 bore=wheel_bore,
                 keyway=wheel_keyway,
-                ddcut=wheel_ddcut
+                ddcut=wheel_ddcut,
+                hob_geometry=hob_geo
             )
         else:
             # Regular helical wheel (no progress callbacks needed - it's fast)
