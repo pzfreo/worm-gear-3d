@@ -49,6 +49,9 @@ from .calculator import (
     nearest_standard_module,
     is_standard_module,
     estimate_efficiency,
+    validate_design,
+    Severity,
+    ValidationResult,
 )
 
 # IO (Layer 2b)
@@ -98,6 +101,9 @@ __all__ = [
     "nearest_standard_module",
     "is_standard_module",
     "estimate_efficiency",
+    "validate_design",
+    "Severity",
+    "ValidationResult",
 
     # IO
     "load_design_json",
