@@ -10,8 +10,11 @@ __pycache__/
 .git/
 .github/
 .vscode/
+
+# Markdown files (except web directory)
 *.md
-!web/README.md
+!web/
+!web/**
 
 # Documentation (except web README)
 docs/

@@ -1,7 +1,8 @@
 {
   "version": 2,
-  "installCommand": "echo 'No install needed'",
-  "buildCommand": "bash web/build.sh",
+  "framework": null,
+  "installCommand": "true",
+  "buildCommand": "chmod +x web/build.sh && ./web/build.sh",
   "outputDirectory": "dist",
   "headers": [
     {
