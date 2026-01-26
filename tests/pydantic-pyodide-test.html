@@ -116,7 +116,7 @@ except Exception as e:
                 // Test 5: JSON round-trip
                 log('\n--- Test 5: JSON Round-Trip ---', 'info');
                 const result5 = await pyodide.runPythonAsync(`
-from pydantic import BaseModel
+from pydantic import BaseModel, VERSION
 from enum import Enum
 import json
 
@@ -134,14 +134,20 @@ class Design(BaseModel):
 # Create model
 design = Design(module_mm=2.0, hand="right")
 
-# To JSON
-json_str = design.model_dump_json()
+# Handle both Pydantic v1 and v2 APIs
+pydantic_version = int(VERSION.split('.')[0])
 
-# From JSON
-data = json.loads(json_str)
-design2 = Design.model_validate(data)
+if pydantic_version >= 2:
+    json_str = design.model_dump_json()
+    data = json.loads(json_str)
+    design2 = Design.model_validate(data)
+else:
+    # Pydantic v1
+    json_str = design.json()
+    data = json.loads(json_str)
+    design2 = Design.parse_obj(data)
 
-f"original={design.hand}, json={json_str}, restored type={type(design2.hand)}"
+f"pydantic v{VERSION}, original={design.hand}, json={json_str}, restored type={type(design2.hand)}"
                 `);
                 log('Result: ' + result5);
                 log('✓ Test 5 passed', 'pass');
