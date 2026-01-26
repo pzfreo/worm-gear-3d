@@ -824,20 +824,22 @@ def design_from_envelope(
 
     # When od_as_maximum is True, find the largest standard module that fits
     if od_as_maximum and use_standard_module:
-        # Try standard modules in descending order
-        for test_module in sorted(STANDARD_MODULES, reverse=True):
-            # Calculate what the ODs would be with this module
-            test_wheel_od = test_module * (num_teeth + 2)
-            # For worm, we need to estimate pitch diameter first
-            # Use a reasonable worm pitch diameter that gives good geometry
-            # Typically worm pitch diameter is 5-15× module
-            test_worm_pitch_diameter = test_module * 8  # Middle of typical range
-            test_worm_od = test_worm_pitch_diameter + 2 * test_module
+        # First calculate baseline design from exact ODs to get reference geometry
+        base_module = wheel_od / (num_teeth + 2)
+        base_worm_pitch_diameter = worm_od - 2 * base_module
 
-            # Check if both fit within constraints
-            if test_wheel_od <= wheel_od and test_worm_od <= worm_od:
-                # This module fits - use it
-                return design_from_module(
+        # Try standard modules in descending order to find largest that fits
+        for test_module in sorted(STANDARD_MODULES, reverse=True):
+            # Adjust worm pitch diameter to maintain similar geometry
+            # As module changes, adjust pitch diameter to keep worm OD close to requested
+            addendum_change = test_module - base_module
+            test_worm_pitch_diameter = base_worm_pitch_diameter - 2 * addendum_change
+
+            if test_worm_pitch_diameter <= 0:
+                continue
+
+            try:
+                test_design = design_from_module(
                     module=test_module,
                     ratio=ratio,
                     worm_pitch_diameter=test_worm_pitch_diameter,
@@ -852,6 +854,12 @@ def design_from_envelope(
                     throat_reduction=throat_reduction,
                     wheel_throated=wheel_throated
                 )
+
+                # Check if both ODs fit within constraints
+                if test_design.worm.tip_diameter_mm <= worm_od and test_design.wheel.tip_diameter_mm <= wheel_od:
+                    return test_design
+            except (ZeroDivisionError, ValueError):
+                continue
 
         # No standard module fits - fall through to exact calculation
 
