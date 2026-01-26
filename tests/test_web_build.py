@@ -150,7 +150,7 @@ def test_vercel_json_has_output_directory():
     config = json.loads(vercel_json.read_text())
 
     assert "outputDirectory" in config, "vercel.json missing outputDirectory"
-    assert config["outputDirectory"] == ".", "outputDirectory should be '.'"
+    assert config["outputDirectory"] == "dist", "outputDirectory should be 'dist'"
 
 
 def test_gitignore_excludes_generated_files():

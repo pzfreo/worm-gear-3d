@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "./build.sh",
-  "outputDirectory": ".",
+  "buildCommand": "cd web && ./build.sh",
+  "outputDirectory": "dist",
   "headers": [
     {
       "source": "/(.*)",
