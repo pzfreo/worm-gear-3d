@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wormgear"
-version = "1.0.0a1"
+version = "0.0.2"
 description = "Unified worm gear calculator and CNC-ready 3D geometry generator"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -48,10 +48,10 @@ wormgear = "wormgear.cli.main:main"
 wormgear-geometry = "wormgear.cli.generate:main"
 
 [project.urls]
-Homepage = "https://github.com/pzfreo/worm-gear-3d"
-Documentation = "https://github.com/pzfreo/worm-gear-3d/blob/main/README.md"
-Repository = "https://github.com/pzfreo/worm-gear-3d"
-Issues = "https://github.com/pzfreo/worm-gear-3d/issues"
+Homepage = "https://wormgear.studio"
+Documentation = "https://github.com/pzfreo/wormgear/blob/main/README.md"
+Repository = "https://github.com/pzfreo/wormgear"
+Issues = "https://github.com/pzfreo/wormgear/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
