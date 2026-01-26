@@ -77,7 +77,6 @@ async function calculate() {
         const inputs = getInputs(mode);
         const func = getDesignFunction(mode);
         const args = formatArgs(inputs.calculator);
-        const useStandardModule = document.getElementById('use-standard-module').checked;
 
         // Handle recommended dimensions
         const manufacturingSettings = {
@@ -93,125 +92,11 @@ async function calculate() {
         calculatorPyodide.globals.set('bore_settings_dict', inputs.bore);
         calculatorPyodide.globals.set('manufacturing_settings_dict', manufacturingSettings);
 
-        // Run calculation with module rounding
+        // Run calculation - all module rounding logic is now in Python
         const result = calculatorPyodide.runPython(`
 import json
 
 design = ${func}(${args})
-
-# Check if we should round to standard module
-use_standard = ${useStandardModule ? 'True' : 'False'}
-mode = "${mode}"
-od_as_maximum = ${inputs.calculator.od_as_maximum ? 'True' : 'False'}
-
-# Special handling for envelope mode with OD as maximum constraint
-if mode == "envelope" and od_as_maximum and use_standard:
-    from wormgear.calculator import STANDARD_MODULES
-
-    # User's specified maximum ODs
-    user_worm_od = ${inputs.calculator.worm_od || 20}
-    user_wheel_od = ${inputs.calculator.wheel_od || 65}
-
-    # Get original design parameters
-    calculated_module = design.worm.module_mm
-    base_worm_pitch_diameter = design.worm.pitch_diameter_mm
-
-    # Try standard modules in descending order to find largest that fits
-    found_module = None
-    for test_module in sorted(STANDARD_MODULES, reverse=True):
-        try:
-            # Adjust pitch diameter to maintain similar geometry
-            addendum_change = test_module - calculated_module
-            test_worm_pitch_diameter = base_worm_pitch_diameter - 2 * addendum_change
-
-            if test_worm_pitch_diameter <= 0:
-                continue
-
-            test_design = design_from_module(
-                module=test_module,
-                ratio=${inputs.calculator.ratio || 30},
-                worm_pitch_diameter=test_worm_pitch_diameter,
-                pressure_angle=${inputs.calculator.pressure_angle || 20},
-                backlash=${inputs.calculator.backlash || 0},
-                num_starts=${inputs.calculator.num_starts || 1},
-                hand=Hand.${inputs.calculator.hand || 'RIGHT'},
-                profile_shift=${inputs.calculator.profile_shift || 0},
-                profile=WormProfile.${inputs.calculator.profile || 'ZA'},
-                worm_type=WormType.${(inputs.calculator.worm_type || 'cylindrical').toUpperCase()},
-                throat_reduction=${inputs.calculator.throat_reduction || 0.0},
-                wheel_throated=${inputs.calculator.wheel_throated ? 'True' : 'False'}
-            )
-
-            # Check if both ODs fit within maximums
-            if test_design.worm.tip_diameter_mm <= user_worm_od and test_design.wheel.tip_diameter_mm <= user_wheel_od:
-                found_module = test_module
-                design = test_design
-                break
-        except (ZeroDivisionError, ValueError):
-            continue
-
-    # If no module fits, fall back to nearest standard module
-    if not found_module:
-        standard_module = nearest_standard_module(calculated_module)
-        worm_pitch_diameter = base_worm_pitch_diameter - 2 * (standard_module - calculated_module)
-        design = design_from_module(
-            module=standard_module,
-            ratio=${inputs.calculator.ratio || 30},
-            worm_pitch_diameter=worm_pitch_diameter,
-            pressure_angle=${inputs.calculator.pressure_angle || 20},
-            backlash=${inputs.calculator.backlash || 0},
-            num_starts=${inputs.calculator.num_starts || 1},
-            hand=Hand.${inputs.calculator.hand || 'RIGHT'},
-            profile_shift=${inputs.calculator.profile_shift || 0},
-            profile=WormProfile.${inputs.calculator.profile || 'ZA'},
-            worm_type=WormType.${(inputs.calculator.worm_type || 'cylindrical').toUpperCase()},
-            throat_reduction=${inputs.calculator.throat_reduction || 0.0},
-            wheel_throated=${inputs.calculator.wheel_throated ? 'True' : 'False'}
-        )
-
-elif use_standard and mode != "from-module":
-    # Get calculated module and find nearest standard
-    calculated_module = design.worm.module_mm
-    standard_module = nearest_standard_module(calculated_module)
-
-    # If different, recalculate using standard module
-    if abs(calculated_module - standard_module) > 0.001:
-        # For envelope mode, preserve worm pitch diameter (adjusted for addendum change)
-        if mode == "envelope":
-            worm_pitch_diameter = design.worm.pitch_diameter_mm
-            # Adjust for module change to maintain similar OD
-            addendum_change = standard_module - calculated_module
-            worm_pitch_diameter = worm_pitch_diameter - 2 * addendum_change
-
-            design = design_from_module(
-                module=standard_module,
-                ratio=${inputs.calculator.ratio || 30},
-                worm_pitch_diameter=worm_pitch_diameter,
-                pressure_angle=${inputs.calculator.pressure_angle || 20},
-                backlash=${inputs.calculator.backlash || 0},
-                num_starts=${inputs.calculator.num_starts || 1},
-                hand=Hand.${inputs.calculator.hand || 'RIGHT'},
-                profile_shift=${inputs.calculator.profile_shift || 0},
-                profile=WormProfile.${inputs.calculator.profile || 'ZA'},
-                worm_type=WormType.${(inputs.calculator.worm_type || 'cylindrical').toUpperCase()},
-                throat_reduction=${inputs.calculator.throat_reduction || 0.0},
-                wheel_throated=${inputs.calculator.wheel_throated ? 'True' : 'False'}
-            )
-        else:
-            # For non-envelope modes, use standard module directly
-            design = design_from_module(
-                module=standard_module,
-                ratio=${inputs.calculator.ratio || 30},
-                pressure_angle=${inputs.calculator.pressure_angle || 20},
-                backlash=${inputs.calculator.backlash || 0},
-                num_starts=${inputs.calculator.num_starts || 1},
-                hand=Hand.${inputs.calculator.hand || 'RIGHT'},
-                profile_shift=${inputs.calculator.profile_shift || 0},
-                profile=WormProfile.${inputs.calculator.profile || 'ZA'},
-                worm_type=WormType.${(inputs.calculator.worm_type || 'cylindrical').toUpperCase()},
-                throat_reduction=${inputs.calculator.throat_reduction || 0.0},
-                wheel_throated=${inputs.calculator.wheel_throated ? 'True' : 'False'}
-            )
 
 # Get settings from JavaScript BEFORE validation
 bore_settings = bore_settings_dict.to_py() if 'bore_settings_dict' in dir() else None
@@ -265,7 +150,58 @@ json.dumps({
 }
 
 function loadFromUrl() {
-    // URL parameter loading (simplified for now)
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.has('mode')) {
+        const mode = params.get('mode');
+        document.getElementById('mode').value = mode;
+
+        // Trigger mode change to show correct input group
+        document.querySelectorAll('.input-group').forEach(group => {
+            group.style.display = group.dataset.mode === mode ? 'block' : 'none';
+        });
+
+        // Set inputs based on mode
+        params.forEach((value, key) => {
+            if (key === 'mode') return;
+
+            // Handle checkbox states
+            if (key === 'use_standard_module') {
+                document.getElementById('use-standard-module').checked = value === 'true';
+                return;
+            }
+            if (key === 'od_as_maximum') {
+                document.getElementById('od-as-maximum').checked = value === 'true';
+                return;
+            }
+
+            // Convert underscore to hyphen for other parameters
+            const normalizedKey = key.replace(/_/g, '-');
+
+            // Try to find the input element
+            const el = document.getElementById(normalizedKey) || document.getElementById(`${normalizedKey}-${getModeSuffix(mode)}`);
+            if (el) {
+                if (el.type === 'checkbox') {
+                    el.checked = value === 'true';
+                } else {
+                    el.value = value;
+                }
+            }
+        });
+
+        // Recalculate with URL parameters
+        calculate();
+    }
+}
+
+// Get mode suffix for input IDs
+function getModeSuffix(mode) {
+    const suffixes = {
+        'from-wheel': 'fw',
+        'from-module': 'fm',
+        'from-centre-distance': 'fcd'
+    };
+    return suffixes[mode] || '';
 }
 
 // ============================================================================
@@ -303,7 +239,54 @@ function downloadMarkdown() {
 }
 
 function copyLink() {
-    alert('Share link feature not yet implemented');
+    const mode = document.getElementById('mode').value;
+    const inputs = getInputs();
+    const params = new URLSearchParams();
+
+    params.set('mode', mode);
+
+    // Add calculator inputs
+    Object.entries(inputs.calculator || {}).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+            params.set(key, value);
+        }
+    });
+
+    // Add checkbox states
+    params.set('use_standard_module', document.getElementById('use-standard-module').checked);
+    if (mode === 'envelope') {
+        params.set('od_as_maximum', document.getElementById('od-as-maximum').checked);
+    }
+
+    const url = `${window.location.origin}${window.location.pathname}?${params}`;
+
+    navigator.clipboard.writeText(url)
+        .then(() => {
+            showNotification('Share link copied to clipboard!');
+        })
+        .catch(err => {
+            console.error('Failed to copy:', err);
+            showNotification('Failed to copy link', true);
+        });
+}
+
+// Show temporary notification
+function showNotification(message, isError = false) {
+    const notification = document.createElement('div');
+    notification.className = isError ? 'notification notification-error' : 'notification notification-success';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('notification-show');
+    }, 10);
+
+    setTimeout(() => {
+        notification.classList.remove('notification-show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 2000);
 }
 
 // ============================================================================
