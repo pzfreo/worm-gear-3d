@@ -113,8 +113,10 @@ export function getInputs(mode) {
 export function formatArgs(calculatorParams) {
     // Convert calculator parameters to Python function call arguments
     // Receives only calculator params - no filtering needed (clean boundary!)
+    // Note: od_as_maximum is a JS-only flag, not passed to Python
+    const jsOnlyParams = ['od_as_maximum'];
     return Object.entries(calculatorParams)
-        .filter(([key, value]) => value !== null && value !== undefined)
+        .filter(([key, value]) => value !== null && value !== undefined && !jsOnlyParams.includes(key))
         .map(([key, value]) => {
             // Enum conversions
             if (key === 'hand') return `hand=Hand.${value}`;

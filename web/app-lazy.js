@@ -265,7 +265,58 @@ json.dumps({
 }
 
 function loadFromUrl() {
-    // URL parameter loading (simplified for now)
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.has('mode')) {
+        const mode = params.get('mode');
+        document.getElementById('mode').value = mode;
+
+        // Trigger mode change to show correct input group
+        document.querySelectorAll('.input-group').forEach(group => {
+            group.style.display = group.dataset.mode === mode ? 'block' : 'none';
+        });
+
+        // Set inputs based on mode
+        params.forEach((value, key) => {
+            if (key === 'mode') return;
+
+            // Handle checkbox states
+            if (key === 'use_standard_module') {
+                document.getElementById('use-standard-module').checked = value === 'true';
+                return;
+            }
+            if (key === 'od_as_maximum') {
+                document.getElementById('od-as-maximum').checked = value === 'true';
+                return;
+            }
+
+            // Convert underscore to hyphen for other parameters
+            const normalizedKey = key.replace(/_/g, '-');
+
+            // Try to find the input element
+            const el = document.getElementById(normalizedKey) || document.getElementById(`${normalizedKey}-${getModeSuffix(mode)}`);
+            if (el) {
+                if (el.type === 'checkbox') {
+                    el.checked = value === 'true';
+                } else {
+                    el.value = value;
+                }
+            }
+        });
+
+        // Recalculate with URL parameters
+        calculate();
+    }
+}
+
+// Get mode suffix for input IDs
+function getModeSuffix(mode) {
+    const suffixes = {
+        'from-wheel': 'fw',
+        'from-module': 'fm',
+        'from-centre-distance': 'fcd'
+    };
+    return suffixes[mode] || '';
 }
 
 // ============================================================================
@@ -303,7 +354,54 @@ function downloadMarkdown() {
 }
 
 function copyLink() {
-    alert('Share link feature not yet implemented');
+    const mode = document.getElementById('mode').value;
+    const inputs = getInputs();
+    const params = new URLSearchParams();
+
+    params.set('mode', mode);
+
+    // Add calculator inputs
+    Object.entries(inputs.calculator || {}).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+            params.set(key, value);
+        }
+    });
+
+    // Add checkbox states
+    params.set('use_standard_module', document.getElementById('use-standard-module').checked);
+    if (mode === 'envelope') {
+        params.set('od_as_maximum', document.getElementById('od-as-maximum').checked);
+    }
+
+    const url = `${window.location.origin}${window.location.pathname}?${params}`;
+
+    navigator.clipboard.writeText(url)
+        .then(() => {
+            showNotification('Share link copied to clipboard!');
+        })
+        .catch(err => {
+            console.error('Failed to copy:', err);
+            showNotification('Failed to copy link', true);
+        });
+}
+
+// Show temporary notification
+function showNotification(message, isError = false) {
+    const notification = document.createElement('div');
+    notification.className = isError ? 'notification notification-error' : 'notification notification-success';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('notification-show');
+    }, 10);
+
+    setTimeout(() => {
+        notification.classList.remove('notification-show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 2000);
 }
 
 // ============================================================================
