@@ -242,7 +242,7 @@ if use_standard and mode != "from-module":
 
     # Special handling for envelope mode with OD as maximum
     if mode == "envelope" and od_as_maximum:
-        from wormcalc.core import STANDARD_MODULES
+        from wormgear.calculator import STANDARD_MODULES
 
         # User's specified maximum ODs
         user_worm_od = ${inputs.worm_od || 20}
