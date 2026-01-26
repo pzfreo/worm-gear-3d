@@ -330,7 +330,9 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
             virtual_hobbing=mfg_data.get('virtual_hobbing', False),
             hobbing_steps=mfg_data.get('hobbing_steps', 18),
             throated_wheel=mfg_data.get('throated_wheel', False),
-            sections_per_turn=mfg_data.get('sections_per_turn', 36)
+            sections_per_turn=mfg_data.get('sections_per_turn', 36),
+            worm_length_mm=mfg_data.get('worm_length_mm'),
+            wheel_width_mm=mfg_data.get('wheel_width_mm')
         )
 
     return WormGearDesign(

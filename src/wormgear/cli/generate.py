@@ -334,6 +334,8 @@ Examples:
     use_virtual_hobbing = args.virtual_hobbing or (json_mfg.virtual_hobbing if json_mfg else False)
     use_hobbing_steps = args.hobbing_steps if args.hobbing_steps != 72 else (json_mfg.hobbing_steps if json_mfg else 72)
     use_sections = args.sections if args.sections != 36 else (json_mfg.sections_per_turn if json_mfg else 36)
+    use_worm_length = args.worm_length if args.worm_length != 40.0 else (json_mfg.worm_length_mm if json_mfg and json_mfg.worm_length_mm else 40.0)
+    use_wheel_width = args.wheel_width if args.wheel_width is not None else (json_mfg.wheel_width_mm if json_mfg and json_mfg.wheel_width_mm else None)
 
     # Generate worm
     if generate_worm:
@@ -452,7 +454,7 @@ Examples:
                 params=design.worm,
                 assembly_params=design.assembly,
                 wheel_pitch_diameter=design.wheel.pitch_diameter_mm,
-                length=args.worm_length,
+                length=use_worm_length,
                 sections_per_turn=use_sections,
                 bore=worm_bore,
                 keyway=worm_keyway,
@@ -464,7 +466,7 @@ Examples:
             worm_geo = WormGeometry(
                 params=design.worm,
                 assembly_params=design.assembly,
-                length=args.worm_length,
+                length=use_worm_length,
                 sections_per_turn=use_sections,
                 bore=worm_bore,
                 keyway=worm_keyway,
@@ -620,7 +622,7 @@ Examples:
                 params=design.wheel,
                 worm_params=design.worm,
                 assembly_params=design.assembly,
-                face_width=args.wheel_width,
+                face_width=use_wheel_width,
                 hobbing_steps=use_hobbing_steps,
                 bore=wheel_bore,
                 keyway=wheel_keyway,
@@ -636,7 +638,7 @@ Examples:
                 params=design.wheel,
                 worm_params=design.worm,
                 assembly_params=design.assembly,
-                face_width=args.wheel_width,
+                face_width=use_wheel_width,
                 throated=args.hobbed,
                 bore=wheel_bore,
                 keyway=wheel_keyway,
@@ -785,8 +787,8 @@ Examples:
         # Create manufacturing parameters
         manufacturing = ManufacturingParams(
             worm_type="globoid" if use_globoid else "cylindrical",
-            worm_length=args.worm_length,
-            wheel_width=args.wheel_width,
+            worm_length=use_worm_length,
+            wheel_width=use_wheel_width,
             wheel_throated=args.hobbed,
             profile=use_profile,
             worm_features=worm_features,
