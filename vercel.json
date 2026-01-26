@@ -1,7 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "./build.sh",
-  "outputDirectory": ".",
+  "framework": null,
+  "installCommand": "true",
+  "buildCommand": "chmod +x web/build.sh && ./web/build.sh",
+  "outputDirectory": "dist",
   "headers": [
     {
       "source": "/(.*)",

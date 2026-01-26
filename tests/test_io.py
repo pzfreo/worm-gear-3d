@@ -14,6 +14,8 @@ from wormgear import (
     AssemblyParams,
     WormGearDesign,
     ManufacturingParams,
+    Hand,
+    WormProfile,
 )
 from wormgear.io.loaders import ManufacturingFeatures
 
@@ -67,7 +69,7 @@ class TestLoadDesignJson:
         assert design.assembly.ratio == 12
         assert design.assembly.pressure_angle_deg == 25
         assert design.assembly.backlash_mm == 0.1
-        assert design.assembly.hand == "right"
+        assert design.assembly.hand == Hand.RIGHT
 
     def test_hand_in_assembly_section(self, tmp_path, sample_design_7mm):
         """Test that hand field in assembly section is correctly handled."""
@@ -77,8 +79,8 @@ class TestLoadDesignJson:
             json.dump(sample_design_7mm, f)
 
         design = load_design_json(json_file)
-        assert design.worm.hand == "right"
-        assert design.assembly.hand == "right"
+        assert design.worm.hand == Hand.RIGHT
+        assert design.assembly.hand == Hand.RIGHT
 
     def test_hand_in_worm_section(self, tmp_path, sample_design_7mm):
         """Test that hand field in worm section is correctly handled."""
@@ -91,7 +93,7 @@ class TestLoadDesignJson:
             json.dump(sample_design_7mm, f)
 
         design = load_design_json(json_file)
-        assert design.worm.hand == "left"
+        assert design.worm.hand == Hand.LEFT
 
     def test_load_nonexistent_file(self):
         """Test that loading a nonexistent file raises an error."""
@@ -150,6 +152,7 @@ class TestWormParams:
 
     def test_worm_params_creation(self):
         """Test creating WormParams directly."""
+        import math
         params = WormParams(
             module_mm=1.0,
             num_starts=1,
@@ -157,6 +160,7 @@ class TestWormParams:
             tip_diameter_mm=12.0,
             root_diameter_mm=7.5,
             lead_mm=3.142,
+            axial_pitch_mm=1.0 * math.pi,
             lead_angle_deg=9.04,
             addendum_mm=1.0,
             dedendum_mm=1.25,
@@ -214,7 +218,7 @@ class TestManufacturingParams:
     def test_manufacturing_params_default_profile(self):
         """Test that default profile is ZA."""
         params = ManufacturingParams()
-        assert params.profile == "ZA"
+        assert params.profile == WormProfile.ZA
 
     def test_manufacturing_params_zk_profile(self):
         """Test setting ZK profile."""
@@ -244,14 +248,17 @@ class TestProfileJsonSerialization:
     @pytest.fixture
     def base_design(self, sample_design_7mm):
         """Create a base WormGearDesign from sample data."""
+        import math
+        module_mm = sample_design_7mm["worm"]["module_mm"]
         return WormGearDesign(
             worm=WormParams(
-                module_mm=sample_design_7mm["worm"]["module_mm"],
+                module_mm=module_mm,
                 num_starts=sample_design_7mm["worm"]["num_starts"],
                 pitch_diameter_mm=sample_design_7mm["worm"]["pitch_diameter_mm"],
                 tip_diameter_mm=sample_design_7mm["worm"]["tip_diameter_mm"],
                 root_diameter_mm=sample_design_7mm["worm"]["root_diameter_mm"],
                 lead_mm=sample_design_7mm["worm"]["lead_mm"],
+                axial_pitch_mm=module_mm * math.pi,
                 lead_angle_deg=sample_design_7mm["worm"]["lead_angle_deg"],
                 addendum_mm=sample_design_7mm["worm"]["addendum_mm"],
                 dedendum_mm=sample_design_7mm["worm"]["dedendum_mm"],

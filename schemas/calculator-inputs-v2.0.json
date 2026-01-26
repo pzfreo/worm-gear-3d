@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wormgear.dev/schemas/calculator-inputs-v2.0.json",
+  "title": "Calculator Inputs",
+  "description": "User inputs to the worm gear calculator. This schema enables save/load of calculator configurations.",
+  "type": "object",
+  "required": ["schema_version", "design_mode", "ratio"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0",
+      "description": "Schema version for compatibility checking"
+    },
+    "design_mode": {
+      "type": "string",
+      "enum": ["module", "centre_distance", "wheel", "envelope"],
+      "description": "Design calculation mode"
+    },
+    "module_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Module (mm) - required for 'module' mode"
+    },
+    "ratio": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Gear ratio (wheel teeth / worm starts)"
+    },
+    "num_starts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "default": 1,
+      "description": "Number of worm starts"
+    },
+    "centre_distance_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Centre distance (mm) - required for 'centre_distance' mode"
+    },
+    "wheel_od_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Wheel outside diameter (mm) - required for 'wheel' and 'envelope' modes"
+    },
+    "worm_od_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Worm outside diameter (mm) - required for 'envelope' mode"
+    },
+    "worm_pitch_diameter_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Worm pitch diameter (mm) - optional override"
+    },
+    "target_lead_angle_deg": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 45,
+      "default": 7.0,
+      "description": "Target lead angle (degrees)"
+    },
+    "pressure_angle_deg": {
+      "type": "number",
+      "minimum": 14.5,
+      "maximum": 30,
+      "default": 20.0,
+      "description": "Pressure angle (degrees)"
+    },
+    "backlash_mm": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0.05,
+      "description": "Backlash allowance (mm)"
+    },
+    "hand": {
+      "type": "string",
+      "enum": ["right", "left"],
+      "default": "right",
+      "description": "Thread/gear hand direction"
+    },
+    "profile_shift": {
+      "type": "number",
+      "default": 0,
+      "description": "Profile shift coefficient for wheel"
+    },
+    "profile": {
+      "type": "string",
+      "enum": ["ZA", "ZK", "ZI"],
+      "default": "ZA",
+      "description": "Tooth profile type"
+    },
+    "worm_type": {
+      "type": "string",
+      "enum": ["cylindrical", "globoid"],
+      "default": "cylindrical",
+      "description": "Worm geometry type"
+    },
+    "throat_reduction_mm": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0,
+      "description": "Throat reduction for globoid worms (mm)"
+    },
+    "wheel_throated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether wheel has throated teeth"
+    },
+    "virtual_hobbing": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use virtual hobbing simulation for wheel"
+    },
+    "hobbing_steps": {
+      "type": "integer",
+      "minimum": 6,
+      "maximum": 72,
+      "default": 18,
+      "description": "Number of hobbing steps"
+    },
+    "worm_bore_type": {
+      "type": "string",
+      "enum": ["none", "auto", "custom"],
+      "default": "none",
+      "description": "Worm bore type"
+    },
+    "worm_bore_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Custom worm bore diameter (mm)"
+    },
+    "worm_anti_rotation": {
+      "type": "string",
+      "enum": ["none", "DIN6885", "ddcut"],
+      "default": "none",
+      "description": "Worm anti-rotation feature"
+    },
+    "wheel_bore_type": {
+      "type": "string",
+      "enum": ["none", "auto", "custom"],
+      "default": "none",
+      "description": "Wheel bore type"
+    },
+    "wheel_bore_mm": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Custom wheel bore diameter (mm)"
+    },
+    "wheel_anti_rotation": {
+      "type": "string",
+      "enum": ["none", "DIN6885", "ddcut"],
+      "default": "none",
+      "description": "Wheel anti-rotation feature"
+    }
+  }
+}

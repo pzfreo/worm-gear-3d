@@ -1,71 +1,56 @@
 #!/bin/bash
-# Vercel build script for wormgear web interface
-# Copies Python package files to web/src for WASM access
-
-set -e  # Exit on error
+# Build script: web/ + src/ → dist/
+set -e
 
 echo "🔧 Building wormgear web interface..."
 
-# Ensure we're in the web directory
-cd "$(dirname "$0")"
+# Ensure we're in project root
+cd "$(dirname "$0")/.."
+PROJECT_ROOT="$(pwd)"
 
-# Create src directory if it doesn't exist
-mkdir -p src
+# Clean old build
+echo "🧹 Cleaning old build..."
+rm -rf dist/
 
-# Copy wormgear package from parent src/ to web/src/
+# Create dist directory
+echo "📁 Creating dist/..."
+mkdir -p dist/
+
+# Copy web source files to dist/
+echo "📄 Copying web files..."
+cp -r web/*.html web/*.js web/*.css web/*.svg web/*.md dist/ 2>/dev/null || true
+cp -r web/modules dist/
+cp -r web/tests dist/ 2>/dev/null || true
+cp web/CNAME dist/ 2>/dev/null || true
+
+# Copy Python package to dist/
 echo "📦 Copying wormgear package..."
-if [ -d "../src/wormgear" ]; then
-    # Remove old copy if exists
-    rm -rf src/wormgear
+mkdir -p dist/wormgear
+cp -r src/wormgear/* dist/wormgear/
 
-    # Copy package
-    cp -r ../src/wormgear src/
+# Clean Python cache files
+echo "🧹 Cleaning Python cache..."
+find dist/wormgear -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find dist/wormgear -name "*.pyc" -delete 2>/dev/null || true
 
-    # Remove Python cache files (not needed in browser)
-    find src/wormgear -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-    find src/wormgear -name "*.pyc" -delete 2>/dev/null || true
-
-    echo "✓ Copied wormgear package to web/src/"
-else
-    echo "❌ Error: ../src/wormgear not found"
-    exit 1
-fi
-
-# Verify critical files exist
-echo "🔍 Verifying package structure..."
-REQUIRED_FILES=(
-    "src/wormgear/__init__.py"
-    "src/wormgear/core/__init__.py"
-    "src/wormgear/core/worm.py"
-    "src/wormgear/core/wheel.py"
-    "src/wormgear/core/features.py"
-    "src/wormgear/core/globoid_worm.py"
-    "src/wormgear/core/virtual_hobbing.py"
-    "src/wormgear/io/__init__.py"
-    "src/wormgear/io/loaders.py"
-    "src/wormgear/io/schema.py"
-    "src/wormgear/calculator/__init__.py"
-    "src/wormgear/calculator/core.py"
-    "src/wormgear/calculator/validation.py"
-    "src/wormgear/calculator/js_bridge.py"
-    "src/wormgear/calculator/json_schema.py"
+# Verify critical files
+echo "🔍 Verifying build..."
+REQUIRED=(
+    "dist/index.html"
+    "dist/app.js"
+    "dist/wormgear/__init__.py"
+    "dist/wormgear/calculator/core.py"
 )
 
-for file in "${REQUIRED_FILES[@]}"; do
+for file in "${REQUIRED[@]}"; do
     if [ ! -f "$file" ]; then
-        echo "❌ Missing required file: $file"
+        echo "❌ Missing: $file"
         exit 1
     fi
 done
 
 echo "✓ All required files present"
-
-# List what was copied
-echo ""
-echo "📋 Package contents:"
-ls -lh src/wormgear/
-echo ""
-ls -lh src/wormgear/core/
-
 echo ""
 echo "✅ Build complete!"
+echo "📍 Output: $PROJECT_ROOT/dist/"
+echo "🌐 Run: python web/serve.py"

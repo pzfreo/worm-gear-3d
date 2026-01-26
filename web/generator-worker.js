@@ -113,10 +113,16 @@ except ImportError as e:
         }
 
     } catch (error) {
+        // Better error handling - ensure we always get a string
+        const errorMessage = error?.message || error?.toString() || String(error) || 'Unknown initialization error';
+        const errorStack = error?.stack || '';
+
+        console.error('[Worker] Init error:', error);
+
         self.postMessage({
             type: 'INIT_ERROR',
-            error: error.message,
-            stack: error.stack
+            error: errorMessage,
+            stack: errorStack
         });
     } finally {
         isLoading = false;
@@ -145,6 +151,7 @@ if '/home/pyodide' not in sys.path:
     // Define files to load
     const packageFiles = [
         { path: 'wormgear/__init__.py', pyPath: '/home/pyodide/wormgear/__init__.py' },
+        { path: 'wormgear/enums.py', pyPath: '/home/pyodide/wormgear/enums.py' },
         { path: 'wormgear/core/__init__.py', pyPath: '/home/pyodide/wormgear/core/__init__.py' },
         { path: 'wormgear/core/worm.py', pyPath: '/home/pyodide/wormgear/core/worm.py' },
         { path: 'wormgear/core/wheel.py', pyPath: '/home/pyodide/wormgear/core/wheel.py' },
@@ -157,13 +164,14 @@ if '/home/pyodide' not in sys.path:
         { path: 'wormgear/calculator/__init__.py', pyPath: '/home/pyodide/wormgear/calculator/__init__.py' },
         { path: 'wormgear/calculator/core.py', pyPath: '/home/pyodide/wormgear/calculator/core.py' },
         { path: 'wormgear/calculator/validation.py', pyPath: '/home/pyodide/wormgear/calculator/validation.py' },
+        { path: 'wormgear/calculator/output.py', pyPath: '/home/pyodide/wormgear/calculator/output.py' },
         { path: 'wormgear/calculator/js_bridge.py', pyPath: '/home/pyodide/wormgear/calculator/js_bridge.py' },
         { path: 'wormgear/calculator/json_schema.py', pyPath: '/home/pyodide/wormgear/calculator/json_schema.py' },
     ];
 
     // Load all files
     for (const file of packageFiles) {
-        const response = await fetch('src/' + file.path);
+        const response = await fetch(file.path);  // Removed 'src/' prefix - wormgear is at root of dist/
         if (!response.ok) {
             throw new Error('Failed to fetch ' + file.path + ': ' + response.status);
         }
@@ -262,7 +270,7 @@ print(f"Wheel width: {wheel_width if wheel_width else 'auto-calculated'}")
 print(f"Worm length (from JS): {worm_length}")
 
 # Parse features section for bores and keyways
-features = design_data.get('features', {})
+features = design_data.get('features', {}) or {}  # Handle None case
 
 # Worm features
 worm_bore = None
@@ -620,10 +628,16 @@ elif generate_type == 'both':
         });
 
     } catch (error) {
+        // Better error handling - ensure we always get a string
+        const errorMessage = error?.message || error?.toString() || String(error) || 'Unknown error';
+        const errorStack = error?.stack || '';
+
+        console.error('[Worker] Generate error:', error);
+
         self.postMessage({
             type: 'GENERATE_ERROR',
-            error: error.message,
-            stack: error.stack
+            error: errorMessage,
+            stack: errorStack
         });
     }
 }

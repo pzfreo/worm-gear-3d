@@ -10,6 +10,8 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional, Union, Dict, Any
 
+from ..enums import Hand, WormType, WormProfile
+
 
 @dataclass
 class WormParams:
@@ -21,15 +23,16 @@ class WormParams:
     tip_diameter_mm: float
     root_diameter_mm: float
     lead_mm: float
+    axial_pitch_mm: float  # Axial pitch (module * pi)
     lead_angle_deg: float
     addendum_mm: float
     dedendum_mm: float
     thread_thickness_mm: float
-    hand: str  # "RIGHT" or "LEFT"
+    hand: Hand  # Type-safe enum
     profile_shift: float = 0.0
 
     # Worm type (cylindrical or globoid)
-    type: Optional[str] = None  # "cylindrical" or "globoid"
+    type: Optional[WormType] = None  # Type-safe enum
 
     # Globoid-specific parameters (only if type="globoid")
     throat_reduction_mm: Optional[float] = None
@@ -64,7 +67,7 @@ class AssemblyParams:
     centre_distance_mm: float
     pressure_angle_deg: float
     backlash_mm: float
-    hand: str
+    hand: Hand  # Type-safe enum
     ratio: int
     efficiency_percent: Optional[float] = None
     self_locking: Optional[bool] = None
@@ -117,11 +120,13 @@ class Features:
 @dataclass
 class ManufacturingParams:
     """Manufacturing/generation parameters."""
-    profile: str = "ZA"  # Tooth profile: "ZA" (straight), "ZK" (circular arc), "ZI" (involute)
+    profile: WormProfile = WormProfile.ZA  # Tooth profile: ZA (straight), ZK (circular arc), ZI (involute)
     virtual_hobbing: bool = False  # Use virtual hobbing simulation for wheel
     hobbing_steps: int = 18  # Number of steps for virtual hobbing (if enabled)
     throated_wheel: bool = False  # True for throated/hobbed wheel style
     sections_per_turn: int = 36  # Loft sections per helix turn (smoothness)
+    worm_length_mm: Optional[float] = None  # Recommended worm length (mm)
+    wheel_width_mm: Optional[float] = None  # Recommended wheel face width (mm)
 
 
 @dataclass
@@ -194,6 +199,17 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
     asm_data = data['assembly']
     worm_hand = worm_data.get('hand', asm_data.get('hand', 'RIGHT'))
 
+    # Convert string to Hand enum
+    worm_hand_enum = Hand(worm_hand.lower()) if isinstance(worm_hand, str) else worm_hand
+
+    # Convert worm type string to enum if present
+    worm_type_str = worm_data.get('type')
+    worm_type_enum = WormType(worm_type_str.lower()) if worm_type_str else None
+
+    # Calculate axial_pitch if not in JSON (backward compatibility)
+    from math import pi
+    axial_pitch = worm_data.get('axial_pitch_mm', worm_data['module_mm'] * pi)
+
     worm = WormParams(
         module_mm=worm_data['module_mm'],
         num_starts=worm_data['num_starts'],
@@ -201,14 +217,15 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
         tip_diameter_mm=worm_data['tip_diameter_mm'],
         root_diameter_mm=worm_data['root_diameter_mm'],
         lead_mm=worm_data['lead_mm'],
+        axial_pitch_mm=axial_pitch,
         lead_angle_deg=worm_data['lead_angle_deg'],
         addendum_mm=worm_data['addendum_mm'],
         dedendum_mm=worm_data['dedendum_mm'],
         thread_thickness_mm=worm_data['thread_thickness_mm'],
-        hand=worm_hand,
+        hand=worm_hand_enum,
         profile_shift=worm_data.get('profile_shift', 0.0),
         # Schema v1.0 fields (simplified)
-        type=worm_data.get('type'),
+        type=worm_type_enum,
         throat_reduction_mm=worm_data.get('throat_reduction_mm'),
         throat_curvature_radius_mm=worm_data.get('throat_curvature_radius_mm'),
         length_mm=worm_data.get('length_mm')
@@ -232,11 +249,15 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
     )
 
     # Parse assembly parameters
+    # Convert hand string to enum
+    asm_hand_str = asm_data.get('hand', worm_hand)
+    asm_hand_enum = Hand(asm_hand_str.lower()) if isinstance(asm_hand_str, str) else asm_hand_str
+
     assembly = AssemblyParams(
         centre_distance_mm=asm_data['centre_distance_mm'],
         pressure_angle_deg=asm_data['pressure_angle_deg'],
         backlash_mm=asm_data['backlash_mm'],
-        hand=asm_data.get('hand', worm_hand),
+        hand=asm_hand_enum,
         ratio=asm_data['ratio'],
         efficiency_percent=asm_data.get('efficiency_percent'),
         self_locking=asm_data.get('self_locking')

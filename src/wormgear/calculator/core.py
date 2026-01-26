@@ -2,7 +2,7 @@
 Worm Gear Calculator - Core Calculations
 
 Pure mathematical functions for worm gear design.
-Ported from wormgearcalc with field naming conventions adapted for wormgear.
+Returns typed WormGearDesign dataclasses for type safety.
 
 Reference standards:
 - DIN 3975 (worm geometry)
@@ -11,7 +11,10 @@ Reference standards:
 """
 
 from math import pi, tan, atan, degrees, radians, cos, sin, sqrt
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
+
+from ..enums import Hand, WormProfile, WormType
+from ..io import WormParams, WheelParams, AssemblyParams, ManufacturingParams, WormGearDesign
 
 # ISO 54 / DIN 780 standard modules (mm)
 STANDARD_MODULES = [
@@ -124,6 +127,7 @@ def calculate_worm(
         "tip_diameter_mm": tip_diameter_mm,
         "root_diameter_mm": root_diameter_mm,
         "lead_mm": lead_mm,
+        "axial_pitch_mm": axial_pitch,  # Added for completeness
         "lead_angle_deg": lead_angle_deg,
         "addendum_mm": addendum_mm,
         "dedendum_mm": dedendum_mm,
@@ -289,6 +293,149 @@ def calculate_recommended_worm_length(
     return recommended
 
 
+def calculate_manufacturing_params(
+    worm_lead_mm: float,
+    module_mm: float,
+    worm_pitch_diameter_mm: Optional[float] = None,
+    profile: Union[WormProfile, str] = "ZA",
+    globoid: bool = False,
+    wheel_throated: bool = False,
+    virtual_hobbing: bool = False,
+    hobbing_steps: int = 18
+) -> dict:
+    """
+    Calculate recommended manufacturing parameters.
+
+    These are design guidelines based on best practices, NOT geometric constraints.
+    Wheel width and worm length can be adjusted based on specific requirements.
+
+    Args:
+        worm_lead_mm: Worm lead (mm)
+        module_mm: Module (mm)
+        worm_pitch_diameter_mm: Worm pitch diameter (mm) for wheel width calculation
+        profile: Tooth profile type per DIN 3975 ("ZA", "ZK", "ZI")
+        globoid: True for globoid worm, False for cylindrical
+        wheel_throated: Whether wheel has throated teeth (hobbed)
+        virtual_hobbing: True to use virtual hobbing for wheel generation
+        hobbing_steps: Number of steps for virtual hobbing
+
+    Returns:
+        Dict with manufacturing parameters
+    """
+    # Convert string to enum if needed
+    if isinstance(profile, str):
+        profile = WormProfile(profile.upper())
+
+    # Calculate recommended wheel width (design guideline, not constraint)
+    if worm_pitch_diameter_mm is not None:
+        wheel_width_mm = calculate_recommended_wheel_width(worm_pitch_diameter_mm, module_mm)
+    else:
+        # Fallback if no worm diameter provided
+        wheel_width_mm = module_mm * 10.0
+
+    # Calculate recommended worm length (design guideline, not constraint)
+    worm_length_mm = calculate_recommended_worm_length(wheel_width_mm, worm_lead_mm)
+
+    return {
+        "profile": profile.value,
+        "worm_type": "globoid" if globoid else "cylindrical",
+        "virtual_hobbing": virtual_hobbing,
+        "hobbing_steps": hobbing_steps,
+        "throated_wheel": wheel_throated,
+        "sections_per_turn": 36,
+        "worm_length_mm": round(worm_length_mm, 2),
+        "wheel_width_mm": round(wheel_width_mm, 2)
+    }
+
+
+def _build_design(
+    worm_dict: dict,
+    wheel_dict: dict,
+    centre_distance_mm: float,
+    pressure_angle_deg: float,
+    backlash_mm: float,
+    hand: Hand,
+    ratio: int,
+    efficiency_percent: float,
+    self_locking: bool,
+    profile: WormProfile,
+    wheel_throated: bool,
+    worm_length_mm: float,
+    wheel_width_mm: float,
+    globoid: bool = False,
+    throat_reduction_mm: Optional[float] = None,
+    throat_curvature_radius_mm: Optional[float] = None
+) -> WormGearDesign:
+    """
+    Build a typed WormGearDesign from calculated parameters.
+
+    This is the single point where we convert calculation dicts to typed dataclasses.
+    """
+    # Build WormParams
+    worm_type = WormType.GLOBOID if globoid else WormType.CYLINDRICAL
+    worm_params = WormParams(
+        module_mm=worm_dict["module_mm"],
+        num_starts=worm_dict["num_starts"],
+        pitch_diameter_mm=worm_dict["pitch_diameter_mm"],
+        tip_diameter_mm=worm_dict["tip_diameter_mm"],
+        root_diameter_mm=worm_dict["root_diameter_mm"],
+        lead_mm=worm_dict["lead_mm"],
+        axial_pitch_mm=worm_dict["axial_pitch_mm"],
+        lead_angle_deg=worm_dict["lead_angle_deg"],
+        addendum_mm=worm_dict["addendum_mm"],
+        dedendum_mm=worm_dict["dedendum_mm"],
+        thread_thickness_mm=worm_dict["thread_thickness_mm"],
+        hand=hand,
+        profile_shift=worm_dict.get("profile_shift", 0.0),
+        type=worm_type,
+        throat_reduction_mm=throat_reduction_mm,
+        throat_curvature_radius_mm=throat_curvature_radius_mm
+    )
+
+    # Build WheelParams
+    wheel_params = WheelParams(
+        module_mm=wheel_dict["module_mm"],
+        num_teeth=wheel_dict["num_teeth"],
+        pitch_diameter_mm=wheel_dict["pitch_diameter_mm"],
+        tip_diameter_mm=wheel_dict["tip_diameter_mm"],
+        root_diameter_mm=wheel_dict["root_diameter_mm"],
+        throat_diameter_mm=wheel_dict["throat_diameter_mm"],
+        helix_angle_deg=wheel_dict["helix_angle_deg"],
+        addendum_mm=wheel_dict["addendum_mm"],
+        dedendum_mm=wheel_dict["dedendum_mm"],
+        profile_shift=wheel_dict.get("profile_shift", 0.0)
+    )
+
+    # Build AssemblyParams
+    assembly_params = AssemblyParams(
+        centre_distance_mm=centre_distance_mm,
+        pressure_angle_deg=pressure_angle_deg,
+        backlash_mm=backlash_mm,
+        hand=hand,
+        ratio=ratio,
+        efficiency_percent=efficiency_percent,
+        self_locking=self_locking
+    )
+
+    # Build ManufacturingParams
+    manufacturing_params = ManufacturingParams(
+        profile=profile,
+        virtual_hobbing=False,
+        hobbing_steps=18,
+        throated_wheel=wheel_throated,
+        sections_per_turn=36,
+        worm_length_mm=round(worm_length_mm, 2),
+        wheel_width_mm=round(wheel_width_mm, 2)
+    )
+
+    return WormGearDesign(
+        worm=worm_params,
+        wheel=wheel_params,
+        assembly=assembly_params,
+        manufacturing=manufacturing_params
+    )
+
+
 def design_from_module(
     module: float,
     ratio: int,
@@ -298,13 +445,14 @@ def design_from_module(
     backlash: float = 0.0,
     num_starts: int = 1,
     clearance_factor: float = 0.25,
-    hand: str = "right",
+    hand: Union[Hand, str] = "right",
     profile_shift: float = 0.0,
-    profile: str = "ZA",
+    profile: Union[WormProfile, str] = "ZA",
+    worm_type: Union[WormType, str, None] = None,
     globoid: bool = False,
     throat_reduction: float = 0.0,
     wheel_throated: bool = False
-) -> dict:
+) -> WormGearDesign:
     """
     Design worm gear pair from module specification.
 
@@ -327,6 +475,18 @@ def design_from_module(
     Returns:
         Dict with complete design matching WormGearDesign schema
     """
+    # Convert string to enum if needed (for backward compatibility)
+    if isinstance(hand, str):
+        hand = Hand(hand.lower())
+    if isinstance(profile, str):
+        profile = WormProfile(profile.upper())
+
+    # Handle worm_type parameter (converts to globoid boolean)
+    if worm_type is not None:
+        if isinstance(worm_type, str):
+            worm_type = WormType(worm_type.lower())
+        globoid = (worm_type == WormType.GLOBOID)
+
     # Number of teeth on wheel
     num_teeth = ratio * num_starts
 
@@ -351,9 +511,19 @@ def design_from_module(
         pressure_angle_deg=pressure_angle,
         clearance_factor=clearance_factor,
         backlash_mm=backlash,
-        hand=hand,
+        hand=hand.value,  # Pass enum value (string) to helper function
         profile_shift=0.0  # Worm doesn't use profile shift
     )
+
+    # Add worm type to output
+    worm["type"] = "globoid" if globoid else "cylindrical"
+
+    # Add globoid-specific parameters if applicable
+    if globoid:
+        worm["throat_reduction_mm"] = throat_reduction
+        # Calculate throat curvature radius (related to wheel pitch radius)
+        wheel_pitch_radius = (module * ratio * num_starts) / 2
+        worm["throat_curvature_radius_mm"] = wheel_pitch_radius
 
     # Calculate wheel parameters
     wheel = calculate_wheel(
@@ -386,26 +556,38 @@ def design_from_module(
     ) * 100.0
     self_locking = worm["lead_angle_deg"] < 6.0
 
-    return {
-        "worm": worm,
-        "wheel": wheel,
-        "assembly": {
-            "centre_distance_mm": centre_distance,
-            "pressure_angle_deg": pressure_angle,
-            "backlash_mm": backlash,
-            "hand": hand,
-            "ratio": ratio,
-            "efficiency_percent": efficiency_percent,
-            "self_locking": self_locking
-        },
-        "manufacturing": {
-            "profile": profile,
-            "virtual_hobbing": False,
-            "hobbing_steps": 18,
-            "throated_wheel": wheel_throated,
-            "sections_per_turn": 36
-        }
-    }
+    # Calculate recommended dimensions
+    wheel_width_mm = calculate_recommended_wheel_width(
+        worm_pitch_diameter_mm=worm["pitch_diameter_mm"],
+        module_mm=module
+    )
+    worm_length_mm = calculate_recommended_worm_length(
+        wheel_width_mm=wheel_width_mm,
+        lead_mm=worm["lead_mm"]
+    )
+
+    # Globoid-specific parameters
+    throat_reduction_mm = throat_reduction if globoid else None
+    throat_curvature_radius_mm = (module * ratio * num_starts) / 2 if globoid else None
+
+    return _build_design(
+        worm_dict=worm,
+        wheel_dict=wheel,
+        centre_distance_mm=centre_distance,
+        pressure_angle_deg=pressure_angle,
+        backlash_mm=backlash,
+        hand=hand,
+        ratio=ratio,
+        efficiency_percent=efficiency_percent,
+        self_locking=self_locking,
+        profile=profile,
+        wheel_throated=wheel_throated,
+        worm_length_mm=worm_length_mm,
+        wheel_width_mm=wheel_width_mm,
+        globoid=globoid,
+        throat_reduction_mm=throat_reduction_mm,
+        throat_curvature_radius_mm=throat_curvature_radius_mm
+    )
 
 
 def design_from_centre_distance(
@@ -416,13 +598,14 @@ def design_from_centre_distance(
     backlash: float = 0.0,
     num_starts: int = 1,
     clearance_factor: float = 0.25,
-    hand: str = "right",
+    hand: Union[Hand, str] = "right",
     profile_shift: float = 0.0,
-    profile: str = "ZA",
+    profile: Union[WormProfile, str] = "ZA",
+    worm_type: Union[WormType, str, None] = None,
     globoid: bool = False,
     throat_reduction: float = 0.0,
     wheel_throated: bool = False
-) -> dict:
+) -> WormGearDesign:
     """
     Design worm gear pair from centre distance constraint.
 
@@ -442,8 +625,20 @@ def design_from_centre_distance(
         wheel_throated: Whether wheel has throated teeth (hobbed)
 
     Returns:
-        Dict with complete design matching WormGearDesign schema
+        WormGearDesign with typed parameters
     """
+    # Convert string to enum if needed (for backward compatibility)
+    if isinstance(hand, str):
+        hand = Hand(hand.lower())
+    if isinstance(profile, str):
+        profile = WormProfile(profile.upper())
+
+    # Handle worm_type parameter (converts to globoid boolean)
+    if worm_type is not None:
+        if isinstance(worm_type, str):
+            worm_type = WormType(worm_type.lower())
+        globoid = (worm_type == WormType.GLOBOID)
+
     # Number of teeth on wheel
     num_teeth = ratio * num_starts
 
@@ -493,13 +688,14 @@ def design_from_wheel(
     backlash: float = 0.0,
     num_starts: int = 1,
     clearance_factor: float = 0.25,
-    hand: str = "right",
+    hand: Union[Hand, str] = "right",
     profile_shift: float = 0.0,
-    profile: str = "ZA",
+    profile: Union[WormProfile, str] = "ZA",
+    worm_type: Union[WormType, str, None] = None,
     globoid: bool = False,
     throat_reduction: float = 0.0,
     wheel_throated: bool = False
-) -> dict:
+) -> WormGearDesign:
     """
     Design worm gear pair from wheel OD constraint.
     Worm sized to achieve target lead angle.
@@ -522,6 +718,18 @@ def design_from_wheel(
     Returns:
         Dict with complete design matching WormGearDesign schema
     """
+    # Convert string to enum if needed (for backward compatibility)
+    if isinstance(hand, str):
+        hand = Hand(hand.lower())
+    if isinstance(profile, str):
+        profile = WormProfile(profile.upper())
+
+    # Handle worm_type parameter (converts to globoid boolean)
+    if worm_type is not None:
+        if isinstance(worm_type, str):
+            worm_type = WormType(worm_type.lower())
+        globoid = (worm_type == WormType.GLOBOID)
+
     # Number of teeth on wheel
     num_teeth = ratio * num_starts
 
@@ -551,6 +759,87 @@ def design_from_wheel(
         profile_shift=profile_shift,
         profile=profile,
         globoid=globoid,
+        throat_reduction=throat_reduction,
+        wheel_throated=wheel_throated
+    )
+
+
+def design_from_envelope(
+    worm_od: float,
+    wheel_od: float,
+    ratio: int,
+    pressure_angle: float = 20.0,
+    backlash: float = 0.0,
+    num_starts: int = 1,
+    clearance_factor: float = 0.25,
+    hand: Union[Hand, str] = "right",
+    profile_shift: float = 0.0,
+    profile: Union[WormProfile, str] = "ZA",
+    worm_type: Union[WormType, str, None] = None,
+    throat_reduction: float = 0.0,
+    wheel_throated: bool = False
+) -> WormGearDesign:
+    """
+    Design worm gear pair from outside diameter constraints (envelope mode).
+
+    Calculates module from wheel OD and worm pitch diameter from worm OD,
+    then delegates to design_from_module().
+
+    Args:
+        worm_od: Worm outside/tip diameter (mm)
+        wheel_od: Wheel outside/tip diameter (mm)
+        ratio: Gear ratio (must be divisible by num_starts)
+        pressure_angle: Pressure angle (degrees, default 20°)
+        backlash: Backlash allowance (mm, default 0)
+        num_starts: Number of worm starts (default 1)
+        clearance_factor: Bottom clearance factor (default 0.25)
+        hand: Thread hand (Hand enum or "right"/"left" string)
+        profile_shift: Profile shift coefficient for wheel (default 0.0)
+        profile: Tooth profile type (WormProfile enum or "ZA"/"ZK"/"ZI" string)
+        worm_type: Worm geometry type (WormType enum or "cylindrical"/"globoid" string)
+        throat_reduction: Throat reduction for globoid worms (mm, default 0.0)
+        wheel_throated: Whether wheel has throated teeth (default False)
+
+    Returns:
+        Design dict with worm, wheel, assembly, and manufacturing sections
+    """
+    # Convert string to enum if needed
+    if isinstance(hand, str):
+        hand = Hand(hand.lower())
+    if isinstance(profile, str):
+        profile = WormProfile(profile.upper())
+
+    # Handle worm_type parameter (converts to globoid boolean)
+    globoid = False
+    if worm_type is not None:
+        if isinstance(worm_type, str):
+            worm_type = WormType(worm_type.lower())
+        globoid = (worm_type == WormType.GLOBOID)
+
+    # Calculate module from wheel OD
+    # tip_diameter = module × (num_teeth + 2)
+    num_teeth = ratio * num_starts
+    module = wheel_od / (num_teeth + 2)
+
+    # Worm pitch diameter from worm OD
+    # tip_diameter = pitch_diameter + 2 × addendum
+    # addendum = module (standard)
+    addendum = module
+    worm_pitch_diameter = worm_od - 2 * addendum
+
+    # Call design_from_module with calculated values
+    return design_from_module(
+        module=module,
+        ratio=ratio,
+        worm_pitch_diameter=worm_pitch_diameter,
+        pressure_angle=pressure_angle,
+        backlash=backlash,
+        num_starts=num_starts,
+        clearance_factor=clearance_factor,
+        hand=hand,
+        profile_shift=profile_shift,
+        profile=profile,
+        worm_type=worm_type,
         throat_reduction=throat_reduction,
         wheel_throated=wheel_throated
     )

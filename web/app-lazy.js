@@ -105,14 +105,14 @@ mode = "${mode}"
 
 if use_standard and mode != "from-module":
     # Get calculated module and find nearest standard
-    calculated_module = design.worm.module
+    calculated_module = design.worm.module_mm
     standard_module = nearest_standard_module(calculated_module)
 
     # If different, recalculate using standard module
     if abs(calculated_module - standard_module) > 0.001:
         # For envelope mode, preserve worm pitch diameter (adjusted for addendum change)
         if mode == "envelope":
-            worm_pitch_diameter = design.worm.pitch_diameter
+            worm_pitch_diameter = design.worm.pitch_diameter_mm
             # Adjust for module change to maintain similar OD
             addendum_change = standard_module - calculated_module
             worm_pitch_diameter = worm_pitch_diameter - 2 * addendum_change
@@ -253,6 +253,26 @@ function setupWorkerMessageHandler(worker) {
         const { type, message, percent, error, stack } = e.data;
 
         switch (type) {
+            case 'INIT_COMPLETE':
+                // Generator initialization complete
+                console.log('[Generator] Initialization complete');
+                const statusEl = document.getElementById('generator-loading-status');
+                if (statusEl) {
+                    statusEl.textContent = 'Generator ready';
+                    statusEl.style.color = '#22c55e';
+                }
+                const btn = document.getElementById('generate-btn');
+                if (btn) btn.disabled = false;
+                break;
+            case 'INIT_ERROR':
+                // Generator initialization failed
+                console.error('[Generator] Initialization failed:', error);
+                const statusElError = document.getElementById('generator-loading-status');
+                if (statusElError) {
+                    statusElError.textContent = `Error: ${error}`;
+                    statusElError.style.color = '#dc3545';
+                }
+                break;
             case 'LOG':
                 // Process LOG messages through progress indicator too
                 handleProgress(message, null);
@@ -403,8 +423,8 @@ async function generateGeometry(type) {
             profile
         });
 
-        let wormLength = designData.worm.length_mm || manufacturing.worm_length || 40;
-        let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width;
+        let wormLength = designData.worm.length_mm || manufacturing.worm_length_mm || manufacturing.worm_length || 40;
+        let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width_mm || manufacturing.wheel_width;
 
         appendToConsole('Starting geometry generation...');
         appendToConsole(`Parameters: ${type}, Virtual Hobbing: ${virtualHobbing}, Profile: ${profile}`);
@@ -509,8 +529,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate with recommended values when toggling to custom
         if (!e.target.checked && currentDesign && currentDesign.manufacturing) {
-            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length || 40;
-            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width || 10;
+            // Note: calculator outputs worm_length_mm and wheel_width_mm (with _mm suffix)
+            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length_mm || currentDesign.manufacturing.worm_length || 40;
+            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width_mm || currentDesign.manufacturing.wheel_width || 10;
         }
     });
 

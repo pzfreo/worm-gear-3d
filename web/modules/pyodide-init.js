@@ -49,7 +49,10 @@ function updateLoadingStatus(message) {
  * @param {Function} onComplete - Callback when initialization completes
  */
 export async function initCalculator(onComplete) {
-    if (calculatorPyodide) {
+    // Force reload if URL has ?reload parameter (for cache busting during development)
+    const forceReload = new URLSearchParams(window.location.search).has('reload');
+
+    if (calculatorPyodide && !forceReload) {
         if (onComplete) onComplete();
         return; // Already loaded
     }
@@ -63,41 +66,79 @@ export async function initCalculator(onComplete) {
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/"
         });
 
-        // Load local Python files
-        const files = ['__init__.py', 'core.py', 'validation.py', 'output.py', 'js_bridge.py', 'json_schema.py'];
-        calculatorPyodide.FS.mkdir('/home/pyodide/wormcalc');
+        // Create directory structure
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear');
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/calculator');
+        calculatorPyodide.FS.mkdir('/home/pyodide/wormgear/io');
 
-        for (const file of files) {
-            const response = await fetch(`wormcalc/${file}`);
-            if (!response.ok) {
-                throw new Error(`Failed to load ${file}: ${response.status}`);
-            }
+        // Write minimal __init__.py (don't import geometry modules for web)
+        calculatorPyodide.FS.writeFile(
+            '/home/pyodide/wormgear/__init__.py',
+            '"""Wormgear calculator for web."""\n__version__ = "1.0.0-alpha"\n'
+        );
+
+        // Add cache buster to force reload of updated files
+        const cacheBuster = Date.now();
+
+        // Load enums module (shared types)
+        const enumsResponse = await fetch(`wormgear/enums.py?v=${cacheBuster}`);
+        if (!enumsResponse.ok) throw new Error(`Failed to load enums.py: ${enumsResponse.status}`);
+        const enumsContent = await enumsResponse.text();
+        if (enumsContent.trim().startsWith('<!DOCTYPE')) {
+            throw new Error('enums.py contains HTML instead of Python code');
+        }
+        calculatorPyodide.FS.writeFile('/home/pyodide/wormgear/enums.py', enumsContent);
+
+        // Load calculator module files
+        const calcFiles = ['__init__.py', 'core.py', 'validation.py', 'output.py'];
+        for (const file of calcFiles) {
+            const response = await fetch(`wormgear/calculator/${file}?v=${cacheBuster}`);
+            if (!response.ok) throw new Error(`Failed to load calculator/${file}: ${response.status}`);
             const content = await response.text();
             if (content.trim().startsWith('<!DOCTYPE')) {
-                throw new Error(`${file} contains HTML instead of Python code`);
+                throw new Error(`calculator/${file} contains HTML instead of Python code`);
             }
-            calculatorPyodide.FS.writeFile(`/home/pyodide/wormcalc/${file}`, content);
+            calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/calculator/${file}`, content);
         }
 
-        // Import module
+        // Load io module files (dataclasses needed by calculator)
+        const ioFiles = ['__init__.py', 'loaders.py', 'schema.py'];
+        for (const file of ioFiles) {
+            const response = await fetch(`wormgear/io/${file}?v=${cacheBuster}`);
+            if (!response.ok) throw new Error(`Failed to load io/${file}: ${response.status}`);
+            const content = await response.text();
+            if (content.trim().startsWith('<!DOCTYPE')) {
+                throw new Error(`io/${file} contains HTML instead of Python code`);
+            }
+            calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/io/${file}`, content);
+        }
+
+        // Import unified package WITH enums
         await calculatorPyodide.runPythonAsync(`
 import sys
 sys.path.insert(0, '/home/pyodide')
-import wormcalc
-from wormcalc import (
-    design_from_envelope,
-    design_from_wheel,
-    design_from_module,
-    design_from_centre_distance,
+
+# Clear any cached imports to force reload of updated files
+for module_name in list(sys.modules.keys()):
+    if module_name.startswith('wormgear'):
+        del sys.modules[module_name]
+
+# Import wrapper functions that return WormGearDesign dataclass (needed for attribute access)
+from wormgear.calculator import (
+    calculate_design_from_module as design_from_module,
+    calculate_design_from_centre_distance as design_from_centre_distance,
+    calculate_design_from_wheel as design_from_wheel,
+    calculate_design_from_envelope as design_from_envelope,
+    nearest_standard_module,
     validate_design,
     to_json,
     to_markdown,
-    to_summary,
-    nearest_standard_module,
-    Hand,
-    WormProfile,
-    WormType
+    to_summary
 )
+from wormgear.enums import Hand, WormProfile, WormType
+
+# Legacy compatibility - allow old wormcalc imports
+import wormgear.calculator as wormcalc
         `);
 
         // Hide loading screen
