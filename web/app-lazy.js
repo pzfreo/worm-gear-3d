@@ -423,8 +423,8 @@ async function generateGeometry(type) {
             profile
         });
 
-        let wormLength = designData.worm.length_mm || manufacturing.worm_length || 40;
-        let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width;
+        let wormLength = designData.worm.length_mm || manufacturing.worm_length_mm || manufacturing.worm_length || 40;
+        let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width_mm || manufacturing.wheel_width;
 
         appendToConsole('Starting geometry generation...');
         appendToConsole(`Parameters: ${type}, Virtual Hobbing: ${virtualHobbing}, Profile: ${profile}`);
@@ -529,8 +529,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate with recommended values when toggling to custom
         if (!e.target.checked && currentDesign && currentDesign.manufacturing) {
-            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length || 40;
-            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width || 10;
+            // Note: calculator outputs worm_length_mm and wheel_width_mm (with _mm suffix)
+            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length_mm || currentDesign.manufacturing.worm_length || 40;
+            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width_mm || currentDesign.manufacturing.wheel_width || 10;
         }
     });
 
