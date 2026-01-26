@@ -189,7 +189,7 @@ json.dumps({
 
         // Update UI
         updateBoreDisplaysAndDefaults(currentDesign);
-        document.getElementById('results-text').textContent = data.markdown;
+        document.getElementById('results-text').textContent = data.summary;
         updateValidationUI(data.valid, data.messages);
 
     } catch (error) {
@@ -253,6 +253,26 @@ function setupWorkerMessageHandler(worker) {
         const { type, message, percent, error, stack } = e.data;
 
         switch (type) {
+            case 'INIT_COMPLETE':
+                // Generator initialization complete
+                console.log('[Generator] Initialization complete');
+                const statusEl = document.getElementById('generator-loading-status');
+                if (statusEl) {
+                    statusEl.textContent = 'Generator ready';
+                    statusEl.style.color = '#22c55e';
+                }
+                const btn = document.getElementById('generate-btn');
+                if (btn) btn.disabled = false;
+                break;
+            case 'INIT_ERROR':
+                // Generator initialization failed
+                console.error('[Generator] Initialization failed:', error);
+                const statusElError = document.getElementById('generator-loading-status');
+                if (statusElError) {
+                    statusElError.textContent = `Error: ${error}`;
+                    statusElError.style.color = '#dc3545';
+                }
+                break;
             case 'LOG':
                 // Process LOG messages through progress indicator too
                 handleProgress(message, null);

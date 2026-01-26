@@ -49,7 +49,10 @@ function updateLoadingStatus(message) {
  * @param {Function} onComplete - Callback when initialization completes
  */
 export async function initCalculator(onComplete) {
-    if (calculatorPyodide) {
+    // Force reload if URL has ?reload parameter (for cache busting during development)
+    const forceReload = new URLSearchParams(window.location.search).has('reload');
+
+    if (calculatorPyodide && !forceReload) {
         if (onComplete) onComplete();
         return; // Already loaded
     }
@@ -74,8 +77,11 @@ export async function initCalculator(onComplete) {
             '"""Wormgear calculator for web."""\n__version__ = "1.0.0-alpha"\n'
         );
 
+        // Add cache buster to force reload of updated files
+        const cacheBuster = Date.now();
+
         // Load enums module (shared types)
-        const enumsResponse = await fetch('wormgear/enums.py');
+        const enumsResponse = await fetch(`wormgear/enums.py?v=${cacheBuster}`);
         if (!enumsResponse.ok) throw new Error(`Failed to load enums.py: ${enumsResponse.status}`);
         const enumsContent = await enumsResponse.text();
         if (enumsContent.trim().startsWith('<!DOCTYPE')) {
@@ -86,7 +92,7 @@ export async function initCalculator(onComplete) {
         // Load calculator module files
         const calcFiles = ['__init__.py', 'core.py', 'validation.py', 'output.py'];
         for (const file of calcFiles) {
-            const response = await fetch(`wormgear/calculator/${file}`);
+            const response = await fetch(`wormgear/calculator/${file}?v=${cacheBuster}`);
             if (!response.ok) throw new Error(`Failed to load calculator/${file}: ${response.status}`);
             const content = await response.text();
             if (content.trim().startsWith('<!DOCTYPE')) {
@@ -98,7 +104,7 @@ export async function initCalculator(onComplete) {
         // Load io module files (dataclasses needed by calculator)
         const ioFiles = ['__init__.py', 'loaders.py', 'schema.py'];
         for (const file of ioFiles) {
-            const response = await fetch(`wormgear/io/${file}`);
+            const response = await fetch(`wormgear/io/${file}?v=${cacheBuster}`);
             if (!response.ok) throw new Error(`Failed to load io/${file}: ${response.status}`);
             const content = await response.text();
             if (content.trim().startsWith('<!DOCTYPE')) {
@@ -111,6 +117,11 @@ export async function initCalculator(onComplete) {
         await calculatorPyodide.runPythonAsync(`
 import sys
 sys.path.insert(0, '/home/pyodide')
+
+# Clear any cached imports to force reload of updated files
+for module_name in list(sys.modules.keys()):
+    if module_name.startswith('wormgear'):
+        del sys.modules[module_name]
 
 # Import wrapper functions that return WormGearDesign dataclass (needed for attribute access)
 from wormgear.calculator import (
