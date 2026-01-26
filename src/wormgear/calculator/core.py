@@ -126,6 +126,7 @@ def calculate_worm(
         "tip_diameter_mm": tip_diameter_mm,
         "root_diameter_mm": root_diameter_mm,
         "lead_mm": lead_mm,
+        "axial_pitch_mm": axial_pitch,  # Added for completeness
         "lead_angle_deg": lead_angle_deg,
         "addendum_mm": addendum_mm,
         "dedendum_mm": dedendum_mm,
@@ -289,6 +290,61 @@ def calculate_recommended_worm_length(
     recommended = wheel_width_mm + 2 * lead_mm + 1.0
 
     return recommended
+
+
+def calculate_manufacturing_params(
+    worm_lead_mm: float,
+    module_mm: float,
+    worm_pitch_diameter_mm: Optional[float] = None,
+    profile: Union[WormProfile, str] = "ZA",
+    globoid: bool = False,
+    wheel_throated: bool = False,
+    virtual_hobbing: bool = False,
+    hobbing_steps: int = 18
+) -> dict:
+    """
+    Calculate recommended manufacturing parameters.
+
+    These are design guidelines based on best practices, NOT geometric constraints.
+    Wheel width and worm length can be adjusted based on specific requirements.
+
+    Args:
+        worm_lead_mm: Worm lead (mm)
+        module_mm: Module (mm)
+        worm_pitch_diameter_mm: Worm pitch diameter (mm) for wheel width calculation
+        profile: Tooth profile type per DIN 3975 ("ZA", "ZK", "ZI")
+        globoid: True for globoid worm, False for cylindrical
+        wheel_throated: Whether wheel has throated teeth (hobbed)
+        virtual_hobbing: True to use virtual hobbing for wheel generation
+        hobbing_steps: Number of steps for virtual hobbing
+
+    Returns:
+        Dict with manufacturing parameters
+    """
+    # Convert string to enum if needed
+    if isinstance(profile, str):
+        profile = WormProfile(profile.upper())
+
+    # Calculate recommended wheel width (design guideline, not constraint)
+    if worm_pitch_diameter_mm is not None:
+        wheel_width_mm = calculate_recommended_wheel_width(worm_pitch_diameter_mm, module_mm)
+    else:
+        # Fallback if no worm diameter provided
+        wheel_width_mm = module_mm * 10.0
+
+    # Calculate recommended worm length (design guideline, not constraint)
+    worm_length_mm = calculate_recommended_worm_length(wheel_width_mm, worm_lead_mm)
+
+    return {
+        "profile": profile.value,
+        "worm_type": "globoid" if globoid else "cylindrical",
+        "virtual_hobbing": virtual_hobbing,
+        "hobbing_steps": hobbing_steps,
+        "throated_wheel": wheel_throated,
+        "sections_per_turn": 36,
+        "worm_length_mm": round(worm_length_mm, 2),
+        "wheel_width_mm": round(wheel_width_mm, 2)
+    }
 
 
 def design_from_module(

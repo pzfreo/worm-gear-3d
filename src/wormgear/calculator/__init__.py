@@ -32,6 +32,7 @@ from .core import (
     calculate_globoid_throat_radii,
     calculate_recommended_wheel_width,
     calculate_recommended_worm_length,
+    calculate_manufacturing_params,
 
     # High-level design functions
     design_from_module,
@@ -290,6 +291,7 @@ __all__ = [
     "calculate_globoid_throat_radii",
     "calculate_recommended_wheel_width",
     "calculate_recommended_worm_length",
+    "calculate_manufacturing_params",
 
     # High-level design functions (return dicts)
     "design_from_module",

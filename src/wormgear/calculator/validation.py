@@ -7,15 +7,49 @@ Engineering validation based on:
 - Manufacturing constraints
 
 Ported from wormgearcalc with field naming adapted for wormgear.
+
+This module accepts both dict and dataclass designs, providing
+flexible validation for both calculator output (dicts) and
+loaded JSON files (dataclasses).
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Union, Any, Dict
 from enum import Enum
 from math import sin, radians
 
 from .core import is_standard_module, nearest_standard_module
-from ..io import WormGearDesign
+
+
+# Type alias for design input (dict or dataclass)
+DesignInput = Union[Dict[str, Any], Any]  # Any covers WormGearDesign
+
+
+def _get(obj: Any, *keys: str, default: Any = None) -> Any:
+    """
+    Get nested value from dict or dataclass using dot-notation keys.
+
+    Works with both:
+    - Dicts: _get(design, 'worm', 'lead_angle_deg')
+    - Dataclasses: _get(design, 'worm', 'lead_angle_deg')
+
+    Args:
+        obj: Root object (dict or dataclass)
+        *keys: Sequence of keys/attributes to traverse
+        default: Value to return if path not found
+
+    Returns:
+        Value at path, or default if not found
+    """
+    current = obj
+    for key in keys:
+        if current is None:
+            return default
+        if isinstance(current, dict):
+            current = current.get(key, default)
+        else:
+            current = getattr(current, key, default)
+    return current
 
 
 def calculate_minimum_teeth(pressure_angle_deg: float) -> int:
@@ -99,11 +133,18 @@ class ValidationResult:
         return [m for m in self.messages if m.severity == Severity.INFO]
 
 
-def validate_design(design: WormGearDesign) -> ValidationResult:
+def validate_design(design: DesignInput) -> ValidationResult:
     """
     Validate a worm gear design against engineering rules.
 
-    Returns ValidationResult with all findings.
+    Accepts both dict (from calculator) and WormGearDesign dataclass
+    (from load_design_json).
+
+    Args:
+        design: Design dict or WormGearDesign dataclass
+
+    Returns:
+        ValidationResult with all findings
     """
     messages: List[ValidationMessage] = []
 
@@ -125,10 +166,10 @@ def validate_design(design: WormGearDesign) -> ValidationResult:
     )
 
 
-def _validate_lead_angle(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_lead_angle(design: DesignInput) -> List[ValidationMessage]:
     """Check lead angle is within practical range"""
     messages = []
-    lead_angle = design.worm.lead_angle_deg
+    lead_angle = _get(design, 'worm', 'lead_angle_deg', default=0)
 
     if lead_angle < 1.0:
         messages.append(ValidationMessage(
@@ -138,7 +179,7 @@ def _validate_lead_angle(design: WormGearDesign) -> List[ValidationMessage]:
             suggestion="Increase worm pitch diameter or reduce module"
         ))
     elif lead_angle < 3.0:
-        efficiency = design.assembly.efficiency_percent if design.assembly.efficiency_percent else 0
+        efficiency = _get(design, 'assembly', 'efficiency_percent', default=0) or 0
         messages.append(ValidationMessage(
             severity=Severity.WARNING,
             code="LEAD_ANGLE_VERY_LOW",
@@ -146,7 +187,7 @@ def _validate_lead_angle(design: WormGearDesign) -> List[ValidationMessage]:
             suggestion="Consider increasing worm diameter for better efficiency"
         ))
     elif lead_angle < 5.0:
-        efficiency = design.assembly.efficiency_percent if design.assembly.efficiency_percent else 0
+        efficiency = _get(design, 'assembly', 'efficiency_percent', default=0) or 0
         messages.append(ValidationMessage(
             severity=Severity.INFO,
             code="LEAD_ANGLE_LOW",
@@ -171,10 +212,13 @@ def _validate_lead_angle(design: WormGearDesign) -> List[ValidationMessage]:
     return messages
 
 
-def _validate_module(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_module(design: DesignInput) -> List[ValidationMessage]:
     """Check module is standard or flag non-standard"""
     messages = []
-    module = design.worm.module_mm
+    module = _get(design, 'worm', 'module_mm', default=0)
+
+    if module <= 0:
+        return messages  # Skip if no module
 
     if not is_standard_module(module):
         nearest = nearest_standard_module(module)
@@ -201,18 +245,21 @@ def _validate_module(design: WormGearDesign) -> List[ValidationMessage]:
     return messages
 
 
-def _validate_teeth_count(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_teeth_count(design: DesignInput) -> List[ValidationMessage]:
     """Check wheel teeth count is adequate"""
     messages = []
-    num_teeth = design.wheel.num_teeth
-    pressure_angle = design.assembly.pressure_angle_deg
+    num_teeth = _get(design, 'wheel', 'num_teeth', default=0)
+    pressure_angle = _get(design, 'assembly', 'pressure_angle_deg', default=20.0)
+
+    if num_teeth <= 0:
+        return messages  # Skip if no teeth
 
     # Check for undercut risk
     z_min = calculate_minimum_teeth(pressure_angle)
 
     if num_teeth < z_min:
         recommended_shift = calculate_recommended_profile_shift(num_teeth, pressure_angle)
-        current_shift = design.wheel.profile_shift
+        current_shift = _get(design, 'wheel', 'profile_shift', default=0.0)
 
         if current_shift < recommended_shift:
             messages.append(ValidationMessage(
@@ -241,12 +288,15 @@ def _validate_teeth_count(design: WormGearDesign) -> List[ValidationMessage]:
     return messages
 
 
-def _validate_worm_proportions(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_worm_proportions(design: DesignInput) -> List[ValidationMessage]:
     """Check worm proportions are reasonable"""
     messages = []
 
-    pitch_dia = design.worm.pitch_diameter_mm
-    module = design.worm.module_mm
+    pitch_dia = _get(design, 'worm', 'pitch_diameter_mm', default=0)
+    module = _get(design, 'worm', 'module_mm', default=0)
+
+    if module <= 0 or pitch_dia <= 0:
+        return messages  # Skip if missing values
 
     # Pitch diameter should be reasonable relative to module
     # Typical range: 8-12 × module (wider than standard gears)
@@ -270,10 +320,10 @@ def _validate_worm_proportions(design: WormGearDesign) -> List[ValidationMessage
     return messages
 
 
-def _validate_pressure_angle(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_pressure_angle(design: DesignInput) -> List[ValidationMessage]:
     """Check pressure angle is standard"""
     messages = []
-    alpha = design.assembly.pressure_angle_deg
+    alpha = _get(design, 'assembly', 'pressure_angle_deg', default=20.0)
 
     if alpha not in [14.5, 20.0, 25.0]:
         messages.append(ValidationMessage(
@@ -301,13 +351,12 @@ def _validate_pressure_angle(design: WormGearDesign) -> List[ValidationMessage]:
     return messages
 
 
-def _validate_efficiency(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_efficiency(design: DesignInput) -> List[ValidationMessage]:
     """Check efficiency and self-locking behavior"""
     messages = []
 
-    if design.assembly.efficiency_percent is not None:
-        efficiency = design.assembly.efficiency_percent
-
+    efficiency = _get(design, 'assembly', 'efficiency_percent')
+    if efficiency is not None:
         if efficiency < 30:
             messages.append(ValidationMessage(
                 severity=Severity.WARNING,
@@ -323,7 +372,8 @@ def _validate_efficiency(design: WormGearDesign) -> List[ValidationMessage]:
                 suggestion=None
             ))
 
-    if design.assembly.self_locking:
+    self_locking = _get(design, 'assembly', 'self_locking', default=False)
+    if self_locking:
         messages.append(ValidationMessage(
             severity=Severity.INFO,
             code="SELF_LOCKING",
@@ -334,14 +384,20 @@ def _validate_efficiency(design: WormGearDesign) -> List[ValidationMessage]:
     return messages
 
 
-def _validate_clearance(design: WormGearDesign) -> List[ValidationMessage]:
+def _validate_clearance(design: DesignInput) -> List[ValidationMessage]:
     """Basic geometric clearance check"""
     messages = []
 
     # Check that worm and wheel don't interfere
-    worm_tip_radius = design.worm.tip_diameter_mm / 2
-    wheel_root_radius = design.wheel.root_diameter_mm / 2
-    centre_distance = design.assembly.centre_distance_mm
+    worm_tip_dia = _get(design, 'worm', 'tip_diameter_mm', default=0)
+    wheel_root_dia = _get(design, 'wheel', 'root_diameter_mm', default=0)
+    centre_distance = _get(design, 'assembly', 'centre_distance_mm', default=0)
+
+    if worm_tip_dia <= 0 or wheel_root_dia <= 0 or centre_distance <= 0:
+        return messages  # Skip if missing values
+
+    worm_tip_radius = worm_tip_dia / 2
+    wheel_root_radius = wheel_root_dia / 2
 
     # At centre distance, worm tip should not reach wheel root
     clearance = centre_distance - worm_tip_radius - wheel_root_radius

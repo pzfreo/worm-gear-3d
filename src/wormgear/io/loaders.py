@@ -23,6 +23,7 @@ class WormParams:
     tip_diameter_mm: float
     root_diameter_mm: float
     lead_mm: float
+    axial_pitch_mm: float  # Axial pitch (module * pi)
     lead_angle_deg: float
     addendum_mm: float
     dedendum_mm: float
@@ -205,6 +206,10 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
     worm_type_str = worm_data.get('type')
     worm_type_enum = WormType(worm_type_str.lower()) if worm_type_str else None
 
+    # Calculate axial_pitch if not in JSON (backward compatibility)
+    from math import pi
+    axial_pitch = worm_data.get('axial_pitch_mm', worm_data['module_mm'] * pi)
+
     worm = WormParams(
         module_mm=worm_data['module_mm'],
         num_starts=worm_data['num_starts'],
@@ -212,6 +217,7 @@ def load_design_json(filepath: Union[str, Path]) -> WormGearDesign:
         tip_diameter_mm=worm_data['tip_diameter_mm'],
         root_diameter_mm=worm_data['root_diameter_mm'],
         lead_mm=worm_data['lead_mm'],
+        axial_pitch_mm=axial_pitch,
         lead_angle_deg=worm_data['lead_angle_deg'],
         addendum_mm=worm_data['addendum_mm'],
         dedendum_mm=worm_data['dedendum_mm'],
