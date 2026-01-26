@@ -21,6 +21,7 @@ echo "📄 Copying web files..."
 cp -r web/*.html web/*.js web/*.css web/*.svg web/*.md dist/ 2>/dev/null || true
 cp -r web/modules dist/
 cp -r web/tests dist/ 2>/dev/null || true
+cp web/CNAME dist/ 2>/dev/null || true
 
 # Copy Python package to dist/
 echo "📦 Copying wormgear package..."
