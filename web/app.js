@@ -14,6 +14,33 @@ let currentValidation = null;
 let generatorTabVisited = false;
 
 // ============================================================================
+// UI HELPERS
+// ============================================================================
+
+// Update throat reduction auto hint based on geometry
+// Correct formula: throat_reduction = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+function updateThroatReductionAutoHint() {
+    const hint = document.getElementById('throat-reduction-auto-value');
+    if (!hint) return;
+
+    if (currentDesign?.worm && currentDesign?.wheel && currentDesign?.assembly) {
+        const wormPitchRadius = currentDesign.worm.pitch_diameter_mm / 2;
+        const wheelPitchRadius = currentDesign.wheel.pitch_diameter_mm / 2;
+        const centerDistance = currentDesign.assembly.centre_distance_mm;
+
+        // Geometrically correct throat reduction
+        let throatReduction = wormPitchRadius - (centerDistance - wheelPitchRadius);
+        if (throatReduction <= 0) {
+            throatReduction = currentDesign.worm.pitch_diameter_mm * 0.02; // fallback
+        }
+
+        hint.textContent = `≈ ${throatReduction.toFixed(2)}mm (geometric: worm_r - (CD - wheel_r))`;
+    } else {
+        hint.textContent = `Calculated from worm/wheel geometry`;
+    }
+}
+
+// ============================================================================
 // TAB SWITCHING
 // ============================================================================
 
@@ -117,6 +144,7 @@ calculate(input_json)
 
         // Update UI
         updateBoreDisplaysAndDefaults(currentDesign);
+        updateThroatReductionAutoHint();
         document.getElementById('results-text').textContent = output.summary;
         updateValidationUI(output.valid, output.messages);
 
@@ -449,8 +477,9 @@ async function generateGeometry(type) {
             profile
         });
 
-        let wormLength = designData.worm.length_mm || manufacturing.worm_length_mm || manufacturing.worm_length || 40;
-        let wheelWidth = designData.wheel.width_mm || manufacturing.wheel_width_mm || manufacturing.wheel_width;
+        // Use canonical field names from schema v2.0 - no legacy fallbacks
+        let wormLength = manufacturing.worm_length_mm || 40;
+        let wheelWidth = manufacturing.wheel_width_mm || null;
 
         appendToConsole('Starting geometry generation...');
         appendToConsole(`Parameters: ${type}, Virtual Hobbing: ${virtualHobbing}, Profile: ${profile}`);
@@ -521,11 +550,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Worm type switching (show throat reduction for globoid)
-    document.getElementById('worm-type').addEventListener('change', (e) => {
-        const isGloboid = e.target.value === 'globoid';
+    // Helper to update throat reduction visibility (globoid + helical only)
+    function updateThroatReductionVisibility() {
+        const isGloboid = document.getElementById('worm-type')?.value === 'globoid';
+        const isHelical = document.getElementById('wheel-generation')?.value === 'helical';
         const throatReductionGroup = document.getElementById('throat-reduction-group');
-        throatReductionGroup.style.display = isGloboid ? 'block' : 'none';
+
+        // Only show throat reduction for globoid worm with helical wheel generation
+        const shouldShow = isGloboid && isHelical;
+        throatReductionGroup.style.display = shouldShow ? 'block' : 'none';
+
+        if (shouldShow) {
+            updateThroatReductionAutoHint();
+        }
+    }
+
+    // Worm type switching
+    document.getElementById('worm-type').addEventListener('change', () => {
+        updateThroatReductionVisibility();
+    });
+
+    // Throat reduction mode switching (auto vs custom)
+    document.getElementById('throat-reduction-mode')?.addEventListener('change', (e) => {
+        const isCustom = e.target.value === 'custom';
+        document.getElementById('throat-reduction-custom').style.display = isCustom ? 'block' : 'none';
+        document.getElementById('throat-reduction-auto-hint').style.display = isCustom ? 'none' : 'block';
+        if (isCustom && currentDesign?.worm && currentDesign?.wheel && currentDesign?.assembly) {
+            // Pre-fill with geometrically correct value
+            const wormPitchRadius = currentDesign.worm.pitch_diameter_mm / 2;
+            const wheelPitchRadius = currentDesign.wheel.pitch_diameter_mm / 2;
+            const centerDistance = currentDesign.assembly.centre_distance_mm;
+
+            let throatReduction = wormPitchRadius - (centerDistance - wheelPitchRadius);
+            if (throatReduction <= 0) {
+                throatReduction = currentDesign.worm.pitch_diameter_mm * 0.02; // fallback
+            }
+            document.getElementById('throat-reduction').value = throatReduction.toFixed(2);
+        }
     });
 
     // Wheel generation method switching (helical vs virtual hobbing)
@@ -544,6 +605,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             throatOptionGroup.style.display = 'block';
         }
+
+        // Update throat reduction visibility (only for globoid + helical)
+        updateThroatReductionVisibility();
     });
 
     // Use recommended dimensions toggle
@@ -555,9 +619,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate with recommended values when toggling to custom
         if (!e.target.checked && currentDesign && currentDesign.manufacturing) {
-            // Note: calculator outputs worm_length_mm and wheel_width_mm (with _mm suffix)
-            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length_mm || currentDesign.manufacturing.worm_length || 40;
-            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width_mm || currentDesign.manufacturing.wheel_width || 10;
+            // Use canonical field names from schema v2.0 - no legacy fallbacks
+            document.getElementById('worm-length').value = currentDesign.manufacturing.worm_length_mm || 40;
+            document.getElementById('wheel-width').value = currentDesign.manufacturing.wheel_width_mm || 10;
         }
     });
 

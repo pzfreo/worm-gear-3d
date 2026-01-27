@@ -62,8 +62,8 @@ class ManufacturingSettings(BaseModel):
     virtual_hobbing: bool = False
     hobbing_steps: int = 72
     use_recommended_dims: bool = True
-    worm_length: Optional[float] = None
-    wheel_width: Optional[float] = None
+    worm_length_mm: Optional[float] = None
+    wheel_width_mm: Optional[float] = None
 
 
 class CalculatorInputs(BaseModel):
@@ -172,6 +172,26 @@ def calculate(input_json: str) -> str:
         # Call appropriate design function
         design = _call_design_function(inputs.mode, inputs, kwargs)
 
+        # Auto-default throat reduction for globoid worms using correct geometry
+        # The throat pitch radius should equal: center_distance - wheel_pitch_radius
+        # So throat_reduction = worm_pitch_radius - throat_pitch_radius
+        #                     = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+        if inputs.worm_type == 'globoid' and design.worm and design.wheel and design.assembly:
+            if not design.worm.throat_reduction_mm or design.worm.throat_reduction_mm <= 0:
+                worm_pitch_radius = design.worm.pitch_diameter_mm / 2
+                wheel_pitch_radius = design.wheel.pitch_diameter_mm / 2
+                center_distance = design.assembly.centre_distance_mm
+
+                # Geometrically correct throat reduction
+                throat_reduction = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+
+                # This should be positive for proper globoid geometry
+                # If zero or negative, use a small default for visible effect
+                if throat_reduction <= 0:
+                    throat_reduction = design.worm.pitch_diameter_mm * 0.02  # 2% fallback
+
+                design.worm.throat_reduction_mm = throat_reduction
+
         # Update manufacturing params from UI settings
         if design.manufacturing:
             design.manufacturing.virtual_hobbing = inputs.manufacturing.virtual_hobbing
@@ -184,10 +204,11 @@ def calculate(input_json: str) -> str:
         bore_dict = inputs.bore.model_dump() if inputs.bore else None
         mfg_dict = inputs.manufacturing.model_dump() if inputs.manufacturing else None
 
-        # Handle recommended dimensions
+        # Handle recommended dimensions - remove from mfg_dict so calculator values aren't overwritten
         if inputs.manufacturing.use_recommended_dims:
-            mfg_dict['worm_length'] = None
-            mfg_dict['wheel_width'] = None
+            mfg_dict.pop('worm_length_mm', None)
+            mfg_dict.pop('wheel_width_mm', None)
+        # else: use custom values from user input (already in mfg_dict from model_dump)
 
         # Build output
         output = CalculatorOutput(
@@ -234,9 +255,11 @@ def _build_calculator_kwargs(inputs: CalculatorInputs) -> Dict[str, Any]:
         'profile_shift': inputs.profile_shift,
     }
 
-    # Add throat reduction for globoid
-    if inputs.worm_type == 'globoid' and inputs.throat_reduction:
-        kwargs['throat_reduction'] = inputs.throat_reduction
+    # Add user-specified throat reduction for globoid worms
+    # (auto-default is calculated after design, when we have the pitch diameter)
+    if inputs.worm_type == 'globoid':
+        if inputs.throat_reduction and inputs.throat_reduction > 0:
+            kwargs['throat_reduction'] = inputs.throat_reduction
 
     # Add wheel throated flag
     if inputs.wheel_throated:

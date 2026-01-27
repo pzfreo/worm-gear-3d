@@ -524,7 +524,9 @@ def _validate_worm_type(design: DesignInput) -> List[ValidationMessage]:
     if worm_type == 'globoid':
         throat_reduction = _get(design, 'worm', 'throat_reduction_mm')
         throat_curvature = _get(design, 'worm', 'throat_curvature_radius_mm')
-        module = _get(design, 'worm', 'module_mm', default=1.0)
+        worm_pitch_diameter = _get(design, 'worm', 'pitch_diameter_mm', default=16.0)
+        wheel_pitch_diameter = _get(design, 'wheel', 'pitch_diameter_mm', default=60.0)
+        centre_distance = _get(design, 'assembly', 'centre_distance_mm', default=38.0)
 
         # Check throat parameters are present
         if throat_curvature is None:
@@ -535,36 +537,54 @@ def _validate_worm_type(design: DesignInput) -> List[ValidationMessage]:
                 suggestion="Ensure throat radii are calculated for proper geometry"
             ))
         else:
+            # Calculate geometrically correct throat reduction
+            # throat_reduction = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+            worm_pitch_radius = worm_pitch_diameter / 2
+            wheel_pitch_radius = wheel_pitch_diameter / 2
+            geometric_reduction = worm_pitch_radius - (centre_distance - wheel_pitch_radius)
+            if geometric_reduction <= 0:
+                geometric_reduction = worm_pitch_diameter * 0.02  # fallback
+
             # Validate throat reduction value if present
             if throat_reduction is not None and throat_reduction > 0:
-                if throat_reduction < 0.02:
+                hourglass_depth = throat_reduction * 2
+                messages.append(ValidationMessage(
+                    severity=Severity.INFO,
+                    code="THROAT_REDUCTION_SET",
+                    message=f"Throat reduction: {throat_reduction:.2f}mm (hourglass depth ~{hourglass_depth:.2f}mm)",
+                    suggestion=f"Geometric value: {geometric_reduction:.2f}mm"
+                ))
+
+                # Warn if significantly different from geometric value
+                if throat_reduction < geometric_reduction * 0.5:
                     messages.append(ValidationMessage(
                         severity=Severity.WARNING,
-                        code="THROAT_REDUCTION_VERY_SMALL",
-                        message=f"Throat reduction {throat_reduction:.3f}mm is very small - minimal hourglass effect",
-                        suggestion="Typical values: 0.05-0.1mm for small gears, 0.1-0.2mm for medium"
+                        code="THROAT_REDUCTION_SMALL",
+                        message=f"Throat reduction is smaller than geometric optimum ({geometric_reduction:.2f}mm)",
+                        suggestion="May result in reduced wheel contact"
                     ))
-                elif throat_reduction > module * 0.5:
-                    messages.append(ValidationMessage(
-                        severity=Severity.ERROR,
-                        code="THROAT_REDUCTION_TOO_LARGE",
-                        message=f"Throat reduction {throat_reduction:.3f}mm is too large (>{module * 0.5:.3f}mm = 50% of module)",
-                        suggestion="Reduce throat reduction to less than 50% of module"
-                    ))
-                elif throat_reduction > module * 0.3:
+                elif throat_reduction > geometric_reduction * 2:
                     messages.append(ValidationMessage(
                         severity=Severity.WARNING,
                         code="THROAT_REDUCTION_LARGE",
-                        message=f"Throat reduction {throat_reduction:.3f}mm is large (>{module * 0.3:.3f}mm = 30% of module)",
-                        suggestion="Consider reducing for better manufacturability"
+                        message=f"Throat reduction is larger than geometric optimum ({geometric_reduction:.2f}mm)",
+                        suggestion="May cause interference or manufacturing difficulty"
                     ))
+            else:
+                # Using auto value
+                messages.append(ValidationMessage(
+                    severity=Severity.INFO,
+                    code="THROAT_REDUCTION_AUTO",
+                    message=f"Using geometric throat reduction: {geometric_reduction:.2f}mm",
+                    suggestion=f"Formula: worm_r - (CD - wheel_r) = {worm_pitch_radius:.1f} - ({centre_distance:.1f} - {wheel_pitch_radius:.1f})"
+                ))
 
-            # Info about globoid
+            # Info about globoid benefits
             messages.append(ValidationMessage(
                 severity=Severity.INFO,
                 code="GLOBOID_WORM",
-                message="Globoid worm provides better contact with wheel",
-                suggestion=None
+                message="Globoid worm provides better contact area with wheel",
+                suggestion="Use with virtual hobbing for best wheel tooth fit"
             ))
 
     return messages

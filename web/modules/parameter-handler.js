@@ -82,8 +82,8 @@ export function getInputs(mode) {
         virtual_hobbing: wheelGeneration === 'virtual-hobbing',
         hobbing_steps: hobbingStepsMap[hobbingPrecision] || 72,
         use_recommended_dims: getChecked('use-recommended-dims'),
-        worm_length: safeParseFloat(getValue('worm-length')),
-        wheel_width: safeParseFloat(getValue('wheel-width'))
+        worm_length_mm: safeParseFloat(getValue('worm-length')),
+        wheel_width_mm: safeParseFloat(getValue('wheel-width'))
     };
 
     // Build raw inputs object
@@ -96,7 +96,9 @@ export function getInputs(mode) {
         profile_shift: safeParseFloat(getValue('profile-shift')) || 0,
         profile: getValue('profile'),
         worm_type: getValue('worm-type'),
-        throat_reduction: safeParseFloat(getValue('throat-reduction')) || 0,
+        throat_reduction: getValue('throat-reduction-mode') === 'custom'
+            ? safeParseFloat(getValue('throat-reduction')) || 0
+            : 0,  // 0 = auto (Python calculates 15% of module)
         wheel_throated: getChecked('wheel-throated'),
         bore: bore,
         manufacturing: manufacturing

@@ -137,16 +137,16 @@ export function validateManufacturingSettings(mfg) {
         virtual_hobbing: false,
         hobbing_steps: 72,
         use_recommended_dims: true,
-        worm_length: null,
-        wheel_width: null
+        worm_length_mm: null,
+        wheel_width_mm: null
     };
 
     return {
         virtual_hobbing: typeof mfg.virtual_hobbing === 'boolean' ? mfg.virtual_hobbing : false,
         hobbing_steps: typeof mfg.hobbing_steps === 'number' ? mfg.hobbing_steps : 72,
         use_recommended_dims: typeof mfg.use_recommended_dims === 'boolean' ? mfg.use_recommended_dims : true,
-        worm_length: optionalNumber(mfg.worm_length, 'worm_length'),
-        wheel_width: optionalNumber(mfg.wheel_width, 'wheel_width')
+        worm_length_mm: optionalNumber(mfg.worm_length_mm, 'worm_length_mm'),
+        wheel_width_mm: optionalNumber(mfg.wheel_width_mm, 'wheel_width_mm')
     };
 }
 
