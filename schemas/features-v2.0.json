@@ -1,5 +1,14 @@
 {
   "$defs": {
+    "BoreType": {
+      "description": "Bore configuration type",
+      "enum": [
+        "none",
+        "custom"
+      ],
+      "title": "BoreType",
+      "type": "string"
+    },
     "HubSpec": {
       "description": "Hub specification (wheel only).",
       "properties": {
@@ -92,11 +101,16 @@
       "type": "object"
     },
     "WheelFeatures": {
-      "description": "Manufacturing features for wheel.",
+      "description": "Manufacturing features for wheel.\n\nbore_type is REQUIRED and must be explicitly specified:\n- \"none\": Solid part, no bore (bore_diameter_mm ignored)\n- \"custom\": Bore with specified diameter (bore_diameter_mm required)",
       "properties": {
+        "bore_type": {
+          "$ref": "#/$defs/BoreType",
+          "description": "Bore type: 'none' for solid, 'custom' for specified diameter"
+        },
         "bore_diameter_mm": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             {
@@ -104,6 +118,7 @@
             }
           ],
           "default": null,
+          "description": "Bore diameter in mm. Required when bore_type is 'custom'.",
           "title": "Bore Diameter Mm"
         },
         "anti_rotation": {
@@ -146,15 +161,23 @@
           "default": null
         }
       },
+      "required": [
+        "bore_type"
+      ],
       "title": "WheelFeatures",
       "type": "object"
     },
     "WormFeatures": {
-      "description": "Manufacturing features for worm.",
+      "description": "Manufacturing features for worm.\n\nbore_type is REQUIRED and must be explicitly specified:\n- \"none\": Solid part, no bore (bore_diameter_mm ignored)\n- \"custom\": Bore with specified diameter (bore_diameter_mm required)",
       "properties": {
+        "bore_type": {
+          "$ref": "#/$defs/BoreType",
+          "description": "Bore type: 'none' for solid, 'custom' for specified diameter"
+        },
         "bore_diameter_mm": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             {
@@ -162,6 +185,7 @@
             }
           ],
           "default": null,
+          "description": "Bore diameter in mm. Required when bore_type is 'custom'.",
           "title": "Bore Diameter Mm"
         },
         "anti_rotation": {
@@ -193,6 +217,9 @@
           "default": null
         }
       },
+      "required": [
+        "bore_type"
+      ],
       "title": "WormFeatures",
       "type": "object"
     }

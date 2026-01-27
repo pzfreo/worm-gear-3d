@@ -39,11 +39,11 @@ export type NumTeeth = number;
 export type PitchDiameterMm1 = number;
 export type TipDiameterMm1 = number;
 export type RootDiameterMm1 = number;
-export type ThroatDiameterMm = number;
-export type HelixAngleDeg = number;
 export type AddendumMm1 = number;
 export type DedendumMm1 = number;
 export type ProfileShift1 = number;
+export type ThroatDiameterMm = number | null;
+export type HelixAngleDeg = number | null;
 export type WidthMm = number | null;
 export type CentreDistanceMm = number;
 export type PressureAngleDeg = number;
@@ -51,11 +51,25 @@ export type BacklashMm = number;
 export type Ratio = number;
 export type EfficiencyPercent = number | null;
 export type SelfLocking = boolean | null;
+/**
+ * Bore type: 'none' for solid, 'custom' for specified diameter
+ */
+export type BoreType = "none" | "custom";
+/**
+ * Bore diameter in mm. Required when bore_type is 'custom'.
+ */
 export type BoreDiameterMm = number | null;
 export type AntiRotation = string | null;
 export type DdcutDepthPercent = number;
 export type Size = string;
 export type Count = number;
+/**
+ * Bore type: 'none' for solid, 'custom' for specified diameter
+ */
+export type BoreType1 = "none" | "custom";
+/**
+ * Bore diameter in mm. Required when bore_type is 'custom'.
+ */
 export type BoreDiameterMm1 = number | null;
 export type AntiRotation1 = string | null;
 export type DdcutDepthPercent1 = number;
@@ -117,11 +131,11 @@ export interface WheelParams {
   pitch_diameter_mm: PitchDiameterMm1;
   tip_diameter_mm: TipDiameterMm1;
   root_diameter_mm: RootDiameterMm1;
-  throat_diameter_mm: ThroatDiameterMm;
-  helix_angle_deg: HelixAngleDeg;
   addendum_mm: AddendumMm1;
   dedendum_mm: DedendumMm1;
   profile_shift?: ProfileShift1;
+  throat_diameter_mm?: ThroatDiameterMm;
+  helix_angle_deg?: HelixAngleDeg;
   width_mm?: WidthMm;
 }
 /**
@@ -145,8 +159,13 @@ export interface Features {
 }
 /**
  * Manufacturing features for worm.
+ *
+ * bore_type is REQUIRED and must be explicitly specified:
+ * - "none": Solid part, no bore (bore_diameter_mm ignored)
+ * - "custom": Bore with specified diameter (bore_diameter_mm required)
  */
 export interface WormFeatures {
+  bore_type: BoreType;
   bore_diameter_mm?: BoreDiameterMm;
   anti_rotation?: AntiRotation;
   ddcut_depth_percent?: DdcutDepthPercent;
@@ -161,8 +180,13 @@ export interface SetScrewSpec {
 }
 /**
  * Manufacturing features for wheel.
+ *
+ * bore_type is REQUIRED and must be explicitly specified:
+ * - "none": Solid part, no bore (bore_diameter_mm ignored)
+ * - "custom": Bore with specified diameter (bore_diameter_mm required)
  */
 export interface WheelFeatures {
+  bore_type: BoreType1;
   bore_diameter_mm?: BoreDiameterMm1;
   anti_rotation?: AntiRotation1;
   ddcut_depth_percent?: DdcutDepthPercent1;

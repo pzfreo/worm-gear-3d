@@ -24,3 +24,9 @@ class WormType(Enum):
     """Worm geometry type"""
     CYLINDRICAL = "cylindrical"  # Standard cylindrical worm
     GLOBOID = "globoid"  # Hourglass-shaped worm for better contact
+
+
+class BoreType(Enum):
+    """Bore configuration type"""
+    NONE = "none"  # Solid part, no bore
+    CUSTOM = "custom"  # Custom bore diameter specified

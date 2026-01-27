@@ -355,10 +355,12 @@ class TestProfileJsonSerialization:
 
         base_design.features = Features(
             worm=WormFeatures(
+                bore_type="custom",
                 bore_diameter_mm=8.0,
                 anti_rotation="DIN6885"
             ),
             wheel=WheelFeatures(
+                bore_type="custom",
                 bore_diameter_mm=12.0,
                 anti_rotation="DIN6885",
                 hub=HubSpec(type="extended", length_mm=15.0)
@@ -374,7 +376,9 @@ class TestProfileJsonSerialization:
         assert loaded.manufacturing.virtual_hobbing is True
         assert loaded.features is not None
         assert loaded.features.worm is not None
+        assert loaded.features.worm.bore_type.value == "custom"
         assert loaded.features.worm.bore_diameter_mm == 8.0
         assert loaded.features.wheel is not None
+        assert loaded.features.wheel.bore_type.value == "custom"
         assert loaded.features.wheel.hub is not None
         assert loaded.features.wheel.hub.type == "extended"
