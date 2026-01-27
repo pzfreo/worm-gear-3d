@@ -210,6 +210,9 @@ def calculate(input_json: str) -> str:
             mfg_dict.pop('wheel_width_mm', None)
         # else: use custom values from user input (already in mfg_dict from model_dump)
 
+        # Remove UI-only fields that shouldn't be in the output JSON
+        mfg_dict.pop('use_recommended_dims', None)  # UI toggle, not a manufacturing param
+
         # Build output
         output = CalculatorOutput(
             success=True,

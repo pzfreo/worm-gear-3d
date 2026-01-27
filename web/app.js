@@ -359,7 +359,8 @@ function loadFromCalculator() {
 
     // Debug: Log what's being loaded
     console.log('[DEBUG] Loading from calculator:', {
-        manufacturing: currentDesign.manufacturing
+        manufacturing: currentDesign.manufacturing,
+        features: currentDesign.features
     });
 
     document.getElementById('json-input').value = JSON.stringify(currentDesign, null, 2);

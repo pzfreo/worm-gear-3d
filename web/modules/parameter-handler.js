@@ -60,6 +60,14 @@ export function getInputs(mode) {
     const wormBoreType = getValue('worm-bore-type');
     const wheelBoreType = getValue('wheel-bore-type');
 
+    // Debug: Log raw bore type values
+    console.log('[DEBUG] Bore settings from UI:', {
+        wormBoreType_raw: wormBoreType,
+        wheelBoreType_raw: wheelBoreType,
+        wormBoreEl: document.getElementById('worm-bore-type'),
+        wormBoreElValue: document.getElementById('worm-bore-type')?.value
+    });
+
     const bore = {
         worm_bore_type: wormBoreType === 'auto' ? 'custom' : wormBoreType,
         worm_bore_diameter: wormBoreType === 'auto' ? null : safeParseFloat(getValue('worm-bore-diameter')),
@@ -68,6 +76,9 @@ export function getInputs(mode) {
         wheel_bore_diameter: wheelBoreType === 'auto' ? null : safeParseFloat(getValue('wheel-bore-diameter')),
         wheel_keyway: getValue('wheel-anti-rotation')
     };
+
+    // Debug: Log processed bore settings
+    console.log('[DEBUG] Bore settings for Python:', bore);
 
     // Collect manufacturing settings
     const wheelGeneration = getValue('wheel-generation');
