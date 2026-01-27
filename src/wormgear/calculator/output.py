@@ -52,6 +52,28 @@ def to_json(
     # mode='json' automatically handles enum serialization
     design_dict = _model_to_dict(design)
 
+    # Remove informational fields that don't belong in actionable JSON
+    # These are for display only (in markdown/summary) - generator doesn't need them
+    if 'assembly' in design_dict:
+        design_dict['assembly'].pop('efficiency_percent', None)
+        design_dict['assembly'].pop('self_locking', None)
+
+    if 'worm' in design_dict:
+        design_dict['worm'].pop('axial_pitch_mm', None)  # Same as lead_mm for single-start
+        design_dict['worm'].pop('length_mm', None)  # Comes from manufacturing settings
+
+    if 'wheel' in design_dict:
+        design_dict['wheel'].pop('throat_diameter_mm', None)  # Informational only
+        design_dict['wheel'].pop('helix_angle_deg', None)  # Informational only
+        design_dict['wheel'].pop('width_mm', None)  # Comes from manufacturing settings
+
+    if 'manufacturing' in design_dict:
+        design_dict['manufacturing'].pop('worm_type', None)  # Duplicates worm.type
+        design_dict['manufacturing'].pop('worm_features', None)  # In features section
+        design_dict['manufacturing'].pop('wheel_features', None)  # In features section
+        design_dict['manufacturing'].pop('throated_wheel', None)  # UI setting
+        design_dict['manufacturing'].pop('sections_per_turn', None)  # Hardcoded in generator
+
     # Add schema version for compatibility
     if 'schema_version' not in design_dict:
         design_dict['schema_version'] = SCHEMA_VERSION
@@ -234,7 +256,8 @@ def to_markdown(
     md += f"| Root Diameter | {wheel['root_diameter_mm']:.3f} mm |\n"
     if wheel.get('throat_diameter_mm'):
         md += f"| Throat Diameter | {wheel['throat_diameter_mm']:.3f} mm |\n"
-    md += f"| Helix Angle | {wheel['helix_angle_deg']:.2f}° |\n"
+    if wheel.get('helix_angle_deg'):
+        md += f"| Helix Angle | {wheel['helix_angle_deg']:.2f}° |\n"
     md += f"| Addendum | {wheel['addendum_mm']:.3f} mm |\n"
     md += f"| Dedendum | {wheel['dedendum_mm']:.3f} mm |\n"
     if wheel.get('profile_shift'):
@@ -408,7 +431,12 @@ def to_summary(
         f"  Pitch diameter:    {wheel['pitch_diameter_mm']:.2f} mm",
         f"  Root diameter:     {wheel['root_diameter_mm']:.2f} mm",
         f"  Teeth:             {wheel['num_teeth']}",
-        f"  Helix angle:       {wheel['helix_angle_deg']:.1f}°",
+    ])
+
+    if wheel.get('helix_angle_deg'):
+        lines.append(f"  Helix angle:       {wheel['helix_angle_deg']:.1f}°")
+
+    lines.extend([
         "",
         f"Centre distance: {asm['centre_distance_mm']:.2f} mm",
         f"Efficiency (est): {asm.get('efficiency_percent', 0):.0f}%",
