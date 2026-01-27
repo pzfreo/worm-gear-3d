@@ -48,11 +48,11 @@ async function initializePyodide() {
 
         self.postMessage({ type: 'LOG', message: '✓ Pyodide loaded' });
 
-        // Install micropip
-        self.postMessage({ type: 'LOG', message: 'Installing micropip...' });
-        await pyodide.loadPackage('micropip');
+        // Install micropip and pydantic (pydantic must use loadPackage, not micropip, due to pydantic-core)
+        self.postMessage({ type: 'LOG', message: 'Installing micropip and pydantic...' });
+        await pyodide.loadPackage(['micropip', 'pydantic']);
         const micropip = pyodide.pyimport('micropip');
-        self.postMessage({ type: 'LOG', message: '✓ micropip ready' });
+        self.postMessage({ type: 'LOG', message: '✓ micropip and pydantic ready' });
 
         // Install build123d and OCP
         self.postMessage({ type: 'LOG', message: '📦 Installing build123d and OCP (2-5 minutes)...' });

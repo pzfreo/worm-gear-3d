@@ -8,13 +8,10 @@ echo "🔧 Building wormgear web interface..."
 cd "$(dirname "$0")/.."
 PROJECT_ROOT="$(pwd)"
 
-# Clean old build
+# Clean old build (preserve directory for running server)
 echo "🧹 Cleaning old build..."
-rm -rf dist/
-
-# Create dist directory
-echo "📁 Creating dist/..."
 mkdir -p dist/
+rm -rf dist/*
 
 # Copy web source files to dist/
 echo "📄 Copying web files..."
