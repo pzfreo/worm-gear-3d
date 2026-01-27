@@ -172,11 +172,25 @@ def calculate(input_json: str) -> str:
         # Call appropriate design function
         design = _call_design_function(inputs.mode, inputs, kwargs)
 
-        # Auto-default throat reduction for globoid worms (~2% of worm pitch diameter)
-        if inputs.worm_type == 'globoid' and design.worm:
+        # Auto-default throat reduction for globoid worms using correct geometry
+        # The throat pitch radius should equal: center_distance - wheel_pitch_radius
+        # So throat_reduction = worm_pitch_radius - throat_pitch_radius
+        #                     = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+        if inputs.worm_type == 'globoid' and design.worm and design.wheel and design.assembly:
             if not design.worm.throat_reduction_mm or design.worm.throat_reduction_mm <= 0:
-                # Use 2% of worm pitch diameter for visible hourglass effect
-                design.worm.throat_reduction_mm = design.worm.pitch_diameter_mm * 0.02
+                worm_pitch_radius = design.worm.pitch_diameter_mm / 2
+                wheel_pitch_radius = design.wheel.pitch_diameter_mm / 2
+                center_distance = design.assembly.centre_distance_mm
+
+                # Geometrically correct throat reduction
+                throat_reduction = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+
+                # This should be positive for proper globoid geometry
+                # If zero or negative, use a small default for visible effect
+                if throat_reduction <= 0:
+                    throat_reduction = design.worm.pitch_diameter_mm * 0.02  # 2% fallback
+
+                design.worm.throat_reduction_mm = throat_reduction
 
         # Update manufacturing params from UI settings
         if design.manufacturing:

@@ -17,23 +17,26 @@ let generatorTabVisited = false;
 // UI HELPERS
 // ============================================================================
 
-// Update throat reduction auto hint based on worm pitch diameter
-// Uses ~2% of worm pitch diameter as the auto value
-function updateThroatReductionAutoHint(pitchDiameter) {
+// Update throat reduction auto hint based on geometry
+// Correct formula: throat_reduction = worm_pitch_radius - (center_distance - wheel_pitch_radius)
+function updateThroatReductionAutoHint() {
     const hint = document.getElementById('throat-reduction-auto-value');
     if (!hint) return;
 
-    let pitchDia = pitchDiameter;
-    if (pitchDia === undefined) {
-        // Try to get from current design
-        pitchDia = currentDesign?.worm?.pitch_diameter_mm;
-    }
+    if (currentDesign?.worm && currentDesign?.wheel && currentDesign?.assembly) {
+        const wormPitchRadius = currentDesign.worm.pitch_diameter_mm / 2;
+        const wheelPitchRadius = currentDesign.wheel.pitch_diameter_mm / 2;
+        const centerDistance = currentDesign.assembly.centre_distance_mm;
 
-    if (pitchDia && !isNaN(pitchDia)) {
-        const autoValue = (pitchDia * 0.02).toFixed(2);
-        hint.textContent = `≈ ${autoValue}mm (~2% of Ø${pitchDia.toFixed(1)}mm)`;
+        // Geometrically correct throat reduction
+        let throatReduction = wormPitchRadius - (centerDistance - wheelPitchRadius);
+        if (throatReduction <= 0) {
+            throatReduction = currentDesign.worm.pitch_diameter_mm * 0.02; // fallback
+        }
+
+        hint.textContent = `≈ ${throatReduction.toFixed(2)}mm (geometric: worm_r - (CD - wheel_r))`;
     } else {
-        hint.textContent = `~2% of worm pitch diameter`;
+        hint.textContent = `Calculated from worm/wheel geometry`;
     }
 }
 
@@ -141,7 +144,7 @@ calculate(input_json)
 
         // Update UI
         updateBoreDisplaysAndDefaults(currentDesign);
-        updateThroatReductionAutoHint(design.worm?.pitch_diameter_mm);
+        updateThroatReductionAutoHint();
         document.getElementById('results-text').textContent = output.summary;
         updateValidationUI(output.valid, output.messages);
 
@@ -572,16 +575,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const isCustom = e.target.value === 'custom';
         document.getElementById('throat-reduction-custom').style.display = isCustom ? 'block' : 'none';
         document.getElementById('throat-reduction-auto-hint').style.display = isCustom ? 'none' : 'block';
-        if (isCustom) {
-            // Pre-fill with the auto value from current design (~2% of worm pitch diameter)
-            const pitchDia = currentDesign?.worm?.pitch_diameter_mm;
-            if (pitchDia) {
-                document.getElementById('throat-reduction').value = (pitchDia * 0.02).toFixed(2);
-            } else {
-                // Fallback estimate based on module
-                const module = parseFloat(document.getElementById('module')?.value) || 2.0;
-                document.getElementById('throat-reduction').value = (module * 0.15).toFixed(2);
+        if (isCustom && currentDesign?.worm && currentDesign?.wheel && currentDesign?.assembly) {
+            // Pre-fill with geometrically correct value
+            const wormPitchRadius = currentDesign.worm.pitch_diameter_mm / 2;
+            const wheelPitchRadius = currentDesign.wheel.pitch_diameter_mm / 2;
+            const centerDistance = currentDesign.assembly.centre_distance_mm;
+
+            let throatReduction = wormPitchRadius - (centerDistance - wheelPitchRadius);
+            if (throatReduction <= 0) {
+                throatReduction = currentDesign.worm.pitch_diameter_mm * 0.02; // fallback
             }
+            document.getElementById('throat-reduction').value = throatReduction.toFixed(2);
         }
     });
 
