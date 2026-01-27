@@ -14,7 +14,7 @@ from typing import Optional, Union, Dict, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ..enums import Hand, WormType, WormProfile
+from ..enums import Hand, WormType, WormProfile, BoreType
 
 
 class SetScrewSpec(BaseModel):
@@ -38,24 +38,76 @@ class HubSpec(BaseModel):
 
 
 class WormFeatures(BaseModel):
-    """Manufacturing features for worm."""
+    """Manufacturing features for worm.
+
+    bore_type is REQUIRED and must be explicitly specified:
+    - "none": Solid part, no bore (bore_diameter_mm ignored)
+    - "custom": Bore with specified diameter (bore_diameter_mm required)
+    """
     model_config = ConfigDict(extra='ignore')
 
-    bore_diameter_mm: Optional[float] = None
+    bore_type: BoreType = Field(
+        ...,  # Required - no default, must be explicit
+        description="Bore type: 'none' for solid, 'custom' for specified diameter"
+    )
+    bore_diameter_mm: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="Bore diameter in mm. Required when bore_type is 'custom'."
+    )
     anti_rotation: Optional[str] = None  # "none" | "DIN6885" | "ddcut"
     ddcut_depth_percent: float = 15.0  # Only used if anti_rotation is "ddcut"
     set_screw: Optional[SetScrewSpec] = None
 
+    @field_validator('bore_type', mode='before')
+    @classmethod
+    def coerce_bore_type(cls, v):
+        if isinstance(v, str):
+            return BoreType(v.lower())
+        return v
+
+    @model_validator(mode='after')
+    def validate_bore_diameter(self):
+        if self.bore_type == BoreType.CUSTOM and self.bore_diameter_mm is None:
+            raise ValueError("bore_diameter_mm is required when bore_type is 'custom'")
+        return self
+
 
 class WheelFeatures(BaseModel):
-    """Manufacturing features for wheel."""
+    """Manufacturing features for wheel.
+
+    bore_type is REQUIRED and must be explicitly specified:
+    - "none": Solid part, no bore (bore_diameter_mm ignored)
+    - "custom": Bore with specified diameter (bore_diameter_mm required)
+    """
     model_config = ConfigDict(extra='ignore')
 
-    bore_diameter_mm: Optional[float] = None
+    bore_type: BoreType = Field(
+        ...,  # Required - no default, must be explicit
+        description="Bore type: 'none' for solid, 'custom' for specified diameter"
+    )
+    bore_diameter_mm: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="Bore diameter in mm. Required when bore_type is 'custom'."
+    )
     anti_rotation: Optional[str] = None  # "none" | "DIN6885" | "ddcut"
     ddcut_depth_percent: float = 15.0  # Only used if anti_rotation is "ddcut"
     set_screw: Optional[SetScrewSpec] = None
     hub: Optional[HubSpec] = None
+
+    @field_validator('bore_type', mode='before')
+    @classmethod
+    def coerce_bore_type(cls, v):
+        if isinstance(v, str):
+            return BoreType(v.lower())
+        return v
+
+    @model_validator(mode='after')
+    def validate_bore_diameter(self):
+        if self.bore_type == BoreType.CUSTOM and self.bore_diameter_mm is None:
+            raise ValueError("bore_diameter_mm is required when bore_type is 'custom'")
+        return self
 
 
 class Features(BaseModel):

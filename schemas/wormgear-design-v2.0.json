@@ -57,6 +57,15 @@
       "title": "AssemblyParams",
       "type": "object"
     },
+    "BoreType": {
+      "description": "Bore configuration type",
+      "enum": [
+        "none",
+        "custom"
+      ],
+      "title": "BoreType",
+      "type": "string"
+    },
     "Features": {
       "description": "Manufacturing features for worm and wheel.",
       "properties": {
@@ -275,11 +284,16 @@
       "type": "object"
     },
     "WheelFeatures": {
-      "description": "Manufacturing features for wheel.",
+      "description": "Manufacturing features for wheel.\n\nbore_type is REQUIRED and must be explicitly specified:\n- \"none\": Solid part, no bore (bore_diameter_mm ignored)\n- \"custom\": Bore with specified diameter (bore_diameter_mm required)",
       "properties": {
+        "bore_type": {
+          "$ref": "#/$defs/BoreType",
+          "description": "Bore type: 'none' for solid, 'custom' for specified diameter"
+        },
         "bore_diameter_mm": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             {
@@ -287,6 +301,7 @@
             }
           ],
           "default": null,
+          "description": "Bore diameter in mm. Required when bore_type is 'custom'.",
           "title": "Bore Diameter Mm"
         },
         "anti_rotation": {
@@ -329,6 +344,9 @@
           "default": null
         }
       },
+      "required": [
+        "bore_type"
+      ],
       "title": "WheelFeatures",
       "type": "object"
     },
@@ -355,14 +373,6 @@
           "title": "Root Diameter Mm",
           "type": "number"
         },
-        "throat_diameter_mm": {
-          "title": "Throat Diameter Mm",
-          "type": "number"
-        },
-        "helix_angle_deg": {
-          "title": "Helix Angle Deg",
-          "type": "number"
-        },
         "addendum_mm": {
           "title": "Addendum Mm",
           "type": "number"
@@ -375,6 +385,30 @@
           "default": 0.0,
           "title": "Profile Shift",
           "type": "number"
+        },
+        "throat_diameter_mm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Throat Diameter Mm"
+        },
+        "helix_angle_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Helix Angle Deg"
         },
         "width_mm": {
           "anyOf": [
@@ -395,8 +429,6 @@
         "pitch_diameter_mm",
         "tip_diameter_mm",
         "root_diameter_mm",
-        "throat_diameter_mm",
-        "helix_angle_deg",
         "addendum_mm",
         "dedendum_mm"
       ],
@@ -404,11 +436,16 @@
       "type": "object"
     },
     "WormFeatures": {
-      "description": "Manufacturing features for worm.",
+      "description": "Manufacturing features for worm.\n\nbore_type is REQUIRED and must be explicitly specified:\n- \"none\": Solid part, no bore (bore_diameter_mm ignored)\n- \"custom\": Bore with specified diameter (bore_diameter_mm required)",
       "properties": {
+        "bore_type": {
+          "$ref": "#/$defs/BoreType",
+          "description": "Bore type: 'none' for solid, 'custom' for specified diameter"
+        },
         "bore_diameter_mm": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             {
@@ -416,6 +453,7 @@
             }
           ],
           "default": null,
+          "description": "Bore diameter in mm. Required when bore_type is 'custom'.",
           "title": "Bore Diameter Mm"
         },
         "anti_rotation": {
@@ -447,6 +485,9 @@
           "default": null
         }
       },
+      "required": [
+        "bore_type"
+      ],
       "title": "WormFeatures",
       "type": "object"
     },

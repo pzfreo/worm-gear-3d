@@ -161,6 +161,7 @@ def validate_design(design: DesignInput) -> ValidationResult:
     messages.extend(_validate_worm_type(design))
     messages.extend(_validate_wheel_throated(design))
     messages.extend(_validate_manufacturing_compatibility(design))
+    messages.extend(_validate_bore(design))
 
     # Design is valid if no errors
     has_errors = any(m.severity == Severity.ERROR for m in messages)
@@ -651,5 +652,115 @@ def _validate_manufacturing_compatibility(design: DesignInput) -> List[Validatio
             message=f"Worm length {worm_length:.2f}mm may not provide full engagement with wheel width {wheel_width:.2f}mm",
             suggestion=f"Consider increasing to at least {wheel_width + lead + 1:.2f}mm (width + lead + margin)"
         ))
+
+    return messages
+
+
+def _normalize_bore_type(bore_type) -> Optional[str]:
+    """Normalize bore_type to lowercase string for comparison."""
+    if bore_type is None:
+        return None
+    # Handle enum values
+    if hasattr(bore_type, 'value'):
+        return bore_type.value.lower()
+    return str(bore_type).lower()
+
+
+def _validate_bore(design: DesignInput) -> List[ValidationMessage]:
+    """Validate bore configuration for worm and wheel.
+
+    Checks:
+    - bore_type is present when features section exists
+    - bore_diameter_mm is present when bore_type is 'custom'
+    - Bore doesn't exceed root diameter (impossible geometry)
+    - Warns if rim is thin (less than 1.5mm)
+    """
+    messages = []
+
+    # Validate worm bore
+    worm_features = _get(design, 'features', 'worm')
+    if worm_features is not None:
+        worm_bore_type = _normalize_bore_type(_get(design, 'features', 'worm', 'bore_type'))
+        worm_bore = _get(design, 'features', 'worm', 'bore_diameter_mm')
+        worm_root = _get(design, 'worm', 'root_diameter_mm', default=0)
+
+        # Check bore_type is specified
+        if worm_bore_type is None:
+            messages.append(ValidationMessage(
+                severity=Severity.ERROR,
+                code="WORM_BORE_TYPE_MISSING",
+                message="Worm features section exists but bore_type is not specified",
+                suggestion="Set bore_type to 'none' for solid part or 'custom' with bore_diameter_mm"
+            ))
+        elif worm_bore_type == 'custom':
+            # Check bore_diameter_mm is present for custom
+            if worm_bore is None:
+                messages.append(ValidationMessage(
+                    severity=Severity.ERROR,
+                    code="WORM_BORE_DIAMETER_MISSING",
+                    message="Worm bore_type is 'custom' but bore_diameter_mm is not specified",
+                    suggestion="Specify bore_diameter_mm or set bore_type to 'none'"
+                ))
+            elif worm_bore > 0 and worm_root > 0:
+                # Validate bore size against root diameter
+                max_bore = worm_root - 2.0  # Minimum 1mm wall on each side
+                if worm_bore >= worm_root:
+                    messages.append(ValidationMessage(
+                        severity=Severity.ERROR,
+                        code="WORM_BORE_TOO_LARGE",
+                        message=f"Worm bore ({worm_bore:.1f}mm) exceeds root diameter ({worm_root:.1f}mm)",
+                        suggestion=f"Maximum bore for this worm is {max_bore:.1f}mm"
+                    ))
+                elif worm_bore > max_bore:
+                    rim_thickness = (worm_root - worm_bore) / 2
+                    messages.append(ValidationMessage(
+                        severity=Severity.WARNING,
+                        code="WORM_BORE_THIN_RIM",
+                        message=f"Worm rim is thin ({rim_thickness:.2f}mm) with bore {worm_bore:.1f}mm",
+                        suggestion=f"Consider reducing bore to {max_bore:.1f}mm or less for adequate strength"
+                    ))
+
+    # Validate wheel bore
+    wheel_features = _get(design, 'features', 'wheel')
+    if wheel_features is not None:
+        wheel_bore_type = _normalize_bore_type(_get(design, 'features', 'wheel', 'bore_type'))
+        wheel_bore = _get(design, 'features', 'wheel', 'bore_diameter_mm')
+        wheel_root = _get(design, 'wheel', 'root_diameter_mm', default=0)
+
+        # Check bore_type is specified
+        if wheel_bore_type is None:
+            messages.append(ValidationMessage(
+                severity=Severity.ERROR,
+                code="WHEEL_BORE_TYPE_MISSING",
+                message="Wheel features section exists but bore_type is not specified",
+                suggestion="Set bore_type to 'none' for solid part or 'custom' with bore_diameter_mm"
+            ))
+        elif wheel_bore_type == 'custom':
+            # Check bore_diameter_mm is present for custom
+            if wheel_bore is None:
+                messages.append(ValidationMessage(
+                    severity=Severity.ERROR,
+                    code="WHEEL_BORE_DIAMETER_MISSING",
+                    message="Wheel bore_type is 'custom' but bore_diameter_mm is not specified",
+                    suggestion="Specify bore_diameter_mm or set bore_type to 'none'"
+                ))
+            elif wheel_bore > 0 and wheel_root > 0:
+                # Validate bore size against root diameter
+                max_bore = wheel_root - 3.0  # Minimum 1.5mm wall on each side for wheel
+                if wheel_bore >= wheel_root:
+                    messages.append(ValidationMessage(
+                        severity=Severity.ERROR,
+                        code="WHEEL_BORE_TOO_LARGE",
+                        message=f"Wheel bore ({wheel_bore:.1f}mm) exceeds root diameter ({wheel_root:.1f}mm)",
+                        suggestion=f"Maximum bore for this wheel is {max_bore:.1f}mm"
+                    ))
+                elif wheel_bore > max_bore:
+                    rim_thickness = (wheel_root - wheel_bore) / 2
+                    messages.append(ValidationMessage(
+                        severity=Severity.WARNING,
+                        code="WHEEL_BORE_THIN_RIM",
+                        message=f"Wheel rim is thin ({rim_thickness:.2f}mm) with bore {wheel_bore:.1f}mm",
+                        suggestion=f"Consider reducing bore to {max_bore:.1f}mm or less for adequate strength"
+                    ))
 
     return messages

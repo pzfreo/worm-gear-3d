@@ -21,14 +21,6 @@
       "title": "Root Diameter Mm",
       "type": "number"
     },
-    "throat_diameter_mm": {
-      "title": "Throat Diameter Mm",
-      "type": "number"
-    },
-    "helix_angle_deg": {
-      "title": "Helix Angle Deg",
-      "type": "number"
-    },
     "addendum_mm": {
       "title": "Addendum Mm",
       "type": "number"
@@ -41,6 +33,30 @@
       "default": 0.0,
       "title": "Profile Shift",
       "type": "number"
+    },
+    "throat_diameter_mm": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Throat Diameter Mm"
+    },
+    "helix_angle_deg": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Helix Angle Deg"
     },
     "width_mm": {
       "anyOf": [
@@ -61,8 +77,6 @@
     "pitch_diameter_mm",
     "tip_diameter_mm",
     "root_diameter_mm",
-    "throat_diameter_mm",
-    "helix_angle_deg",
     "addendum_mm",
     "dedendum_mm"
   ],
