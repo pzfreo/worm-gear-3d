@@ -148,6 +148,11 @@ calculate(input_json)
         document.getElementById('results-text').textContent = output.summary;
         updateValidationUI(output.valid, output.messages);
 
+        // Keep generator JSON in sync if user has visited that tab
+        if (generatorTabVisited) {
+            document.getElementById('json-input').value = JSON.stringify(currentDesign, null, 2);
+        }
+
     } catch (error) {
         console.error('Calculation error:', error);
         document.getElementById('results-text').textContent = `Error: ${error.message}`;

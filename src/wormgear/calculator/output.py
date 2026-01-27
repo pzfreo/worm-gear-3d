@@ -256,7 +256,8 @@ def to_markdown(
     md += f"| Root Diameter | {wheel['root_diameter_mm']:.3f} mm |\n"
     if wheel.get('throat_diameter_mm'):
         md += f"| Throat Diameter | {wheel['throat_diameter_mm']:.3f} mm |\n"
-    md += f"| Helix Angle | {wheel['helix_angle_deg']:.2f}° |\n"
+    if wheel.get('helix_angle_deg'):
+        md += f"| Helix Angle | {wheel['helix_angle_deg']:.2f}° |\n"
     md += f"| Addendum | {wheel['addendum_mm']:.3f} mm |\n"
     md += f"| Dedendum | {wheel['dedendum_mm']:.3f} mm |\n"
     if wheel.get('profile_shift'):
@@ -430,7 +431,12 @@ def to_summary(
         f"  Pitch diameter:    {wheel['pitch_diameter_mm']:.2f} mm",
         f"  Root diameter:     {wheel['root_diameter_mm']:.2f} mm",
         f"  Teeth:             {wheel['num_teeth']}",
-        f"  Helix angle:       {wheel['helix_angle_deg']:.1f}°",
+    ])
+
+    if wheel.get('helix_angle_deg'):
+        lines.append(f"  Helix angle:       {wheel['helix_angle_deg']:.1f}°")
+
+    lines.extend([
         "",
         f"Centre distance: {asm['centre_distance_mm']:.2f} mm",
         f"Efficiency (est): {asm.get('efficiency_percent', 0):.0f}%",
