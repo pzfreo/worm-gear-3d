@@ -406,24 +406,29 @@ if generate_type in ['worm', 'both']:
         worm_b64 = base64.b64encode(worm_step).decode('utf-8')
 
         # Export 3MF for 3D printing (preferred - has explicit units and better precision)
-        print("  Exporting to 3MF format...")
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
-            temp_3mf_path = tmp.name
+        # Note: 3MF export can fail for complex geometry - make it non-fatal
+        try:
+            print("  Exporting to 3MF format...")
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
+                temp_3mf_path = tmp.name
 
-        # Use build123d Mesher for 3MF export
-        from build123d import Mesher, Unit
-        mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
-        mesher.add_shape(worm)
-        mesher.write(temp_3mf_path)
+            # Use build123d Mesher for 3MF export
+            from build123d import Mesher, Unit
+            mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+            mesher.add_shape(worm)
+            mesher.write(temp_3mf_path)
 
-        # Read back as bytes
-        with open(temp_3mf_path, 'rb') as f:
-            worm_3mf = f.read()
+            # Read back as bytes
+            with open(temp_3mf_path, 'rb') as f:
+                worm_3mf = f.read()
 
-        # Clean up temp file
-        os.unlink(temp_3mf_path)
+            # Clean up temp file
+            os.unlink(temp_3mf_path)
 
-        worm_3mf_b64 = base64.b64encode(worm_3mf).decode('utf-8')
+            worm_3mf_b64 = base64.b64encode(worm_3mf).decode('utf-8')
+        except Exception as e:
+            print(f"  ⚠️ 3MF export failed (non-fatal): {e}")
+            worm_3mf_b64 = None
 
         # Also export STL for compatibility
         print("  Exporting to STL format...")
@@ -440,10 +445,11 @@ if generate_type in ['worm', 'both']:
         worm_stl_b64 = base64.b64encode(worm_stl).decode('utf-8')
 
         size_kb = len(worm_step) / 1024
-        mf3_size_kb = len(worm_3mf) / 1024
+        mf3_size_kb = len(worm_3mf) / 1024 if worm_3mf_b64 else 0
         stl_size_kb = len(worm_stl) / 1024
         print(f"✓ Worm generated successfully!")
-        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_size_kb:.1f} KB, STL: {stl_size_kb:.1f} KB")
+        mf3_status = f"{mf3_size_kb:.1f} KB" if worm_3mf_b64 else "failed"
+        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_status}, STL: {stl_size_kb:.1f} KB")
     except Exception as e:
         print(f"✗ Worm generation failed: {e}")
         import traceback
@@ -514,24 +520,29 @@ if generate_type in ['wheel', 'both']:
         wheel_b64 = base64.b64encode(wheel_step).decode('utf-8')
 
         # Export 3MF for 3D printing (preferred - has explicit units and better precision)
-        print("  Exporting to 3MF format...")
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
-            temp_3mf_path = tmp.name
+        # Note: 3MF export can fail for complex geometry - make it non-fatal
+        try:
+            print("  Exporting to 3MF format...")
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
+                temp_3mf_path = tmp.name
 
-        # Use build123d Mesher for 3MF export
-        from build123d import Mesher, Unit
-        mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
-        mesher.add_shape(wheel)
-        mesher.write(temp_3mf_path)
+            # Use build123d Mesher for 3MF export
+            from build123d import Mesher, Unit
+            mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+            mesher.add_shape(wheel)
+            mesher.write(temp_3mf_path)
 
-        # Read back as bytes
-        with open(temp_3mf_path, 'rb') as f:
-            wheel_3mf = f.read()
+            # Read back as bytes
+            with open(temp_3mf_path, 'rb') as f:
+                wheel_3mf = f.read()
 
-        # Clean up temp file
-        os.unlink(temp_3mf_path)
+            # Clean up temp file
+            os.unlink(temp_3mf_path)
 
-        wheel_3mf_b64 = base64.b64encode(wheel_3mf).decode('utf-8')
+            wheel_3mf_b64 = base64.b64encode(wheel_3mf).decode('utf-8')
+        except Exception as e:
+            print(f"  ⚠️ 3MF export failed (non-fatal): {e}")
+            wheel_3mf_b64 = None
 
         # Also export STL for compatibility
         print("  Exporting to STL format...")
@@ -548,10 +559,11 @@ if generate_type in ['wheel', 'both']:
         wheel_stl_b64 = base64.b64encode(wheel_stl).decode('utf-8')
 
         size_kb = len(wheel_step) / 1024
-        mf3_size_kb = len(wheel_3mf) / 1024
+        mf3_size_kb = len(wheel_3mf) / 1024 if wheel_3mf_b64 else 0
         stl_size_kb = len(wheel_stl) / 1024
         print(f"✓ Wheel generated successfully!")
-        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_size_kb:.1f} KB, STL: {stl_size_kb:.1f} KB")
+        mf3_status = f"{mf3_size_kb:.1f} KB" if wheel_3mf_b64 else "failed"
+        print(f"  STEP: {size_kb:.1f} KB, 3MF: {mf3_status}, STL: {stl_size_kb:.1f} KB")
     except Exception as e:
         print(f"✗ Wheel generation failed: {e}")
         import traceback
