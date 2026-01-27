@@ -2,11 +2,13 @@
 
 Converts typed WormGearDesign models to JSON and Markdown output.
 All functions expect WormGearDesign - no dict handling for clean code.
+
+Uses Pydantic's model_dump(mode='json') for proper serialization including
+automatic enum-to-string conversion as per CLAUDE.md requirements.
 """
 
 import json
-from enum import Enum
-from typing import Optional, TYPE_CHECKING, Any
+from typing import Optional, TYPE_CHECKING
 
 from ..io import WormGearDesign
 from ..io.schema import SCHEMA_VERSION
@@ -14,23 +16,17 @@ from .bore_calculator import calculate_default_bore
 
 
 def _model_to_dict(model) -> dict:
-    """Convert Pydantic model to dict."""
-    return model.model_dump()
+    """Convert Pydantic model to dict with JSON-compatible types.
+
+    Uses Pydantic's mode='json' for automatic serialization of:
+    - Enums to their string values
+    - Nested models to dicts
+    - All types to JSON-compatible equivalents
+    """
+    return model.model_dump(mode='json')
 
 if TYPE_CHECKING:
     from .validation import ValidationResult
-
-
-def _serialize_enums(obj: Any) -> Any:
-    """Recursively convert enum values to strings for JSON serialization."""
-    if isinstance(obj, Enum):
-        return obj.value
-    elif isinstance(obj, dict):
-        return {key: _serialize_enums(value) for key, value in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        return [_serialize_enums(item) for item in obj]
-    else:
-        return obj
 
 
 def to_json(
@@ -52,8 +48,9 @@ def to_json(
     Returns:
         JSON string with schema version, design parameters, and optional extras
     """
-    # Convert dataclass to dict and serialize enums
-    design_dict = _serialize_enums(_model_to_dict(design))
+    # Convert Pydantic model to dict with JSON-compatible types
+    # mode='json' automatically handles enum serialization
+    design_dict = _model_to_dict(design)
 
     # Add schema version for compatibility
     if 'schema_version' not in design_dict:
@@ -178,7 +175,7 @@ def to_markdown(
         Detailed markdown specification string
     """
     # Convert to dict for easy field access
-    design_dict = _serialize_enums(_model_to_dict(design))
+    design_dict = _model_to_dict(design)
 
     worm = design_dict["worm"]
     wheel = design_dict["wheel"]
@@ -374,7 +371,7 @@ def to_summary(
         Multi-line formatted summary string
     """
     # Convert to dict for easy field access
-    design_dict = _serialize_enums(_model_to_dict(design))
+    design_dict = _model_to_dict(design)
 
     worm = design_dict["worm"]
     wheel = design_dict["wheel"]

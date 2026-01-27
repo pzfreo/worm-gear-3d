@@ -422,12 +422,12 @@ if generate_type in ['worm', 'both']:
             # Use build123d Mesher for 3MF export with finer mesh settings
             # Lower deflection values = finer mesh, may help avoid duplicate vertex issues
             from build123d import Mesher, Unit
-            mesher = Mesher(
-                unit=Unit.MM,
-                linear_deflection=0.0005,  # Finer than default 0.001
-                angular_deflection=0.05    # Finer than default 0.1
+            mesher = Mesher(unit=Unit.MM)
+            mesher.add_shape(
+                worm,
+                linear_deflection=0.0005,   # Finer than default 0.001
+                angular_deflection=0.05     # Finer than default 0.1
             )
-            mesher.add_shape(worm)
             mesher.write(temp_3mf_path)
 
             # Read back as bytes
@@ -556,12 +556,12 @@ if generate_type in ['wheel', 'both']:
             # Use build123d Mesher for 3MF export with finer mesh settings
             # Lower deflection values = finer mesh, may help avoid duplicate vertex issues
             from build123d import Mesher, Unit
-            mesher = Mesher(
-                unit=Unit.MM,
-                linear_deflection=0.0005,  # Finer than default 0.001
-                angular_deflection=0.05    # Finer than default 0.1
+            mesher = Mesher(unit=Unit.MM)
+            mesher.add_shape(
+                wheel,
+                linear_deflection=0.0005,   # Finer than default 0.001
+                angular_deflection=0.05     # Finer than default 0.1
             )
-            mesher.add_shape(wheel)
             mesher.write(temp_3mf_path)
 
             # Read back as bytes
