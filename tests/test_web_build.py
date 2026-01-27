@@ -211,15 +211,15 @@ def test_pyodide_version_consistency():
 
     html_content = index_html.read_text()
 
-    # Check if pyodide-init.js exists (after refactoring) or fall back to app-lazy.js
+    # Check if pyodide-init.js exists (after refactoring) or fall back to app.js
     if pyodide_init.exists():
         js_content = pyodide_init.read_text()
         js_file = "modules/pyodide-init.js"
     else:
         # Fallback for non-refactored version
-        app_lazy = WEB_DIR / "app-lazy.js"
-        js_content = app_lazy.read_text()
-        js_file = "app-lazy.js"
+        app_js = WEB_DIR / "app.js"
+        js_content = app_js.read_text()
+        js_file = "app.js"
 
     # Extract version from HTML (e.g., v0.29.0)
     import re
@@ -341,15 +341,15 @@ def test_json_field_names_match_dataclass_params():
         pytest.fail(error_msg)
 
 
-def test_app_lazy_js_field_names_match():
+def test_app_js_field_names_match():
     """
-    Field names in app-lazy.js should match Python dataclass parameters.
+    Field names in app.js should match Python dataclass parameters.
 
     Specifically checks for known issues like 'throat_pitch_radius_mm' which should be
     'throat_curvature_radius_mm'.
     """
-    app_lazy = WEB_DIR / "app-lazy.js"
-    content = app_lazy.read_text()
+    app_js = WEB_DIR / "app.js"
+    content = app_js.read_text()
 
     # Known incorrect field names that should NOT appear
     incorrect_fields = [
@@ -360,18 +360,18 @@ def test_app_lazy_js_field_names_match():
     for incorrect_field in incorrect_fields:
         if incorrect_field in content:
             errors.append(
-                f"app-lazy.js contains incorrect field name '{incorrect_field}'. "
+                f"app.js contains incorrect field name '{incorrect_field}'. "
                 f"This field does not exist in WormParams dataclass."
             )
 
     # Check that correct field name is used instead
     if "throat_pitch_radius_mm" in content and "throat_curvature_radius_mm" not in content:
         errors.append(
-            "app-lazy.js should use 'throat_curvature_radius_mm' not 'throat_pitch_radius_mm'"
+            "app.js should use 'throat_curvature_radius_mm' not 'throat_pitch_radius_mm'"
         )
 
     if errors:
-        error_msg = "Field name errors in app-lazy.js:\n" + "\n".join(f"  - {e}" for e in errors)
+        error_msg = "Field name errors in app.js:\n" + "\n".join(f"  - {e}" for e in errors)
         pytest.fail(error_msg)
 
 

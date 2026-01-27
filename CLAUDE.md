@@ -1034,7 +1034,7 @@ wormgear/
 │       └── generate.py               # wormgear-geometry command
 ├── web/                               # Web calculator (browser)
 │   ├── index.html                    # Web UI
-│   ├── app-lazy.js                   # Main application (lazy-loaded)
+│   ├── app.js                        # Main application
 │   ├── modules/
 │   │   ├── pyodide-init.js          # Pyodide initialization
 │   │   ├── parameter-handler.js     # UI input collection

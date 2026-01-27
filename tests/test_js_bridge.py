@@ -7,7 +7,7 @@ The bridge uses a single entry point: calculate(input_json) -> output_json
 
 import json
 import pytest
-from src.wormgear.calculator.js_bridge import (
+from wormgear.calculator.js_bridge import (
     calculate,
     sanitize_js_value,
     sanitize_dict,
