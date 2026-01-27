@@ -406,15 +406,27 @@ if generate_type in ['worm', 'both']:
         worm_b64 = base64.b64encode(worm_step).decode('utf-8')
 
         # Export 3MF for 3D printing (preferred - has explicit units and better precision)
-        # Note: 3MF export can fail for complex geometry - make it non-fatal
+        # Note: 3MF export can fail for complex geometry due to mesh issues - make it non-fatal
         try:
             print("  Exporting to 3MF format...")
+
+            # Validate shape before meshing (diagnostic)
+            shape_valid = worm.is_valid
+            print(f"    Shape validity check: {shape_valid}")
+            if not shape_valid:
+                print("    ⚠️ Shape has validity issues - 3MF may fail")
+
             with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
                 temp_3mf_path = tmp.name
 
-            # Use build123d Mesher for 3MF export
+            # Use build123d Mesher for 3MF export with finer mesh settings
+            # Lower deflection values = finer mesh, may help avoid duplicate vertex issues
             from build123d import Mesher, Unit
-            mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+            mesher = Mesher(
+                unit=Unit.MM,
+                linear_deflection=0.0005,  # Finer than default 0.001
+                angular_deflection=0.05    # Finer than default 0.1
+            )
             mesher.add_shape(worm)
             mesher.write(temp_3mf_path)
 
@@ -428,6 +440,8 @@ if generate_type in ['worm', 'both']:
             worm_3mf_b64 = base64.b64encode(worm_3mf).decode('utf-8')
         except Exception as e:
             print(f"  ⚠️ 3MF export failed (non-fatal): {e}")
+            print(f"    This is a known issue with complex geometry meshing.")
+            print(f"    STEP and STL files are still available.")
             worm_3mf_b64 = None
 
         # Also export STL for compatibility
@@ -520,15 +534,27 @@ if generate_type in ['wheel', 'both']:
         wheel_b64 = base64.b64encode(wheel_step).decode('utf-8')
 
         # Export 3MF for 3D printing (preferred - has explicit units and better precision)
-        # Note: 3MF export can fail for complex geometry - make it non-fatal
+        # Note: 3MF export can fail for complex geometry due to mesh issues - make it non-fatal
         try:
             print("  Exporting to 3MF format...")
+
+            # Validate shape before meshing (diagnostic)
+            shape_valid = wheel.is_valid
+            print(f"    Shape validity check: {shape_valid}")
+            if not shape_valid:
+                print("    ⚠️ Shape has validity issues - 3MF may fail")
+
             with tempfile.NamedTemporaryFile(mode='w', suffix='.3mf', delete=False) as tmp:
                 temp_3mf_path = tmp.name
 
-            # Use build123d Mesher for 3MF export
+            # Use build123d Mesher for 3MF export with finer mesh settings
+            # Lower deflection values = finer mesh, may help avoid duplicate vertex issues
             from build123d import Mesher, Unit
-            mesher = Mesher(unit=Unit.MM)  # Explicit millimeters
+            mesher = Mesher(
+                unit=Unit.MM,
+                linear_deflection=0.0005,  # Finer than default 0.001
+                angular_deflection=0.05    # Finer than default 0.1
+            )
             mesher.add_shape(wheel)
             mesher.write(temp_3mf_path)
 
@@ -542,6 +568,8 @@ if generate_type in ['wheel', 'both']:
             wheel_3mf_b64 = base64.b64encode(wheel_3mf).decode('utf-8')
         except Exception as e:
             print(f"  ⚠️ 3MF export failed (non-fatal): {e}")
+            print(f"    This is a known issue with complex geometry meshing.")
+            print(f"    STEP and STL files are still available.")
             wheel_3mf_b64 = None
 
         # Also export STL for compatibility
