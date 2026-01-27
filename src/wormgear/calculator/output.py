@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING, Any
 
 from ..io import WormGearDesign
+from ..io.schema import SCHEMA_VERSION
 from .bore_calculator import calculate_default_bore
 
 
@@ -56,7 +57,7 @@ def to_json(
 
     # Add schema version for compatibility
     if 'schema_version' not in design_dict:
-        design_dict['schema_version'] = '1.0'
+        design_dict['schema_version'] = SCHEMA_VERSION
 
     # Transform bore settings into features section (format expected by generator CLI)
     if bore_settings:
