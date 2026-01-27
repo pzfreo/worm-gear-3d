@@ -1,0 +1,66 @@
+{
+  "worm": {
+    "module_mm": 0.5,
+    "num_starts": 1,
+    "pitch_diameter_mm": 6.799999999999999,
+    "tip_diameter_mm": 7.799999999999999,
+    "root_diameter_mm": 5.549999999999999,
+    "lead_mm": 1.5707963267948966,
+    "axial_pitch_mm": 1.5707963267948966,
+    "lead_angle_deg": 4.205357001708588,
+    "addendum_mm": 0.5,
+    "dedendum_mm": 0.625,
+    "thread_thickness_mm": 0.7853981633974483,
+    "hand": "right",
+    "profile_shift": 0,
+    "type": "globoid",
+    "throat_reduction_mm": 0.05,
+    "throat_curvature_radius_mm": 3,
+    "length_mm": null
+  },
+  "wheel": {
+    "module_mm": 0.5,
+    "num_teeth": 12,
+    "pitch_diameter_mm": 6,
+    "tip_diameter_mm": 7,
+    "root_diameter_mm": 4.75,
+    "throat_diameter_mm": 6.5,
+    "helix_angle_deg": 85.79464299829141,
+    "addendum_mm": 0.5,
+    "dedendum_mm": 0.625,
+    "profile_shift": 0,
+    "width_mm": null
+  },
+  "assembly": {
+    "centre_distance_mm": 6.35,
+    "pressure_angle_deg": 25,
+    "backlash_mm": 0,
+    "hand": "right",
+    "ratio": 12,
+    "efficiency_percent": 56.90139856998384,
+    "self_locking": true
+  },
+  "features": {
+    "worm": {
+      "bore_diameter_mm": 3,
+      "anti_rotation": "ddcut"
+    },
+    "wheel": {
+      "bore_diameter_mm": 3,
+      "anti_rotation": "ddcut"
+    }
+  },
+  "manufacturing": {
+    "profile": "ZI",
+    "virtual_hobbing": false,
+    "hobbing_steps": 72,
+    "throated_wheel": true,
+    "sections_per_turn": 36,
+    "worm_length_mm": 10.14,
+    "wheel_width_mm": 6,
+    "use_recommended_dims": false,
+    "worm_length": 7,
+    "wheel_width": 6
+  },
+  "schema_version": "1.0"
+}
