@@ -96,7 +96,9 @@ export function getInputs(mode) {
         profile_shift: safeParseFloat(getValue('profile-shift')) || 0,
         profile: getValue('profile'),
         worm_type: getValue('worm-type'),
-        throat_reduction: safeParseFloat(getValue('throat-reduction')) || 0,
+        throat_reduction: getValue('throat-reduction-mode') === 'custom'
+            ? safeParseFloat(getValue('throat-reduction')) || 0
+            : 0,  // 0 = auto (Python calculates 15% of module)
         wheel_throated: getChecked('wheel-throated'),
         bore: bore,
         manufacturing: manufacturing

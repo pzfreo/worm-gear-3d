@@ -527,6 +527,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const isGloboid = e.target.value === 'globoid';
         const throatReductionGroup = document.getElementById('throat-reduction-group');
         throatReductionGroup.style.display = isGloboid ? 'block' : 'none';
+        if (isGloboid) {
+            updateThroatReductionAutoHint();
+        }
+    });
+
+    // Throat reduction mode switching (auto vs custom)
+    document.getElementById('throat-reduction-mode')?.addEventListener('change', (e) => {
+        const isCustom = e.target.value === 'custom';
+        document.getElementById('throat-reduction-custom').style.display = isCustom ? 'block' : 'none';
+        document.getElementById('throat-reduction-auto-hint').style.display = isCustom ? 'none' : 'block';
+        if (isCustom) {
+            // Pre-fill with the auto value
+            const module = parseFloat(document.getElementById('module')?.value) || 2.0;
+            document.getElementById('throat-reduction').value = (module * 0.15).toFixed(2);
+        }
+    });
+
+    // Update throat reduction auto hint when module changes
+    function updateThroatReductionAutoHint() {
+        const module = parseFloat(document.getElementById('module')?.value) || 2.0;
+        const autoValue = (module * 0.15).toFixed(2);
+        const hint = document.getElementById('throat-reduction-auto-value');
+        if (hint) {
+            hint.textContent = `≈ ${autoValue}mm for module ${module.toFixed(1)}`;
+        }
+    }
+
+    document.getElementById('module')?.addEventListener('change', () => {
+        if (document.getElementById('worm-type')?.value === 'globoid') {
+            updateThroatReductionAutoHint();
+        }
     });
 
     // Wheel generation method switching (helical vs virtual hobbing)
