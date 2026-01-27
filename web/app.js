@@ -46,6 +46,11 @@ function initTabs() {
                     progressContainer.style.display = 'none';
                 }
 
+                // Lazy load generator if needed (only when tab is first clicked)
+                if (!getGeneratorWorker()) {
+                    initGeneratorTab(true);  // true = show loading modal
+                }
+
                 // Auto-load from calculator on first visit
                 if (!generatorTabVisited) {
                     generatorTabVisited = true;
@@ -570,10 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Calculator tab is active by default, so initialize it
     initCalculatorTab();
 
-    // Start loading generator in background (non-blocking)
-    initGeneratorTab(false).catch(err => {
-        console.log('Generator background loading failed (non-fatal):', err);
-    });
+    // Generator tab is now lazy-loaded when user clicks on it (not pre-loaded in background)
 });
 
 // Expose functions globally for HTML onclick handlers
