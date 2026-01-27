@@ -213,6 +213,40 @@ def design_from_module(hand: Union[Hand, str] = "right"):
 
 This gives best of both worlds: type safety in Python, flexibility for JavaScript.
 
+### 6. Manual JSON Parsing is a Bug Factory
+
+**What happened (Jan 2026)**: Chose dataclasses + manual parsing over Pydantic. Result: 6+ bugs from type mismatches over two days.
+
+**The bugs**:
+```python
+# Bug 1-3: Called .upper() on enum (expected string)
+is_right_hand = self.assembly_params.hand.upper() == "RIGHT"  # AttributeError
+
+# Bug 4-5: Compared enum to string (always False)
+if self.profile == "ZI":  # Never matches WormProfile.ZI
+
+# Bug 6-7: Fields not parsed from JSON (forgot to add .get() calls)
+worm_length_mm=mfg_data.get('worm_length_mm')  # Was missing entirely
+```
+
+**Root cause**: Every field and every enum requires manual handling:
+- Manual `.get()` for each JSON field
+- Manual `Enum(string)` conversion
+- Manual comparisons that can mismatch types
+- No validation at parse time - errors surface at runtime
+
+**The tradeoff that was made**:
+- Avoided Pydantic dependency
+- Avoided Pyodide/Rust extension uncertainty
+- Got: 6+ bugs, hours of debugging, user frustration
+
+**Rule**: If you choose manual parsing, you MUST:
+1. Test the full JSON→object→usage path, not just imports
+2. After ANY type mismatch bug, add a test that would have caught it
+3. If the same class of bug happens twice, STOP and reconsider the architecture
+
+**Alternative**: Pydantic with `model_validate(json_data)` handles all of this automatically. The dependency cost may be worth it.
+
 ## Recent History: Calculator Restoration (Jan 2026)
 
 **What happened**: The unified calculator refactor (Jan 2026) introduced multiple regressions:
