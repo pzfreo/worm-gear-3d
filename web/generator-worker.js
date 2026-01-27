@@ -356,8 +356,9 @@ worm_stl_b64 = None
 wheel_stl_b64 = None
 worm = None  # Will hold worm geometry if generated
 
-# Check if globoid (has throat curvature radius) - needed for both worm and wheel generation
-is_globoid = hasattr(worm_params, 'throat_pitch_radius') and worm_params.throat_pitch_radius is not None
+# Check if globoid - either by type field or presence of throat curvature radius
+is_globoid = (hasattr(worm_params, 'type') and worm_params.type == 'globoid') or \
+             (hasattr(worm_params, 'throat_curvature_radius_mm') and worm_params.throat_curvature_radius_mm is not None)
 
 # Generate worm if requested
 if generate_type in ['worm', 'both']:
@@ -369,7 +370,7 @@ if generate_type in ['worm', 'both']:
             worm_geo = GloboidWormGeometry(
                 params=worm_params,
                 assembly_params=assembly_params,
-                wheel_pitch_diameter=wheel_params.pitch_diameter,
+                wheel_pitch_diameter=wheel_params.pitch_diameter_mm,
                 length=worm_length,
                 sections_per_turn=36,
                 bore=worm_bore,

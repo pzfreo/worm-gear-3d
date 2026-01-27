@@ -62,8 +62,8 @@ class ManufacturingSettings(BaseModel):
     virtual_hobbing: bool = False
     hobbing_steps: int = 72
     use_recommended_dims: bool = True
-    worm_length: Optional[float] = None
-    wheel_width: Optional[float] = None
+    worm_length_mm: Optional[float] = None
+    wheel_width_mm: Optional[float] = None
 
 
 class CalculatorInputs(BaseModel):
@@ -186,8 +186,8 @@ def calculate(input_json: str) -> str:
 
         # Handle recommended dimensions
         if inputs.manufacturing.use_recommended_dims:
-            mfg_dict['worm_length'] = None
-            mfg_dict['wheel_width'] = None
+            mfg_dict['worm_length_mm'] = None
+            mfg_dict['wheel_width_mm'] = None
 
         # Build output
         output = CalculatorOutput(

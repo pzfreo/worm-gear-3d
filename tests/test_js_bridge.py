@@ -111,22 +111,22 @@ class TestManufacturingSettings:
         assert settings.virtual_hobbing is False
         assert settings.hobbing_steps == 72
         assert settings.use_recommended_dims is True
-        assert settings.worm_length is None
-        assert settings.wheel_width is None
+        assert settings.worm_length_mm is None
+        assert settings.wheel_width_mm is None
 
     def test_custom_values(self):
         settings = ManufacturingSettings(
             virtual_hobbing=True,
             hobbing_steps=144,
             use_recommended_dims=False,
-            worm_length=50.0,
-            wheel_width=15.0
+            worm_length_mm=50.0,
+            wheel_width_mm=15.0
         )
         assert settings.virtual_hobbing is True
         assert settings.hobbing_steps == 144
         assert settings.use_recommended_dims is False
-        assert settings.worm_length == 50.0
-        assert settings.wheel_width == 15.0
+        assert settings.worm_length_mm == 50.0
+        assert settings.wheel_width_mm == 15.0
 
 
 class TestCalculatorInputs:

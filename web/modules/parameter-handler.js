@@ -82,8 +82,8 @@ export function getInputs(mode) {
         virtual_hobbing: wheelGeneration === 'virtual-hobbing',
         hobbing_steps: hobbingStepsMap[hobbingPrecision] || 72,
         use_recommended_dims: getChecked('use-recommended-dims'),
-        worm_length: safeParseFloat(getValue('worm-length')),
-        wheel_width: safeParseFloat(getValue('wheel-width'))
+        worm_length_mm: safeParseFloat(getValue('worm-length')),
+        wheel_width_mm: safeParseFloat(getValue('wheel-width'))
     };
 
     // Build raw inputs object
