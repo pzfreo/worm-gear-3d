@@ -113,6 +113,9 @@ export async function initCalculator(onComplete) {
             calculatorPyodide.FS.writeFile(`/home/pyodide/wormgear/io/${file}`, content);
         }
 
+        // Load pydantic (required by io/loaders.py)
+        await calculatorPyodide.loadPackage('pydantic');
+
         // Import unified package WITH enums
         await calculatorPyodide.runPythonAsync(`
 import sys
