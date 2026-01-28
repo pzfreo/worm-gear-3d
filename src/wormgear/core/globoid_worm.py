@@ -9,7 +9,7 @@ import logging
 import math
 from typing import Optional, Literal, Callable
 from build123d import (
-    Part, Cylinder, Axis, Align, BuildPart, BuildSketch, Plane, Vector,
+    Part, Cylinder, Box, Axis, Align, BuildPart, BuildSketch, Plane, Vector,
     BuildLine, Polyline, Line, make_face, revolve, Spline, loft, export_step,
 )
 from ..io.loaders import WormParams, AssemblyParams
