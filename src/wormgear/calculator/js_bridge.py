@@ -14,7 +14,7 @@ Usage from JavaScript:
 """
 
 import json
-from typing import Dict, List, Optional, Union, TypedDict
+from typing import Any, Dict, List, Optional, Union, TypedDict
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
