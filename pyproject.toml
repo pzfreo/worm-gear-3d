@@ -30,7 +30,7 @@ classifiers = [
 dependencies = [
     "build123d>=0.6.0",
     "click>=8.0",  # For CLI
-    "pydantic>=1.10",  # Data validation and settings
+    "pydantic>=2.0,<3.0",  # Pydantic V2 required (V1 API incompatible)
 ]
 
 [project.optional-dependencies]
