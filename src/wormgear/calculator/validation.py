@@ -834,7 +834,7 @@ def _validate_bore_from_settings(design: DesignInput, bore_settings: Dict[str, A
     This is called when design.features isn't populated yet but we have
     bore_settings from the UI.
     """
-    from .bore_calculator import calculate_default_bore
+    from ..core.bore_sizing import calculate_default_bore
 
     messages = []
 
@@ -1079,7 +1079,7 @@ def _validate_bore(design: DesignInput, bore_settings: Optional[Dict[str, Any]] 
             worm_pitch = _get(design, 'worm', 'pitch_diameter_mm', default=0)
             if worm_pitch > 0 and worm_root > 0:
                 # Calculate if auto-bore would have been possible
-                from .bore_calculator import calculate_default_bore
+                from ..core.bore_sizing import calculate_default_bore
                 auto_bore, _ = calculate_default_bore(worm_pitch, worm_root)
                 if auto_bore is None:
                     messages.append(ValidationMessage(
@@ -1177,7 +1177,7 @@ def _validate_bore(design: DesignInput, bore_settings: Optional[Dict[str, Any]] 
             # Check if this is a fallback from auto-calculation
             wheel_pitch = _get(design, 'wheel', 'pitch_diameter_mm', default=0)
             if wheel_pitch > 0 and wheel_root > 0:
-                from .bore_calculator import calculate_default_bore
+                from ..core.bore_sizing import calculate_default_bore
                 auto_bore, _ = calculate_default_bore(wheel_pitch, wheel_root)
                 if auto_bore is None:
                     messages.append(ValidationMessage(

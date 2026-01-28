@@ -36,7 +36,7 @@ from .core import (
 )
 from .validation import validate_design
 from .output import to_json, to_markdown, to_summary
-from .bore_calculator import calculate_default_bore
+from ..core.bore_sizing import calculate_default_bore
 
 
 # ============================================================================

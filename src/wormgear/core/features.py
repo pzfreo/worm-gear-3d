@@ -15,8 +15,8 @@ from build123d import (
     Part, Cylinder, Box, Align, Axis, Location, Pos,
 )
 
-# Import bore calculation from calculator (pure math, no geometry deps)
-from ..calculator.bore_calculator import calculate_default_bore
+# Import bore calculation (pure geometry math)
+from .bore_sizing import calculate_default_bore
 
 
 # DIN 6885 Keyway dimensions lookup table
