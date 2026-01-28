@@ -110,8 +110,11 @@ def to_json(
                     'bore_type': 'custom',
                     'bore_diameter_mm': worm_bore_diameter
                 }
+            else:
+                # Auto-calculation failed (gear too small) - fall back to solid
+                features['worm'] = {'bore_type': 'none'}
         elif worm_bore_type == 'none':
-            # Explicit none - include bore_type in features if we need other features
+            # Explicit none - solid part
             features['worm'] = {'bore_type': 'none'}
 
         # Add worm anti-rotation if bore exists
@@ -139,8 +142,11 @@ def to_json(
                     'bore_type': 'custom',
                     'bore_diameter_mm': wheel_bore_diameter
                 }
+            else:
+                # Auto-calculation failed (gear too small) - fall back to solid
+                features['wheel'] = {'bore_type': 'none'}
         elif wheel_bore_type == 'none':
-            # Explicit none - include bore_type in features if we need other features
+            # Explicit none - solid part
             features['wheel'] = {'bore_type': 'none'}
 
         # Add wheel anti-rotation if bore exists
