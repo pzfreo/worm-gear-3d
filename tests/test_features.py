@@ -624,7 +624,7 @@ class TestWheelWithBore:
         # Handle nested "design" key if present
         design_data = raw_data.get("design", raw_data)
 
-        from wormgear_geometry.io import WheelParams, WormParams, AssemblyParams
+        from wormgear.io import WheelParams, WormParams, AssemblyParams
 
         large_wheel = WheelParams(
             module_mm=design_data["wheel"]["module_mm"],

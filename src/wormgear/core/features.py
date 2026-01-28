@@ -42,9 +42,9 @@ DIN_6885_KEYWAYS = {
 
 # Set screw sizing based on bore diameter
 # Format: bore_range: (screw_size_name, thread_diameter_mm)
-# Common sizes: M3 (3mm), M4 (4mm), M5 (5mm), M6 (6mm)
+# Common sizes: M2 (2mm), M3 (3mm), M4 (4mm), M5 (5mm), M6 (6mm)
 SET_SCREW_SIZES = {
-    (2, 6): ("M2.5", 2.5),    # Very small bores (below DIN 6885 range)
+    (2, 6): ("M2", 2.0),      # Very small bores (below DIN 6885 range)
     (6, 10): ("M3", 3.0),     # Small bores
     (10, 20): ("M4", 4.0),    # Medium bores
     (20, 35): ("M5", 5.0),    # Large bores
