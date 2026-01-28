@@ -515,8 +515,10 @@ class VirtualHobbingWheelGeometry:
         # First try OCC simplification
         simplified = self._simplify_geometry(original_hob, "hob geometry (OCC tools)")
 
-        # TODO: If we detect a globoid, we could rebuild it with fewer sections
-        # For now, OCC simplification should help significantly
+        # FUTURE OPTIMIZATION: For globoid hobs with many sections, we could
+        # rebuild the geometry with fewer sections for faster boolean operations.
+        # Current OCC simplification provides significant improvement already.
+        # See P2.1 in TECH_DEBT_REMEDIATION_PLAN.md for optimization details.
 
         return simplified
 

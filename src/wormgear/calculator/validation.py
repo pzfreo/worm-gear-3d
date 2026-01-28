@@ -157,6 +157,7 @@ def validate_design(design: DesignInput, bore_settings: Optional[Dict[str, Any]]
     # Run all validation checks
     messages.extend(_validate_geometry_possible(design))  # Check impossible geometry first
     messages.extend(_validate_lead_angle(design))
+    messages.extend(_validate_contact_ratio(design))  # P1.2: DIN 3975 §7.4 contact ratio check
     messages.extend(_validate_module(design))
     messages.extend(_validate_teeth_count(design))
     messages.extend(_validate_worm_proportions(design))
@@ -280,6 +281,62 @@ def _validate_lead_angle(design: DesignInput) -> List[ValidationMessage]:
             code="LEAD_ANGLE_TOO_HIGH",
             message=f"Lead angle {lead_angle:.1f}° exceeds practical limits",
             suggestion="Reduce worm pitch diameter or increase module"
+        ))
+
+    return messages
+
+
+def _validate_contact_ratio(design: DesignInput) -> List[ValidationMessage]:
+    """
+    Check contact ratio is sufficient for smooth operation.
+
+    Per DIN 3975 §7.4 and AGMA 6022, the contact ratio (epsilon) should be
+    at least 1.2 for smooth, continuous power transmission.
+
+    For worm gears, contact ratio is approximated as:
+    epsilon = (wheel_teeth * tan(lead_angle)) / (pi * num_starts)
+
+    A higher contact ratio means more teeth in mesh at any time,
+    resulting in smoother operation and higher load capacity.
+    """
+    messages = []
+
+    # Get required parameters
+    wheel_teeth = _get(design, 'wheel', 'num_teeth', default=0)
+    num_starts = _get(design, 'worm', 'num_starts', default=1)
+    lead_angle_deg = _get(design, 'worm', 'lead_angle_deg', default=0)
+
+    if wheel_teeth <= 0 or lead_angle_deg <= 0:
+        return messages  # Skip if data is incomplete
+
+    # Calculate approximate contact ratio for worm gears
+    from math import tan, radians, pi
+    lead_angle_rad = radians(lead_angle_deg)
+
+    # Simplified contact ratio approximation for worm gears
+    # More accurate calculation would require face width and addendum data
+    contact_ratio = (wheel_teeth * tan(lead_angle_rad)) / (pi * num_starts)
+
+    # Also consider the effective tooth overlap from geometry
+    # Minimum acceptable per AGMA 6022
+    MIN_CONTACT_RATIO = 1.2
+
+    if contact_ratio < 1.0:
+        messages.append(ValidationMessage(
+            severity=Severity.ERROR,
+            code="CONTACT_RATIO_TOO_LOW",
+            message=f"Calculated contact ratio {contact_ratio:.2f} < 1.0. "
+                    f"Teeth will not maintain continuous contact.",
+            suggestion="Increase wheel teeth count or lead angle for smoother operation. "
+                       "DIN 3975 §7.4 recommends contact ratio >= 1.2"
+        ))
+    elif contact_ratio < MIN_CONTACT_RATIO:
+        messages.append(ValidationMessage(
+            severity=Severity.WARNING,
+            code="CONTACT_RATIO_LOW",
+            message=f"Contact ratio {contact_ratio:.2f} is below recommended {MIN_CONTACT_RATIO}. "
+                    f"Operation may be rough or noisy.",
+            suggestion="For smoother operation, increase wheel teeth or lead angle"
         ))
 
     return messages

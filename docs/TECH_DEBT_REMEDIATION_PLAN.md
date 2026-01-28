@@ -2624,20 +2624,20 @@ Use this table to track completion:
 
 | Item | Description | Status | Date | Notes |
 |------|-------------|--------|------|-------|
-| P0.1 | Fix bare exception handlers | ⬜ | | 5 locations |
-| P0.2 | Replace wildcard imports | ⬜ | | 5 files |
-| P0.3 | Guard sqrt() of negative | ⬜ | | wheel.py |
-| P0.4 | Guard division by zero | ⬜ | | 3 files |
-| P0.5 | Add hobbing step limits | ⬜ | | virtual_hobbing.py |
-| P0.6 | Add _simulate_hobbing docstring | ⬜ | | 237-line function |
-| P0.7 | Fix Any type abuse | ⬜ | | validation.py, js_bridge.py |
+| P0.1 | Fix bare exception handlers | ✅ | 2026-01-28 | 5 locations fixed |
+| P0.2 | Replace wildcard imports | ✅ | 2026-01-28 | 5 files with explicit imports |
+| P0.3 | Guard sqrt() of negative | ✅ | 2026-01-28 | wheel.py, features.py |
+| P0.4 | Guard division by zero | ✅ | 2026-01-28 | 4 files |
+| P0.5 | Add hobbing step limits | ✅ | 2026-01-28 | 6-1000 range |
+| P0.6 | Add _simulate_hobbing docstring | ✅ | 2026-01-28 | Comprehensive docstring |
+| P0.7 | Fix Any type abuse | ✅ | 2026-01-28 | TypedDict added |
 
 ### P1 - High (Before v1.0)
 
 | Item | Description | Status | Date | Notes |
 |------|-------------|--------|------|-------|
-| P1.1 | Create constants module | ⬜ | | Extract magic numbers |
-| P1.2 | Add contact ratio validation | ⬜ | | DIN 3975 §7.4 |
+| P1.1 | Create constants module | ✅ | 2026-01-28 | calculator/constants.py |
+| P1.2 | Add contact ratio validation | ✅ | 2026-01-28 | DIN 3975 §7.4 |
 | P1.3 | Add set screw tests | ⬜ | | Currently only 2 tests |
 | P1.4 | Add hub feature tests | ⬜ | | Currently 0 tests |
 | P1.5 | Fix feature duplication | ⬜ | | Schema migration |
@@ -2652,26 +2652,26 @@ Use this table to track completion:
 | P2.1 | Optimize virtual hobbing | ⬜ | | 5-10x improvement |
 | P2.2 | Decompose large functions | ⬜ | | >100 line functions |
 | P2.3 | Create torture test suite | ⬜ | | Extreme parameters |
-| P2.4 | Implement schema migration | ⬜ | | v1.x → v2.x |
+| P2.4 | Implement schema migration | ✅ | 2026-01-28 | Full migration logic |
 | P2.5 | Optimize JSON serialization | ⬜ | | 10-20% reduction |
 
 ### P3 - Low (Backlog)
 
 | Item | Description | Status | Date | Notes |
 |------|-------------|--------|------|-------|
-| P3.1 | Add CI/CD pipeline | ⬜ | | GitHub Actions |
-| P3.2 | Improve Pydantic constraint | ⬜ | | Require v2.0+ |
-| P3.3 | Track/resolve TODOs | ⬜ | | 2 TODO comments |
+| P3.1 | Add CI/CD pipeline | ✅ | 2026-01-28 | ci.yml workflow |
+| P3.2 | Improve Pydantic constraint | ✅ | 2026-01-28 | >=2.0,<3.0 |
+| P3.3 | Track/resolve TODOs | ✅ | 2026-01-28 | Converted to comments |
 | P3.4 | Add type checking strictness | ⬜ | | Gradual enforcement |
 
 ### Summary
 
 | Priority | Total | Complete | In Progress | Blocked |
 |----------|-------|----------|-------------|---------|
-| P0 Critical | 7 | 0 | 0 | 0 |
-| P1 High | 8 | 0 | 0 | 0 |
-| P2 Medium | 5 | 0 | 0 | 0 |
-| P3 Low | 4 | 0 | 0 | 0 |
-| **Total** | **24** | **0** | **0** | **0** |
+| P0 Critical | 7 | 7 | 0 | 0 |
+| P1 High | 8 | 2 | 0 | 0 |
+| P2 Medium | 5 | 1 | 0 | 0 |
+| P3 Low | 4 | 3 | 0 | 0 |
+| **Total** | **24** | **13** | **0** | **0** |
 
 Legend: ⬜ Not started | 🔄 In progress | ✅ Complete | ❌ Blocked
