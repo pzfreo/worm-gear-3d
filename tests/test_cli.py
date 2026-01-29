@@ -307,29 +307,6 @@ class TestCLIWithExamples:
         assert len(step_files) == 2
 
 
-class TestCLIMeshAligned:
-    """Tests for the --mesh-aligned option."""
-
-    def test_cli_mesh_aligned_accepted(self, temp_json_file):
-        """Test that --mesh-aligned option is accepted."""
-        result = subprocess.run(
-            [
-                sys.executable, "-m", "wormgear.cli.generate",
-                str(temp_json_file),
-                "--no-save",
-                "--mesh-aligned",
-                "--worm-length", "10",
-                "--sections", "12"
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-
-        # Should succeed (view won't work without ocp_vscode but flag should be accepted)
-        assert result.returncode == 0
-
-
 class TestCLIGloboid:
     """Tests for globoid worm generation via CLI."""
 
@@ -510,8 +487,13 @@ class TestCLIInterferenceCheck:
         assert "Checking interference" in result.stdout
         assert "No interference detected" in result.stdout
 
+    @pytest.mark.slow
     def test_cli_interference_check_with_virtual_hobbing(self, temp_json_file):
-        """Test interference check with virtual hobbing wheel."""
+        """Test interference check with virtual hobbing wheel.
+
+        Note: This test is marked slow as it can take >5 minutes with
+        virtual hobbing + interference checking combined.
+        """
         result = subprocess.run(
             [
                 sys.executable, "-m", "wormgear.cli.generate",

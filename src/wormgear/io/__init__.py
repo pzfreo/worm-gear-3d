@@ -32,6 +32,9 @@ from .loaders import (
     HubSpec,
     ManufacturingParams,
     ManufacturingFeatures,  # Legacy
+    # Mesh alignment
+    MeshAlignment,
+    WormPosition,
 )
 
 # Import from schema module
@@ -59,6 +62,10 @@ __all__ = [
     "HubSpec",
     "ManufacturingParams",
     "ManufacturingFeatures",  # Legacy
+
+    # Mesh alignment
+    "MeshAlignment",
+    "WormPosition",
 
     # Schema
     "SCHEMA_VERSION",
