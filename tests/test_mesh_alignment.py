@@ -161,10 +161,10 @@ class TestAxisMarkers:
         assert abs(wheel_center_x) < 1.0
         assert abs(wheel_center_y) < 1.0
 
-        # Worm axis should be offset by centre_distance in X
+        # Worm axis should be offset by centre_distance in Y (axis along X)
         worm_bbox = markers["worm_axis"].bounding_box()
-        worm_center_x = (worm_bbox.max.X + worm_bbox.min.X) / 2
-        assert abs(worm_center_x - centre_distance) < 1.0
+        worm_center_y = (worm_bbox.max.Y + worm_bbox.min.Y) / 2
+        assert abs(worm_center_y - centre_distance) < 1.0
 
 
 class TestMeshAlignmentIntegration:
@@ -286,9 +286,9 @@ class TestMeshAlignmentIntegration:
             num_teeth=wheel_params.num_teeth,
         )
 
-        # Worm should be at centre_distance in X
-        assert result.worm_position[0] == assembly_params.centre_distance_mm
-        assert result.worm_position[1] == 0.0
+        # Worm should be at centre_distance in Y (axis along X)
+        assert result.worm_position[0] == 0.0
+        assert result.worm_position[1] == assembly_params.centre_distance_mm
         assert result.worm_position[2] == 0.0
 
     def test_position_for_mesh_returns_parts(
@@ -331,10 +331,10 @@ class TestMeshAlignmentIntegration:
             rotation_deg=0.0,
         )
 
-        # Worm bounding box centre should be at centre_distance in X
+        # Worm bounding box centre should be at centre_distance in Y (axis along X)
         worm_bbox = worm_positioned.bounding_box()
-        worm_center_x = (worm_bbox.max.X + worm_bbox.min.X) / 2
-        assert abs(worm_center_x - assembly_params.centre_distance_mm) < 1.0
+        worm_center_y = (worm_bbox.max.Y + worm_bbox.min.Y) / 2
+        assert abs(worm_center_y - assembly_params.centre_distance_mm) < 1.0
 
     def test_check_interference_returns_volume(
         self, worm_and_wheel, assembly_params
