@@ -28,6 +28,8 @@ from wormgear.io.loaders import (
     WheelFeatures,
     SetScrewSpec,
     HubSpec,
+    MeshAlignment,
+    WormPosition,
 )
 from wormgear.enums import Hand, WormProfile, WormType
 
@@ -77,6 +79,7 @@ def main():
         "assembly-params": AssemblyParams,
         "manufacturing-params": ManufacturingParams,
         "features": Features,
+        "mesh-alignment": MeshAlignment,
     }
 
     for name, model in components.items():

@@ -29,6 +29,12 @@ from ..core.features import (
     get_din_6885_keyway,
     get_set_screw_size
 )
+from ..core.mesh_alignment import (
+    find_optimal_mesh_rotation,
+    position_for_mesh,
+    mesh_alignment_to_dict,
+)
+from ..io.loaders import MeshAlignment, WormPosition
 
 
 def interference_check(
@@ -244,12 +250,6 @@ Examples:
         type=str,
         default=None,
         help='Save extended JSON with all manufacturing features (makes design fully reproducible)'
-    )
-
-    parser.add_argument(
-        '--mesh-aligned',
-        action='store_true',
-        help='Rotate wheel by half tooth pitch for mesh alignment in viewer'
     )
 
     parser.add_argument(
@@ -805,12 +805,27 @@ Examples:
             steps=args.interference_steps
         )
 
-    # Save STEP files
+    # Calculate mesh alignment (when both parts generated)
+    mesh_alignment_result = None
+    if worm is not None and wheel is not None:
+        print(f"\nCalculating mesh alignment...")
+        mesh_alignment_result = find_optimal_mesh_rotation(
+            wheel=wheel,
+            worm=worm,
+            centre_distance_mm=design.assembly.centre_distance_mm,
+            num_teeth=design.wheel.num_teeth,
+        )
+        print(f"  Optimal wheel rotation: {mesh_alignment_result.optimal_rotation_deg:.2f}°")
+        print(f"  Interference volume: {mesh_alignment_result.interference_volume_mm3:.4f} mm³")
+        print(f"  Status: {mesh_alignment_result.message}")
+
+    # Save STEP files and mesh alignment
     if not args.no_save:
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         from build123d import export_step
+        import json
 
         if worm is not None:
             output_file = output_dir / f"worm_m{design.worm.module_mm}_z{design.worm.num_starts}.step"
@@ -822,33 +837,49 @@ Examples:
             export_step(wheel, str(output_file))
             print(f"  Saved: {output_file}")
 
+        # Save mesh alignment JSON
+        if mesh_alignment_result is not None:
+            alignment_file = output_dir / f"mesh_alignment_m{design.worm.module_mm}.json"
+            alignment_data = mesh_alignment_to_dict(mesh_alignment_result)
+            alignment_data["design_info"] = {
+                "module_mm": design.worm.module_mm,
+                "ratio": design.assembly.ratio,
+                "centre_distance_mm": design.assembly.centre_distance_mm,
+                "worm_starts": design.worm.num_starts,
+                "wheel_teeth": design.wheel.num_teeth,
+            }
+            with open(alignment_file, 'w') as f:
+                json.dump(alignment_data, f, indent=2)
+            print(f"  Saved: {alignment_file}")
+
     # View in OCP viewer
     if args.view:
         try:
             from ocp_vscode import show
-            from build123d import Rot, Pos
 
-            # Position worm to mesh with wheel
+            # Position parts for mesh visualization
             if wheel is not None and worm is not None:
-                # Move worm to centre distance, rotate 90° so its axis is horizontal (along Y)
-                centre_distance = design.assembly.centre_distance_mm
-                worm_positioned = Pos(centre_distance, 0, 0) * Rot(X=90) * worm
-
-                # Optionally rotate wheel by half a tooth pitch for mesh alignment
-                if args.mesh_aligned:
-                    z = design.wheel.num_teeth
-                    tooth_pitch_angle = 360 / z
-                    wheel_rotation = tooth_pitch_angle / 2
-                    wheel_positioned = Rot(Z=wheel_rotation) * wheel
+                # Use calculated mesh alignment for optimal positioning
+                if mesh_alignment_result is not None:
+                    wheel_positioned, worm_positioned = position_for_mesh(
+                        wheel=wheel,
+                        worm=worm,
+                        centre_distance_mm=design.assembly.centre_distance_mm,
+                        rotation_deg=mesh_alignment_result.optimal_rotation_deg,
+                    )
+                    print(f"\n  Wheel rotated {mesh_alignment_result.optimal_rotation_deg:.2f}° for optimal mesh")
                 else:
+                    # Fallback: position without alignment calculation
+                    from build123d import Rot, Pos
                     wheel_positioned = wheel
+                    worm_positioned = Pos(design.assembly.centre_distance_mm, 0, 0) * Rot(X=90) * worm
 
                 show(wheel_positioned, worm_positioned, names=["wheel", "worm"], colors=["steelblue", "orange"])
             elif wheel is not None:
                 show(wheel, names=["wheel"], colors=["steelblue"])
             elif worm is not None:
                 show(worm, names=["worm"], colors=["orange"])
-            print("\nDisplayed in OCP viewer")
+            print("Displayed in OCP viewer")
 
         except ImportError:
             print("\nWarning: ocp_vscode not available for viewing", file=sys.stderr)

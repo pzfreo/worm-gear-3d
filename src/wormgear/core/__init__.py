@@ -48,6 +48,17 @@ try:
         get_din_6885_keyway,
     )
 
+    # Mesh alignment
+    from .mesh_alignment import (
+        MeshAlignmentResult,
+        find_optimal_mesh_rotation,
+        calculate_mesh_rotation,
+        check_interference,
+        position_for_mesh,
+        create_axis_markers,
+        mesh_alignment_to_dict,
+    )
+
     __all__ = [
         # Geometry classes
         "WormGeometry",
@@ -67,6 +78,15 @@ try:
         "calculate_default_bore",
         "calculate_default_ddcut",
         "get_din_6885_keyway",
+
+        # Mesh alignment
+        "MeshAlignmentResult",
+        "find_optimal_mesh_rotation",
+        "calculate_mesh_rotation",
+        "check_interference",
+        "position_for_mesh",
+        "create_axis_markers",
+        "mesh_alignment_to_dict",
     ]
 except ImportError:
     # build123d not available (e.g., in Pyodide calculator without geometry)

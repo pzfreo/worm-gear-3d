@@ -317,6 +317,48 @@ class WormGearDesign(BaseModel):
     manufacturing: Optional[ManufacturingParams] = None
 
 
+class WormPosition(BaseModel):
+    """Worm position in mesh configuration."""
+    model_config = ConfigDict(extra='ignore')
+
+    x_mm: float = Field(description="X position in mm (centre distance)")
+    y_mm: float = Field(default=0.0, description="Y position in mm")
+    z_mm: float = Field(default=0.0, description="Z position in mm")
+
+
+class MeshAlignment(BaseModel):
+    """Mesh alignment analysis results.
+
+    Describes the optimal wheel rotation to achieve proper mesh with the worm,
+    and reports on interference between the parts.
+
+    The worm is positioned with its axis along Y, offset from the wheel
+    (whose axis is along Z) by the centre distance along X.
+    """
+    model_config = ConfigDict(extra='ignore')
+
+    optimal_rotation_deg: float = Field(
+        description="Wheel rotation angle in degrees for optimal mesh alignment"
+    )
+    interference_volume_mm3: float = Field(
+        ge=0,
+        description="Residual interference volume at optimal rotation (mm³)"
+    )
+    within_tolerance: bool = Field(
+        description="Whether interference is below acceptable threshold"
+    )
+    tooth_pitch_deg: float = Field(
+        gt=0,
+        description="Angular pitch between wheel teeth (360/num_teeth)"
+    )
+    worm_position: WormPosition = Field(
+        description="Worm centre position for mesh configuration"
+    )
+    message: str = Field(
+        description="Human-readable status message"
+    )
+
+
 # Legacy dataclass for backward compatibility
 class ManufacturingFeatures(BaseModel):
     """Manufacturing features for a gear part - LEGACY."""
