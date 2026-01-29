@@ -38,8 +38,6 @@ from build123d import (
     Cylinder,
     Location,
     Part,
-    Rot,
-    Pos,
 )
 
 
@@ -75,8 +73,16 @@ def _calculate_interference(wheel: Part, worm: Part) -> float:
     """
     try:
         intersection = wheel & worm
+        # Handle single Part with volume
         if hasattr(intersection, "volume"):
             return intersection.volume
+        # Handle ShapeList (multiple solids from boolean on complex geometry)
+        if hasattr(intersection, "__iter__"):
+            total_volume = 0.0
+            for item in intersection:
+                if hasattr(item, "volume"):
+                    total_volume += item.volume
+            return total_volume
         return 0.0
     except Exception:
         return 0.0
@@ -160,9 +166,9 @@ def check_interference(
     Returns:
         Intersection volume in mm³
     """
-    # Position worm: rotate -90° around Y so axis is along X, then offset
-    worm_positioned = Rot(Y=-90) * worm
-    worm_positioned = Pos(0, centre_distance_mm, 0) * worm_positioned
+    # Position worm: rotate -90° around Y so axis is along X, offset in Y
+    worm_positioned = worm.rotate(Axis.Y, -90)
+    worm_positioned = worm_positioned.locate(Location((0, centre_distance_mm, 0)))
 
     if rotation_deg != 0.0:
         wheel = wheel.rotate(Axis.Z, rotation_deg)
@@ -204,10 +210,10 @@ def find_optimal_mesh_rotation(
     """
     tooth_pitch_deg = 360.0 / num_teeth
 
-    # Position worm: rotate 90° around X so axis is along Y, offset by centre_distance in X
-    # This matches the standard viewing orientation
-    worm_positioned = Pos(centre_distance_mm, 0, 0) * Rot(X=90) * worm
-    worm_position = (centre_distance_mm, 0.0, 0.0)
+    # Position worm: rotate -90° around Y so axis is along X, offset by centre_distance in Y
+    worm_positioned = worm.rotate(Axis.Y, -90)
+    worm_positioned = worm_positioned.locate(Location((0, centre_distance_mm, 0)))
+    worm_position = (0.0, centre_distance_mm, 0.0)
 
     # Calculate optimal rotation
     optimal_rotation, interference = calculate_mesh_rotation(
@@ -268,8 +274,9 @@ def position_for_mesh(
     # Rotate wheel for mesh alignment
     wheel_aligned = wheel.rotate(Axis.Z, rotation_deg)
 
-    # Position worm: at centre_distance along X, axis rotated to be along Y
-    worm_positioned = Pos(centre_distance_mm, 0, 0) * Rot(X=90) * worm
+    # Position worm: rotate -90° around Y so axis is along X, offset in Y
+    worm_positioned = worm.rotate(Axis.Y, -90)
+    worm_positioned = worm_positioned.locate(Location((0, centre_distance_mm, 0)))
 
     return wheel_aligned, worm_positioned
 
@@ -301,14 +308,14 @@ def create_axis_markers(
         align=(Align.CENTER, Align.CENTER, Align.CENTER),
     )
 
-    # Worm axis: horizontal (Y) at X=centre_distance
+    # Worm axis: horizontal (X) at Y=centre_distance
     worm_axis = Cylinder(
         radius=marker_radius_mm,
         height=worm_length_mm,
         align=(Align.CENTER, Align.CENTER, Align.CENTER),
     )
-    worm_axis = worm_axis.rotate(Axis.X, 90)
-    worm_axis = Pos(centre_distance_mm, 0, 0) * worm_axis
+    worm_axis = worm_axis.rotate(Axis.Y, 90)
+    worm_axis = worm_axis.locate(Location((0, centre_distance_mm, 0)))
 
     return {
         "wheel_axis": wheel_axis,
